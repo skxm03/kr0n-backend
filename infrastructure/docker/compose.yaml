@@ -1,0 +1,25 @@
+services:
+    postgres:
+        image: postgres:18
+        container_name: kr0n-postgres
+        restart: unless-stopped
+
+        environment:
+            POSTGRES_USER: kr0n
+            POSTGRES_PASSWORD: kr0n_dev_password
+            POSTGRES_DB: kr0n
+
+        ports:
+            - '5432:5432'
+
+        volumes:
+            - kr0n_postgres_data:/var/lib/postgresql
+
+        healthcheck:
+            test: ['CMD-SHELL', 'pg_isready -U kr0n -d kr0n']
+            interval: 5s
+            timeout: 5s
+            retries: 5
+
+volumes:
+    kr0n_postgres_data:
