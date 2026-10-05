@@ -165,3 +165,44 @@ func TestLoad_Environment(t *testing.T) {
 		}
 	})
 }
+
+func TestLoadGatewayFrom(t *testing.T) {
+	t.Run("defaults when empty", func(t *testing.T) {
+		lookup := func(key string) (string, bool) {
+			return "", false
+		}
+
+		cfg, err := LoadGatewayFrom(lookup)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.GatewayHTTPAddr != ":8080" {
+			t.Fatalf("expected default :8080, got %q", cfg.GatewayHTTPAddr)
+		}
+		if cfg.AuthGRPCAddr != "localhost:50051" {
+			t.Fatalf("expected default localhost:50051, got %q", cfg.AuthGRPCAddr)
+		}
+	})
+
+	t.Run("custom values", func(t *testing.T) {
+		env := map[string]string{
+			"GATEWAY_HTTP_ADDR": ":9090",
+			"AUTH_GRPC_ADDR":    "auth.internal:50051",
+		}
+		lookup := func(key string) (string, bool) {
+			val, ok := env[key]
+			return val, ok
+		}
+
+		cfg, err := LoadGatewayFrom(lookup)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.GatewayHTTPAddr != ":9090" {
+			t.Fatalf("expected :9090, got %q", cfg.GatewayHTTPAddr)
+		}
+		if cfg.AuthGRPCAddr != "auth.internal:50051" {
+			t.Fatalf("expected auth.internal:50051, got %q", cfg.AuthGRPCAddr)
+		}
+	})
+}

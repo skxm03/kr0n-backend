@@ -19,9 +19,16 @@ var (
 	ErrInvalidDatabaseURL = errors.New("DATABASE_URL is invalid")
 )
 
-// Config represents the application configuration.
+// Config represents the application configuration for database-backed services.
 type Config struct {
-	DatabaseURL string
+	DatabaseURL  string
+	AuthGRPCAddr string
+}
+
+// GatewayConfig represents configuration for the API Gateway service.
+type GatewayConfig struct {
+	GatewayHTTPAddr string
+	AuthGRPCAddr    string
 }
 
 // Load loads and validates configuration from the process environment.
@@ -58,7 +65,40 @@ func LoadFrom(lookup func(string) (string, bool)) (*Config, error) {
 		return nil, fmt.Errorf("%w: missing host", ErrInvalidDatabaseURL)
 	}
 
+	authGRPCAddr := ":50051"
+	if raw, ok := lookup("AUTH_GRPC_ADDR"); ok && strings.TrimSpace(raw) != "" {
+		authGRPCAddr = strings.TrimSpace(raw)
+	}
+
 	return &Config{
-		DatabaseURL: databaseURL,
+		DatabaseURL:  databaseURL,
+		AuthGRPCAddr: authGRPCAddr,
+	}, nil
+}
+
+// LoadGateway loads configuration for the API Gateway service.
+func LoadGateway() (*GatewayConfig, error) {
+	return LoadGatewayFrom(os.LookupEnv)
+}
+
+// LoadGatewayFrom loads configuration for the API Gateway service using lookup.
+func LoadGatewayFrom(lookup func(string) (string, bool)) (*GatewayConfig, error) {
+	if lookup == nil {
+		lookup = os.LookupEnv
+	}
+
+	gatewayHTTPAddr := ":8080"
+	if raw, ok := lookup("GATEWAY_HTTP_ADDR"); ok && strings.TrimSpace(raw) != "" {
+		gatewayHTTPAddr = strings.TrimSpace(raw)
+	}
+
+	authGRPCAddr := "localhost:50051"
+	if raw, ok := lookup("AUTH_GRPC_ADDR"); ok && strings.TrimSpace(raw) != "" {
+		authGRPCAddr = strings.TrimSpace(raw)
+	}
+
+	return &GatewayConfig{
+		GatewayHTTPAddr: gatewayHTTPAddr,
+		AuthGRPCAddr:    authGRPCAddr,
 	}, nil
 }
