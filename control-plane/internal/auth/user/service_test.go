@@ -8,6 +8,7 @@ import (
 
 type mockRepository struct {
 	createFunc func(ctx context.Context, u *User, passwordHash string) error
+	getFunc    func(ctx context.Context, email string) (*User, string, error)
 	created    []*User
 }
 
@@ -19,11 +20,19 @@ func (m *mockRepository) CreateWithPassword(ctx context.Context, u *User, passwo
 	return nil
 }
 
+func (m *mockRepository) GetByEmailWithPassword(ctx context.Context, email string) (*User, string, error) {
+	if m.getFunc != nil {
+		return m.getFunc(ctx, email)
+	}
+	return nil, "", ErrUserNotFound
+}
+
 type mockHasher struct {
 	hashCalled     bool
 	hashResult     string
 	hashErr        error
 	validatePolicy func(password string) error
+	compareFunc    func(hash, password string) error
 }
 
 func (m *mockHasher) Hash(password string) (string, error) {
@@ -34,6 +43,16 @@ func (m *mockHasher) Hash(password string) (string, error) {
 func (m *mockHasher) ValidatePolicy(password string) error {
 	if m.validatePolicy != nil {
 		return m.validatePolicy(password)
+	}
+	return nil
+}
+
+func (m *mockHasher) Compare(hash, password string) error {
+	if m.compareFunc != nil {
+		return m.compareFunc(hash, password)
+	}
+	if hash != password {
+		return errors.New("password mismatch")
 	}
 	return nil
 }
@@ -108,5 +127,148 @@ func TestService_Register_DuplicateEmail(t *testing.T) {
 	})
 	if !errors.Is(err, ErrEmailAlreadyExists) {
 		t.Fatalf("expected ErrEmailAlreadyExists, got %v", err)
+	}
+}
+
+func TestService_Authenticate_Success(t *testing.T) {
+	existingUser := &User{
+		Email:       "valid@kr0n.dev",
+		DisplayName: "Valid User",
+		Status:      StatusActive,
+	}
+	repo := &mockRepository{
+		getFunc: func(ctx context.Context, email string) (*User, string, error) {
+			if email == "valid@kr0n.dev" {
+				return existingUser, "hashed_pw", nil
+			}
+			return nil, "", ErrUserNotFound
+		},
+	}
+	hasher := &mockHasher{
+		compareFunc: func(hash, password string) error {
+			if hash == "hashed_pw" && password == "secret" {
+				return nil
+			}
+			return errors.New("mismatch")
+		},
+	}
+	svc := NewService(repo, hasher)
+
+	u, err := svc.Authenticate(context.Background(), AuthenticateParams{
+		Email:    "  VALID@kr0n.dev ",
+		Password: "secret",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if u.Email != "valid@kr0n.dev" {
+		t.Fatalf("expected user email valid@kr0n.dev, got %s", u.Email)
+	}
+}
+
+func TestService_Authenticate_UserNotFound(t *testing.T) {
+	dummyCompareCalled := false
+	repo := &mockRepository{
+		getFunc: func(ctx context.Context, email string) (*User, string, error) {
+			return nil, "", ErrUserNotFound
+		},
+	}
+	hasher := &mockHasher{
+		compareFunc: func(hash, password string) error {
+			dummyCompareCalled = true
+			return errors.New("mismatch")
+		},
+	}
+	svc := NewService(repo, hasher)
+
+	_, err := svc.Authenticate(context.Background(), AuthenticateParams{
+		Email:    "nonexistent@kr0n.dev",
+		Password: "secret",
+	})
+	if !errors.Is(err, ErrInvalidCredentials) {
+		t.Fatalf("expected ErrInvalidCredentials, got %v", err)
+	}
+	if !dummyCompareCalled {
+		t.Fatal("expected dummy compare to be called to prevent timing enumeration")
+	}
+}
+
+func TestService_Authenticate_WrongPassword(t *testing.T) {
+	existingUser := &User{
+		Email:       "valid@kr0n.dev",
+		DisplayName: "Valid User",
+		Status:      StatusActive,
+	}
+	repo := &mockRepository{
+		getFunc: func(ctx context.Context, email string) (*User, string, error) {
+			return existingUser, "hashed_pw", nil
+		},
+	}
+	hasher := &mockHasher{
+		compareFunc: func(hash, password string) error {
+			return errors.New("bcrypt mismatch")
+		},
+	}
+	svc := NewService(repo, hasher)
+
+	_, err := svc.Authenticate(context.Background(), AuthenticateParams{
+		Email:    "valid@kr0n.dev",
+		Password: "wrongpassword",
+	})
+	if !errors.Is(err, ErrInvalidCredentials) {
+		t.Fatalf("expected ErrInvalidCredentials, got %v", err)
+	}
+}
+
+func TestService_Authenticate_InactiveUser(t *testing.T) {
+	statuses := []Status{StatusSuspended, StatusDeactivated}
+	for _, st := range statuses {
+		t.Run(string(st), func(t *testing.T) {
+			existingUser := &User{
+				Email:       "valid@kr0n.dev",
+				DisplayName: "Valid User",
+				Status:      st,
+			}
+			repo := &mockRepository{
+				getFunc: func(ctx context.Context, email string) (*User, string, error) {
+					return existingUser, "hashed_pw", nil
+				},
+			}
+			hasher := &mockHasher{
+				compareFunc: func(hash, password string) error {
+					return nil
+				},
+			}
+			svc := NewService(repo, hasher)
+
+			_, err := svc.Authenticate(context.Background(), AuthenticateParams{
+				Email:    "valid@kr0n.dev",
+				Password: "secret",
+			})
+			if !errors.Is(err, ErrUserNotActive) {
+				t.Fatalf("expected ErrUserNotActive, got %v", err)
+			}
+		})
+	}
+}
+
+func TestService_Authenticate_RepositoryError(t *testing.T) {
+	repo := &mockRepository{
+		getFunc: func(ctx context.Context, email string) (*User, string, error) {
+			return nil, "", errors.New("db connection failure")
+		},
+	}
+	hasher := &mockHasher{}
+	svc := NewService(repo, hasher)
+
+	_, err := svc.Authenticate(context.Background(), AuthenticateParams{
+		Email:    "valid@kr0n.dev",
+		Password: "secret",
+	})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if errors.Is(err, ErrInvalidCredentials) {
+		t.Fatal("expected internal db error to not be masked as ErrInvalidCredentials")
 	}
 }

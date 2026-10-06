@@ -31,6 +31,15 @@ var (
 
 	// ErrInvalidDisplayName indicates the display name is empty or exceeds limits.
 	ErrInvalidDisplayName = errors.New("display name must not be empty")
+
+	// ErrUserNotFound indicates no user entity was found for the given criteria.
+	ErrUserNotFound = errors.New("user not found")
+
+	// ErrInvalidCredentials indicates incorrect email or password.
+	ErrInvalidCredentials = errors.New("invalid email or password")
+
+	// ErrUserNotActive indicates the user account is suspended or deactivated.
+	ErrUserNotActive = errors.New("user account is not active")
 )
 
 // User represents the authoritative user entity.

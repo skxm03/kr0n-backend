@@ -10,6 +10,9 @@ import "google/protobuf/timestamp.proto";
 service AuthService {
   // Register creates a new user and password credential.
   rpc Register(RegisterRequest) returns (RegisterResponse);
+
+  // Login authenticates credentials and issues tokens with an active session.
+  rpc Login(LoginRequest) returns (LoginResponse);
 }
 
 message RegisterRequest {
@@ -24,4 +27,26 @@ message RegisterResponse {
   string display_name = 3;
   string status = 4;
   google.protobuf.Timestamp created_at = 5;
+}
+
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+  string user_agent = 3;
+  string client_ip = 4;
+}
+
+message LoginUser {
+  string id = 1;
+  string email = 2;
+  string display_name = 3;
+  string status = 4;
+}
+
+message LoginResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  string token_type = 3;
+  int64 expires_in = 4;
+  LoginUser user = 5;
 }

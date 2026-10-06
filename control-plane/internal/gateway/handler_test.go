@@ -19,11 +19,19 @@ import (
 
 type mockAuthClient struct {
 	registerFunc func(ctx context.Context, in *authv1.RegisterRequest, opts ...grpc.CallOption) (*authv1.RegisterResponse, error)
+	loginFunc    func(ctx context.Context, in *authv1.LoginRequest, opts ...grpc.CallOption) (*authv1.LoginResponse, error)
 }
 
 func (m *mockAuthClient) Register(ctx context.Context, in *authv1.RegisterRequest, opts ...grpc.CallOption) (*authv1.RegisterResponse, error) {
 	if m.registerFunc != nil {
 		return m.registerFunc(ctx, in, opts...)
+	}
+	return nil, nil
+}
+
+func (m *mockAuthClient) Login(ctx context.Context, in *authv1.LoginRequest, opts ...grpc.CallOption) (*authv1.LoginResponse, error) {
+	if m.loginFunc != nil {
+		return m.loginFunc(ctx, in, opts...)
 	}
 	return nil, nil
 }
@@ -162,5 +170,143 @@ func TestHandler_Register_InternalError(t *testing.T) {
 
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("expected status 500, got %d", w.Code)
+	}
+}
+
+func TestHandler_Login_Success(t *testing.T) {
+	mockClient := &mockAuthClient{
+		loginFunc: func(ctx context.Context, in *authv1.LoginRequest, opts ...grpc.CallOption) (*authv1.LoginResponse, error) {
+			return &authv1.LoginResponse{
+				AccessToken:  "jwt.access.token",
+				RefreshToken: "opaque.refresh.token",
+				TokenType:    "Bearer",
+				ExpiresIn:    900,
+				User: &authv1.LoginUser{
+					Id:          "018f8e02-4b71-7000-8000-000000000001",
+					Email:       in.GetEmail(),
+					DisplayName: "Developer",
+					Status:      "active",
+				},
+			}, nil
+		},
+	}
+
+	h := NewHandler(mockClient)
+	router := NewRouter(h)
+
+	body := []byte(`{"email":"dev@kr0n.dev","password":"Password123!"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200 OK, got %d: body=%s", w.Code, w.Body.String())
+	}
+
+	var resp LoginResponseDTO
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal response failed: %v", err)
+	}
+
+	if resp.AccessToken != "jwt.access.token" {
+		t.Fatalf("unexpected access token: %s", resp.AccessToken)
+	}
+	if resp.RefreshToken != "opaque.refresh.token" {
+		t.Fatalf("unexpected refresh token: %s", resp.RefreshToken)
+	}
+	if resp.TokenType != "Bearer" {
+		t.Fatalf("unexpected token type: %s", resp.TokenType)
+	}
+	if resp.ExpiresIn != 900 {
+		t.Fatalf("unexpected expires_in: %d", resp.ExpiresIn)
+	}
+	if resp.User.Email != "dev@kr0n.dev" {
+		t.Fatalf("unexpected user email: %s", resp.User.Email)
+	}
+}
+
+func TestHandler_Login_InvalidCredentials(t *testing.T) {
+	mockClient := &mockAuthClient{
+		loginFunc: func(ctx context.Context, in *authv1.LoginRequest, opts ...grpc.CallOption) (*authv1.LoginResponse, error) {
+			return nil, status.Error(codes.Unauthenticated, "invalid email or password")
+		},
+	}
+
+	h := NewHandler(mockClient)
+	router := NewRouter(h)
+
+	body := []byte(`{"email":"dev@kr0n.dev","password":"WrongPassword"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status 401 Unauthorized, got %d", w.Code)
+	}
+
+	var errResp ErrorResponseDTO
+	if err := json.Unmarshal(w.Body.Bytes(), &errResp); err != nil {
+		t.Fatalf("unmarshal error response failed: %v", err)
+	}
+	if errResp.Code != "UNAUTHORIZED" {
+		t.Fatalf("expected code UNAUTHORIZED, got %s", errResp.Code)
+	}
+	if errResp.Error != "invalid email or password" {
+		t.Fatalf("expected message 'invalid email or password', got %s", errResp.Error)
+	}
+}
+
+func TestHandler_Login_MalformedJSON(t *testing.T) {
+	h := NewHandler(&mockAuthClient{})
+	router := NewRouter(h)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader([]byte(`{invalid`)))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400 Bad Request, got %d", w.Code)
+	}
+}
+
+func TestHandler_Login_MissingContentType(t *testing.T) {
+	h := NewHandler(&mockAuthClient{})
+	router := NewRouter(h)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader([]byte(`{}`)))
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnsupportedMediaType {
+		t.Fatalf("expected status 415, got %d", w.Code)
+	}
+}
+
+func TestHandler_Login_InactiveUser(t *testing.T) {
+	mockClient := &mockAuthClient{
+		loginFunc: func(ctx context.Context, in *authv1.LoginRequest, opts ...grpc.CallOption) (*authv1.LoginResponse, error) {
+			return nil, status.Error(codes.PermissionDenied, "user account is not active")
+		},
+	}
+
+	h := NewHandler(mockClient)
+	router := NewRouter(h)
+
+	body := []byte(`{"email":"inactive@kr0n.dev","password":"Password123!"}`)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("expected status 403 Forbidden, got %d", w.Code)
 	}
 }

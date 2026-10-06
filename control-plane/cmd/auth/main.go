@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc"
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/session"
 	authgrpc "github.com/skxm03/kr0n-backend/control-plane/internal/auth/transport/grpc"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/user"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/config"
@@ -45,7 +46,16 @@ func run() error {
 	userRepo := user.NewPostgresRepository(dbPool)
 	hasher := user.NewBcryptHasher(12)
 	userService := user.NewService(userRepo, hasher)
-	grpcHandler := authgrpc.NewServer(userService)
+
+	jwtSigner, err := session.NewJWTSigner([]byte(cfg.JWTSigningKey), cfg.JWTIssuer, cfg.AccessTokenLifetime)
+	if err != nil {
+		return err
+	}
+	tokenIssuer := session.NewDefaultTokenIssuer(jwtSigner)
+	sessionRepo := session.NewPostgresRepository(dbPool)
+	sessionService := session.NewService(userService, sessionRepo, tokenIssuer, cfg.RefreshTokenLifetime)
+
+	grpcHandler := authgrpc.NewServer(userService, sessionService)
 
 	grpcServer := grpc.NewServer()
 	authv1.RegisterAuthServiceServer(grpcServer, grpcHandler)

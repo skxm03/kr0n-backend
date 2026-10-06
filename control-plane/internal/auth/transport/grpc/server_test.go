@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/session"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/user"
 )
 
@@ -21,6 +22,17 @@ type mockRegistrationService struct {
 func (m *mockRegistrationService) Register(ctx context.Context, params user.RegisterParams) (*user.User, error) {
 	if m.registerFunc != nil {
 		return m.registerFunc(ctx, params)
+	}
+	return nil, nil
+}
+
+type mockLoginService struct {
+	loginFunc func(ctx context.Context, params session.LoginParams) (*session.LoginResult, error)
+}
+
+func (m *mockLoginService) Login(ctx context.Context, params session.LoginParams) (*session.LoginResult, error) {
+	if m.loginFunc != nil {
+		return m.loginFunc(ctx, params)
 	}
 	return nil, nil
 }
@@ -42,7 +54,7 @@ func TestServer_Register_Success(t *testing.T) {
 		},
 	}
 
-	server := NewServer(mockSvc)
+	server := NewServer(mockSvc, nil)
 	resp, err := server.Register(context.Background(), &authv1.RegisterRequest{
 		Email:       "test@kr0n.dev",
 		Password:    "ValidPassword123!",
@@ -70,7 +82,7 @@ func TestServer_Register_Success(t *testing.T) {
 }
 
 func TestServer_Register_NilRequest(t *testing.T) {
-	server := NewServer(&mockRegistrationService{})
+	server := NewServer(&mockRegistrationService{}, nil)
 	_, err := server.Register(context.Background(), nil)
 	if err == nil {
 		t.Fatal("expected error on nil request, got nil")
@@ -92,7 +104,7 @@ func TestServer_Register_DuplicateEmailError(t *testing.T) {
 		},
 	}
 
-	server := NewServer(mockSvc)
+	server := NewServer(mockSvc, nil)
 	_, err := server.Register(context.Background(), &authv1.RegisterRequest{
 		Email:       "existing@kr0n.dev",
 		Password:    "ValidPassword123!",
@@ -121,7 +133,7 @@ func TestServer_Register_InvalidArguments(t *testing.T) {
 		},
 	}
 
-	server := NewServer(mockSvc)
+	server := NewServer(mockSvc, nil)
 	_, err := server.Register(context.Background(), &authv1.RegisterRequest{
 		Email:       "test@kr0n.dev",
 		Password:    "short",
@@ -147,7 +159,7 @@ func TestServer_Register_InternalErrorMasked(t *testing.T) {
 		},
 	}
 
-	server := NewServer(mockSvc)
+	server := NewServer(mockSvc, nil)
 	_, err := server.Register(context.Background(), &authv1.RegisterRequest{
 		Email:       "test@kr0n.dev",
 		Password:    "ValidPassword123!",
@@ -163,6 +175,141 @@ func TestServer_Register_InternalErrorMasked(t *testing.T) {
 	}
 	if st.Code() != codes.Internal {
 		t.Fatalf("expected codes.Internal, got %v", st.Code())
+	}
+	if st.Message() != "internal server error" {
+		t.Fatalf("expected masked error 'internal server error', got %q", st.Message())
+	}
+}
+
+func TestServer_Login_Success(t *testing.T) {
+	expectedUser := &user.User{
+		ID:          uuid.New(),
+		Email:       "user@kr0n.dev",
+		DisplayName: "User",
+		Status:      user.StatusActive,
+	}
+
+	mockLogin := &mockLoginService{
+		loginFunc: func(ctx context.Context, params session.LoginParams) (*session.LoginResult, error) {
+			return &session.LoginResult{
+				AccessToken:  "access.jwt.token",
+				RefreshToken: "opaque_refresh",
+				TokenType:    "Bearer",
+				ExpiresIn:    15 * time.Minute,
+				User:         expectedUser,
+			}, nil
+		},
+	}
+
+	server := NewServer(nil, mockLogin)
+	resp, err := server.Login(context.Background(), &authv1.LoginRequest{
+		Email:     "user@kr0n.dev",
+		Password:  "password",
+		UserAgent: "Mozilla",
+		ClientIp:  "127.0.0.1",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.GetAccessToken() != "access.jwt.token" {
+		t.Fatalf("unexpected access token: %s", resp.GetAccessToken())
+	}
+	if resp.GetRefreshToken() != "opaque_refresh" {
+		t.Fatalf("unexpected refresh token: %s", resp.GetRefreshToken())
+	}
+	if resp.GetTokenType() != "Bearer" {
+		t.Fatalf("unexpected token type: %s", resp.GetTokenType())
+	}
+	if resp.GetExpiresIn() != 900 {
+		t.Fatalf("expected 900 seconds, got %d", resp.GetExpiresIn())
+	}
+	if resp.GetUser().GetId() != expectedUser.ID.String() {
+		t.Fatalf("unexpected user ID: %s", resp.GetUser().GetId())
+	}
+}
+
+func TestServer_Login_NilRequest(t *testing.T) {
+	server := NewServer(nil, &mockLoginService{})
+	_, err := server.Login(context.Background(), nil)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	st, ok := status.FromError(err)
+	if !ok || st.Code() != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument, got %v", err)
+	}
+}
+
+func TestServer_Login_InvalidCredentials(t *testing.T) {
+	mockLogin := &mockLoginService{
+		loginFunc: func(ctx context.Context, params session.LoginParams) (*session.LoginResult, error) {
+			return nil, user.ErrInvalidCredentials
+		},
+	}
+
+	server := NewServer(nil, mockLogin)
+	_, err := server.Login(context.Background(), &authv1.LoginRequest{
+		Email:    "user@kr0n.dev",
+		Password: "wrong",
+	})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	st, ok := status.FromError(err)
+	if !ok {
+		t.Fatalf("expected gRPC status error, got %T", err)
+	}
+	if st.Code() != codes.Unauthenticated {
+		t.Fatalf("expected codes.Unauthenticated, got %v", st.Code())
+	}
+	if st.Message() != "invalid email or password" {
+		t.Fatalf("expected message 'invalid email or password', got %q", st.Message())
+	}
+}
+
+func TestServer_Login_InactiveUser(t *testing.T) {
+	mockLogin := &mockLoginService{
+		loginFunc: func(ctx context.Context, params session.LoginParams) (*session.LoginResult, error) {
+			return nil, user.ErrUserNotActive
+		},
+	}
+
+	server := NewServer(nil, mockLogin)
+	_, err := server.Login(context.Background(), &authv1.LoginRequest{
+		Email:    "inactive@kr0n.dev",
+		Password: "password",
+	})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	st, ok := status.FromError(err)
+	if !ok || st.Code() != codes.PermissionDenied {
+		t.Fatalf("expected codes.PermissionDenied, got %v", err)
+	}
+}
+
+func TestServer_Login_InternalErrorMasked(t *testing.T) {
+	mockLogin := &mockLoginService{
+		loginFunc: func(ctx context.Context, params session.LoginParams) (*session.LoginResult, error) {
+			return nil, errors.New("sensitive postgres query failure")
+		},
+	}
+
+	server := NewServer(nil, mockLogin)
+	_, err := server.Login(context.Background(), &authv1.LoginRequest{
+		Email:    "user@kr0n.dev",
+		Password: "password",
+	})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+
+	st, ok := status.FromError(err)
+	if !ok || st.Code() != codes.Internal {
+		t.Fatalf("expected codes.Internal, got %v", err)
 	}
 	if st.Message() != "internal server error" {
 		t.Fatalf("expected masked error 'internal server error', got %q", st.Message())

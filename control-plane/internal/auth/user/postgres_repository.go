@@ -72,3 +72,42 @@ func (r *PostgresRepository) CreateWithPassword(ctx context.Context, u *User, pa
 
 	return nil
 }
+
+// GetByEmailWithPassword retrieves a user and their password hash by canonical email.
+// Returns ErrUserNotFound if no record exists for the given email.
+func (r *PostgresRepository) GetByEmailWithPassword(ctx context.Context, email string) (*User, string, error) {
+	const selectSQL = `
+		SELECT u.id, u.email, u.display_name, u.avatar_url, u.status, u.email_verified_at, u.created_at, u.updated_at,
+		       p.password_hash
+		FROM users u
+		JOIN password_credentials p ON u.id = p.user_id
+		WHERE u.email = $1;
+	`
+
+	var (
+		u            User
+		passwordHash string
+		statusStr    string
+	)
+
+	err := r.pool.QueryRow(ctx, selectSQL, email).Scan(
+		&u.ID,
+		&u.Email,
+		&u.DisplayName,
+		&u.AvatarURL,
+		&statusStr,
+		&u.EmailVerifiedAt,
+		&u.CreatedAt,
+		&u.UpdatedAt,
+		&passwordHash,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, "", ErrUserNotFound
+		}
+		return nil, "", fmt.Errorf("query user by email: %w", err)
+	}
+
+	u.Status = Status(statusStr)
+	return &u, passwordHash, nil
+}

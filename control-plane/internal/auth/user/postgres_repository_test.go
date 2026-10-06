@@ -153,3 +153,54 @@ func TestPostgresRepository_CreateWithPassword_RollbackOnCredentialFailure(t *te
 		t.Fatal("expected users row to be rolled back, but it exists")
 	}
 }
+
+func TestPostgresRepository_GetByEmailWithPassword_Success(t *testing.T) {
+	pool := setupTestPool(t)
+	repo := NewPostgresRepository(pool)
+
+	uniqueEmail := "lookup_" + uuid.New().String() + "@kr0n.dev"
+	u, err := NewUser(uniqueEmail, "Lookup User")
+	if err != nil {
+		t.Fatalf("NewUser failed: %v", err)
+	}
+
+	const passwordHash = "$2a$12$e8I7n.oE/1u9jFq7m5yRyeuG.F/5kX5g5g1"
+	ctx := context.Background()
+
+	err = repo.CreateWithPassword(ctx, u, passwordHash)
+	if err != nil {
+		t.Fatalf("CreateWithPassword failed: %v", err)
+	}
+
+	gotUser, gotHash, err := repo.GetByEmailWithPassword(ctx, uniqueEmail)
+	if err != nil {
+		t.Fatalf("GetByEmailWithPassword failed: %v", err)
+	}
+
+	if gotUser.ID != u.ID {
+		t.Fatalf("expected ID %v, got %v", u.ID, gotUser.ID)
+	}
+	if gotUser.Email != uniqueEmail {
+		t.Fatalf("expected email %s, got %s", uniqueEmail, gotUser.Email)
+	}
+	if gotUser.DisplayName != "Lookup User" {
+		t.Fatalf("expected display name Lookup User, got %s", gotUser.DisplayName)
+	}
+	if gotUser.Status != StatusActive {
+		t.Fatalf("expected status active, got %s", gotUser.Status)
+	}
+	if gotHash != passwordHash {
+		t.Fatalf("expected password hash %s, got %s", passwordHash, gotHash)
+	}
+}
+
+func TestPostgresRepository_GetByEmailWithPassword_NotFound(t *testing.T) {
+	pool := setupTestPool(t)
+	repo := NewPostgresRepository(pool)
+
+	ctx := context.Background()
+	_, _, err := repo.GetByEmailWithPassword(ctx, "nonexistent@kr0n.dev")
+	if !errors.Is(err, ErrUserNotFound) {
+		t.Fatalf("expected ErrUserNotFound, got %v", err)
+	}
+}

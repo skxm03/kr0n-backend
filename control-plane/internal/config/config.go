@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 )
 
 var (
@@ -21,8 +22,12 @@ var (
 
 // Config represents the application configuration for database-backed services.
 type Config struct {
-	DatabaseURL  string
-	AuthGRPCAddr string
+	DatabaseURL          string
+	AuthGRPCAddr         string
+	JWTSigningKey        string
+	JWTIssuer            string
+	AccessTokenLifetime  time.Duration
+	RefreshTokenLifetime time.Duration
 }
 
 // GatewayConfig represents configuration for the API Gateway service.
@@ -70,9 +75,50 @@ func LoadFrom(lookup func(string) (string, bool)) (*Config, error) {
 		authGRPCAddr = strings.TrimSpace(raw)
 	}
 
+	jwtSigningKey := "kr0n_dev_insecure_jwt_signing_key_32_bytes_min!"
+	if raw, ok := lookup("JWT_SIGNING_KEY"); ok && strings.TrimSpace(raw) != "" {
+		jwtSigningKey = strings.TrimSpace(raw)
+	}
+	if len(jwtSigningKey) < 32 {
+		return nil, errors.New("JWT_SIGNING_KEY must be at least 32 bytes")
+	}
+
+	jwtIssuer := "kr0n-auth"
+	if raw, ok := lookup("JWT_ISSUER"); ok && strings.TrimSpace(raw) != "" {
+		jwtIssuer = strings.TrimSpace(raw)
+	}
+
+	accessTokenLifetime := 15 * time.Minute
+	if raw, ok := lookup("ACCESS_TOKEN_LIFETIME"); ok && strings.TrimSpace(raw) != "" {
+		d, err := time.ParseDuration(strings.TrimSpace(raw))
+		if err != nil {
+			return nil, fmt.Errorf("invalid ACCESS_TOKEN_LIFETIME: %w", err)
+		}
+		if d <= 0 {
+			return nil, errors.New("ACCESS_TOKEN_LIFETIME must be positive")
+		}
+		accessTokenLifetime = d
+	}
+
+	refreshTokenLifetime := 30 * 24 * time.Hour
+	if raw, ok := lookup("REFRESH_TOKEN_LIFETIME"); ok && strings.TrimSpace(raw) != "" {
+		d, err := time.ParseDuration(strings.TrimSpace(raw))
+		if err != nil {
+			return nil, fmt.Errorf("invalid REFRESH_TOKEN_LIFETIME: %w", err)
+		}
+		if d <= 0 {
+			return nil, errors.New("REFRESH_TOKEN_LIFETIME must be positive")
+		}
+		refreshTokenLifetime = d
+	}
+
 	return &Config{
-		DatabaseURL:  databaseURL,
-		AuthGRPCAddr: authGRPCAddr,
+		DatabaseURL:          databaseURL,
+		AuthGRPCAddr:         authGRPCAddr,
+		JWTSigningKey:        jwtSigningKey,
+		JWTIssuer:            jwtIssuer,
+		AccessTokenLifetime:  accessTokenLifetime,
+		RefreshTokenLifetime: refreshTokenLifetime,
 	}, nil
 }
 

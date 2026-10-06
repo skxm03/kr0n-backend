@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"errors"
 	"fmt"
 )
 
@@ -52,4 +53,41 @@ func (s *Service) Register(ctx context.Context, params RegisterParams) (*User, e
 	}
 
 	return newUser, nil
+}
+
+// AuthenticateParams contains input arguments for authenticating an existing user.
+type AuthenticateParams struct {
+	Email    string
+	Password string
+}
+
+// Authenticate verifies user credentials and returns the active user entity.
+// In accordance with security practices, timing attacks and account existence enumeration
+// are mitigated by dummy bcrypt comparison when user is not found, and returning generic ErrInvalidCredentials.
+func (s *Service) Authenticate(ctx context.Context, params AuthenticateParams) (*User, error) {
+	canonicalEmail, err := CanonicalizeEmail(params.Email)
+	if err != nil {
+		return nil, ErrInvalidCredentials
+	}
+
+	u, hash, err := s.repo.GetByEmailWithPassword(ctx, canonicalEmail)
+	if err != nil {
+		if errors.Is(err, ErrUserNotFound) {
+			// Mitigate timing difference by comparing with a dummy bcrypt hash
+			const dummyBcryptHash = "$2a$12$e8I7n.oE/1u9jFq7m5yRyeuG.F/5kX5g5g1wE3l0N4t7M6o3A2Z0i"
+			_ = s.hasher.Compare(dummyBcryptHash, params.Password)
+			return nil, ErrInvalidCredentials
+		}
+		return nil, fmt.Errorf("user lookup: %w", err)
+	}
+
+	if err := s.hasher.Compare(hash, params.Password); err != nil {
+		return nil, ErrInvalidCredentials
+	}
+
+	if u.Status != StatusActive {
+		return nil, ErrUserNotActive
+	}
+
+	return u, nil
 }

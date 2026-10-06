@@ -18,6 +18,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/session"
 	authgrpc "github.com/skxm03/kr0n-backend/control-plane/internal/auth/transport/grpc"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/user"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
@@ -50,7 +51,16 @@ func TestE2E_UserRegistration(t *testing.T) {
 	userRepo := user.NewPostgresRepository(dbPool)
 	hasher := user.NewBcryptHasher(12)
 	userService := user.NewService(userRepo, hasher)
-	grpcHandler := authgrpc.NewServer(userService)
+
+	jwtSigner, err := session.NewJWTSigner([]byte("test_jwt_secret_key_at_least_32_bytes_long!"), "kr0n-test", 15*time.Minute)
+	if err != nil {
+		t.Fatalf("failed to create jwt signer: %v", err)
+	}
+	tokenIssuer := session.NewDefaultTokenIssuer(jwtSigner)
+	sessionRepo := session.NewPostgresRepository(dbPool)
+	sessionService := session.NewService(userService, sessionRepo, tokenIssuer, 30*24*time.Hour)
+
+	grpcHandler := authgrpc.NewServer(userService, sessionService)
 
 	grpcServer := grpc.NewServer()
 	authv1.RegisterAuthServiceServer(grpcServer, grpcHandler)

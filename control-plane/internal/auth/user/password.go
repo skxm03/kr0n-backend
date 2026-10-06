@@ -11,6 +11,7 @@ import (
 type PasswordHasher interface {
 	Hash(password string) (string, error)
 	ValidatePolicy(password string) error
+	Compare(hash, password string) error
 }
 
 // BcryptHasher implements PasswordHasher using the bcrypt algorithm.
@@ -50,4 +51,9 @@ func (b *BcryptHasher) Hash(password string) (string, error) {
 		return "", fmt.Errorf("bcrypt hash failure: %w", err)
 	}
 	return string(bytes), nil
+}
+
+// Compare verifies whether the plain password matches the bcrypt hash.
+func (b *BcryptHasher) Compare(hash, password string) error {
+	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 }

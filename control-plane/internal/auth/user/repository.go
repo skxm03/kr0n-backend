@@ -6,4 +6,5 @@ import "context"
 // Owned by package user (the consumer) adhering to Dependency Inversion.
 type Repository interface {
 	CreateWithPassword(ctx context.Context, u *User, passwordHash string) error
+	GetByEmailWithPassword(ctx context.Context, email string) (*User, string, error)
 }
