@@ -13,6 +13,12 @@ func NewRouter(h *Handler) http.Handler {
 	mux.HandleFunc("POST /api/v1/auth/register", h.Register)
 	// Register login endpoint
 	mux.HandleFunc("POST /api/v1/auth/login", h.Login)
+	// Register refresh endpoint
+	mux.HandleFunc("POST /api/v1/auth/refresh", h.Refresh)
+	// Register logout endpoint
+	mux.HandleFunc("POST /api/v1/auth/logout", h.Logout)
+	// Register verify-email endpoint
+	mux.HandleFunc("POST /api/v1/auth/verify-email", h.VerifyEmail)
 
 	// Apply panic recovery middleware
 	return recoverMiddleware(mux)

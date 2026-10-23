@@ -2,8 +2,10 @@ package session
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -137,4 +139,83 @@ func (s *Service) Login(ctx context.Context, params LoginParams) (*LoginResult, 
 		User:         authenticatedUser,
 		SessionID:    sessionID,
 	}, nil
+}
+
+// RefreshResult contains the output of a successful refresh token rotation.
+type RefreshResult struct {
+	AccessToken  string
+	RefreshToken string
+	TokenType    string
+	ExpiresIn    time.Duration
+}
+
+// Refresh validates the supplied raw refresh token, atomically rotates it, and returns new tokens.
+// It enforces that the session exists, is not revoked, is not expired, and the associated user is active.
+func (s *Service) Refresh(ctx context.Context, rawRefreshToken string) (*RefreshResult, error) {
+	if strings.TrimSpace(rawRefreshToken) == "" {
+		return nil, ErrInvalidRefreshToken
+	}
+
+	oldTokenHash := HashRefreshToken(rawRefreshToken)
+	now := time.Now().UTC()
+	newExpiresAt := now.Add(s.sessionLifetime)
+
+	var (
+		newAccessToken string
+		newRawRefresh  string
+		expiresIn      time.Duration
+	)
+
+	_, err := s.sessionRepo.Rotate(ctx, oldTokenHash, now, func(sess *Session, userStatus user.Status) (string, time.Time, error) {
+		if sess.RevokedAt != nil {
+			return "", time.Time{}, ErrSessionRevoked
+		}
+		if !sess.ExpiresAt.After(now) {
+			return "", time.Time{}, ErrSessionExpired
+		}
+		if userStatus != user.StatusActive {
+			return "", time.Time{}, user.ErrUserNotActive
+		}
+
+		accToken, rawRefresh, tokHash, exp, err := s.tokenIssuer.Issue(sess.UserID, sess.ID, now)
+		if err != nil {
+			return "", time.Time{}, fmt.Errorf("issue new tokens: %w", err)
+		}
+
+		newAccessToken = accToken
+		newRawRefresh = rawRefresh
+		expiresIn = exp
+
+		return tokHash, newExpiresAt, nil
+	})
+	if err != nil {
+		if errors.Is(err, ErrSessionNotFound) {
+			return nil, ErrInvalidRefreshToken
+		}
+		return nil, err
+	}
+
+	return &RefreshResult{
+		AccessToken:  newAccessToken,
+		RefreshToken: newRawRefresh,
+		TokenType:    "Bearer",
+		ExpiresIn:    expiresIn,
+	}, nil
+}
+
+// Logout revokes the session associated with the supplied refresh token.
+// It is idempotent and safe, returning nil even if the token does not exist or is already revoked.
+func (s *Service) Logout(ctx context.Context, rawRefreshToken string) error {
+	if strings.TrimSpace(rawRefreshToken) == "" {
+		return nil
+	}
+
+	tokenHash := HashRefreshToken(rawRefreshToken)
+	now := time.Now().UTC()
+
+	if err := s.sessionRepo.RevokeByTokenHash(ctx, tokenHash, now); err != nil {
+		return fmt.Errorf("revoke session: %w", err)
+	}
+
+	return nil
 }

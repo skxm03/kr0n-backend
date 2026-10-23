@@ -12,7 +12,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/user"
 )
 
 var (
@@ -61,9 +63,17 @@ func GenerateRefreshToken() (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
+// RotateFn defines the callback executed within a session rotation transaction.
+// It receives the current session and user status, allowing the caller to validate invariants
+// and generate fresh credentials before atomically committing the rotation.
+type RotateFn func(sess *Session, userStatus user.Status) (newTokenHash string, newExpiresAt time.Time, err error)
+
 // Repository defines the persistence interface for user sessions.
 type Repository interface {
 	Create(ctx context.Context, session *Session) error
+	GetByTokenHash(ctx context.Context, tokenHash string) (*Session, error)
+	Rotate(ctx context.Context, oldTokenHash string, now time.Time, fn RotateFn) (*Session, error)
+	RevokeByTokenHash(ctx context.Context, tokenHash string, revokedAt time.Time) error
 }
 
 // PostgresRepository implements Repository using PostgreSQL.
@@ -103,6 +113,145 @@ func (r *PostgresRepository) Create(ctx context.Context, s *Session) error {
 	)
 	if err != nil {
 		return fmt.Errorf("insert session: %w", err)
+	}
+
+	return nil
+}
+
+// GetByTokenHash retrieves a session by its token hash.
+func (r *PostgresRepository) GetByTokenHash(ctx context.Context, tokenHash string) (*Session, error) {
+	const selectSQL = `
+		SELECT id, user_id, token_hash, user_agent, host(ip_address), expires_at, revoked_at, created_at, last_seen_at
+		FROM sessions
+		WHERE token_hash = $1;
+	`
+
+	var (
+		s     Session
+		ipStr *string
+	)
+
+	err := r.pool.QueryRow(ctx, selectSQL, tokenHash).Scan(
+		&s.ID,
+		&s.UserID,
+		&s.TokenHash,
+		&s.UserAgent,
+		&ipStr,
+		&s.ExpiresAt,
+		&s.RevokedAt,
+		&s.CreatedAt,
+		&s.LastSeenAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrSessionNotFound
+		}
+		return nil, fmt.Errorf("query session by token hash: %w", err)
+	}
+
+	if ipStr != nil {
+		ip := net.ParseIP(*ipStr)
+		s.IPAddress = &ip
+	}
+
+	return &s, nil
+}
+
+// Rotate executes atomic refresh-token rotation in a single transaction.
+// Row-level locking (FOR UPDATE OF s) ensures that concurrent requests for the same token
+// cannot both succeed. Under Read Committed isolation, if another transaction successfully
+// rotates the token, the second transaction re-evaluates WHERE s.token_hash = $1, finds 0 rows,
+// and fails safely with ErrSessionNotFound.
+//
+// Security Note on Token Reuse:
+// The current schema stores only the active token_hash per session. Upon rotation, the old token
+// hash is replaced atomically. A reused old token cannot be distinguished from an arbitrary invalid
+// token without a dedicated token history/family table, and is therefore rejected with ErrSessionNotFound / ErrInvalidRefreshToken.
+func (r *PostgresRepository) Rotate(ctx context.Context, oldTokenHash string, now time.Time, fn RotateFn) (*Session, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return nil, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	const selectSQL = `
+		SELECT s.id, s.user_id, s.token_hash, s.user_agent, host(s.ip_address), s.expires_at, s.revoked_at, s.created_at, s.last_seen_at,
+		       u.status
+		FROM sessions s
+		JOIN users u ON s.user_id = u.id
+		WHERE s.token_hash = $1
+		FOR UPDATE OF s;
+	`
+
+	var (
+		s         Session
+		ipStr     *string
+		statusStr string
+	)
+
+	err = tx.QueryRow(ctx, selectSQL, oldTokenHash).Scan(
+		&s.ID,
+		&s.UserID,
+		&s.TokenHash,
+		&s.UserAgent,
+		&ipStr,
+		&s.ExpiresAt,
+		&s.RevokedAt,
+		&s.CreatedAt,
+		&s.LastSeenAt,
+		&statusStr,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrSessionNotFound
+		}
+		return nil, fmt.Errorf("query session for rotation: %w", err)
+	}
+
+	if ipStr != nil {
+		ip := net.ParseIP(*ipStr)
+		s.IPAddress = &ip
+	}
+
+	newTokenHash, newExpiresAt, err := fn(&s, user.Status(statusStr))
+	if err != nil {
+		return nil, err
+	}
+
+	const updateSQL = `
+		UPDATE sessions
+		SET token_hash = $1, last_seen_at = $2, expires_at = $3
+		WHERE id = $4;
+	`
+
+	_, err = tx.Exec(ctx, updateSQL, newTokenHash, now, newExpiresAt, s.ID)
+	if err != nil {
+		return nil, fmt.Errorf("update session token hash: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit session rotation: %w", err)
+	}
+
+	s.TokenHash = newTokenHash
+	s.LastSeenAt = now
+	s.ExpiresAt = newExpiresAt
+
+	return &s, nil
+}
+
+// RevokeByTokenHash marks the session as revoked by setting revoked_at timestamp.
+// It is idempotent and does not reveal whether the session existed.
+func (r *PostgresRepository) RevokeByTokenHash(ctx context.Context, tokenHash string, revokedAt time.Time) error {
+	const updateSQL = `
+		UPDATE sessions
+		SET revoked_at = COALESCE(revoked_at, $1)
+		WHERE token_hash = $2;
+	`
+
+	_, err := r.pool.Exec(ctx, updateSQL, revokedAt, tokenHash)
+	if err != nil {
+		return fmt.Errorf("revoke session by token hash: %w", err)
 	}
 
 	return nil

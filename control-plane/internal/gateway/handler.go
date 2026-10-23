@@ -19,6 +19,9 @@ import (
 type AuthServiceClient interface {
 	Register(ctx context.Context, in *authv1.RegisterRequest, opts ...grpc.CallOption) (*authv1.RegisterResponse, error)
 	Login(ctx context.Context, in *authv1.LoginRequest, opts ...grpc.CallOption) (*authv1.LoginResponse, error)
+	Refresh(ctx context.Context, in *authv1.RefreshRequest, opts ...grpc.CallOption) (*authv1.RefreshResponse, error)
+	Logout(ctx context.Context, in *authv1.LogoutRequest, opts ...grpc.CallOption) (*authv1.LogoutResponse, error)
+	VerifyEmail(ctx context.Context, in *authv1.VerifyEmailRequest, opts ...grpc.CallOption) (*authv1.VerifyEmailResponse, error)
 }
 
 // RegisterRequestDTO represents the client registration request JSON schema.
@@ -58,6 +61,39 @@ type LoginResponseDTO struct {
 	TokenType    string  `json:"token_type"`
 	ExpiresIn    int64   `json:"expires_in"`
 	User         UserDTO `json:"user"`
+}
+
+// RefreshRequestDTO represents the client refresh request JSON schema.
+type RefreshRequestDTO struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+// RefreshResponseDTO represents the successful client refresh response JSON schema.
+type RefreshResponseDTO struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	TokenType    string `json:"token_type"`
+	ExpiresIn    int64  `json:"expires_in"`
+}
+
+// LogoutRequestDTO represents the client logout request JSON schema.
+type LogoutRequestDTO struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+// LogoutResponseDTO represents the successful client logout response JSON schema.
+type LogoutResponseDTO struct {
+	Message string `json:"message"`
+}
+
+// VerifyEmailRequestDTO represents the client email verification request JSON schema.
+type VerifyEmailRequestDTO struct {
+	Token string `json:"token"`
+}
+
+// VerifyEmailResponseDTO represents the successful client email verification response JSON schema.
+type VerifyEmailResponseDTO struct {
+	Message string `json:"message"`
 }
 
 // ErrorResponseDTO represents standard error response JSON format.
@@ -227,6 +263,197 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(resp)
+}
+
+// Refresh handles token rotation HTTP POST requests.
+func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		h.writeError(w, http.StatusMethodNotAllowed, "method not allowed", "METHOD_NOT_ALLOWED")
+		return
+	}
+
+	contentType := r.Header.Get("Content-Type")
+	if !strings.HasPrefix(strings.ToLower(contentType), "application/json") {
+		h.writeError(w, http.StatusUnsupportedMediaType, "content-type must be application/json", "UNSUPPORTED_MEDIA_TYPE")
+		return
+	}
+
+	// Limit request payload to 1MB to prevent memory exhaustion
+	r.Body = http.MaxBytesReader(w, r.Body, 1048576)
+
+	var req RefreshRequestDTO
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.writeError(w, http.StatusBadRequest, "invalid request body", "MALFORMED_JSON")
+		return
+	}
+
+	if strings.TrimSpace(req.RefreshToken) == "" {
+		h.writeError(w, http.StatusBadRequest, "refresh_token is required", "INVALID_ARGUMENT")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	grpcResp, err := h.authClient.Refresh(ctx, &authv1.RefreshRequest{
+		RefreshToken: req.RefreshToken,
+	})
+	if err != nil {
+		st, ok := status.FromError(err)
+		if !ok {
+			h.writeError(w, http.StatusInternalServerError, "internal server error", "INTERNAL_ERROR")
+			return
+		}
+
+		switch st.Code() {
+		case codes.Unauthenticated:
+			h.writeError(w, http.StatusUnauthorized, "invalid refresh token", "UNAUTHORIZED")
+		case codes.PermissionDenied:
+			h.writeError(w, http.StatusForbidden, "user account is not active", "FORBIDDEN")
+		case codes.InvalidArgument:
+			h.writeError(w, http.StatusBadRequest, st.Message(), "INVALID_ARGUMENT")
+		case codes.DeadlineExceeded:
+			h.writeError(w, http.StatusGatewayTimeout, "authentication service timeout", "GATEWAY_TIMEOUT")
+		case codes.Unavailable:
+			h.writeError(w, http.StatusServiceUnavailable, "authentication service unavailable", "SERVICE_UNAVAILABLE")
+		default:
+			h.writeError(w, http.StatusInternalServerError, "internal server error", "INTERNAL_ERROR")
+		}
+		return
+	}
+
+	resp := RefreshResponseDTO{
+		AccessToken:  grpcResp.GetAccessToken(),
+		RefreshToken: grpcResp.GetRefreshToken(),
+		TokenType:    grpcResp.GetTokenType(),
+		ExpiresIn:    grpcResp.GetExpiresIn(),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
+// Logout handles session revocation HTTP POST requests.
+func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		h.writeError(w, http.StatusMethodNotAllowed, "method not allowed", "METHOD_NOT_ALLOWED")
+		return
+	}
+
+	contentType := r.Header.Get("Content-Type")
+	if !strings.HasPrefix(strings.ToLower(contentType), "application/json") {
+		h.writeError(w, http.StatusUnsupportedMediaType, "content-type must be application/json", "UNSUPPORTED_MEDIA_TYPE")
+		return
+	}
+
+	// Limit request payload to 1MB to prevent memory exhaustion
+	r.Body = http.MaxBytesReader(w, r.Body, 1048576)
+
+	var req LogoutRequestDTO
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.writeError(w, http.StatusBadRequest, "invalid request body", "MALFORMED_JSON")
+		return
+	}
+
+	if strings.TrimSpace(req.RefreshToken) == "" {
+		h.writeError(w, http.StatusBadRequest, "refresh_token is required", "INVALID_ARGUMENT")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	_, err := h.authClient.Logout(ctx, &authv1.LogoutRequest{
+		RefreshToken: req.RefreshToken,
+	})
+	if err != nil {
+		st, ok := status.FromError(err)
+		if !ok {
+			h.writeError(w, http.StatusInternalServerError, "internal server error", "INTERNAL_ERROR")
+			return
+		}
+
+		switch st.Code() {
+		case codes.InvalidArgument:
+			h.writeError(w, http.StatusBadRequest, st.Message(), "INVALID_ARGUMENT")
+		case codes.DeadlineExceeded:
+			h.writeError(w, http.StatusGatewayTimeout, "authentication service timeout", "GATEWAY_TIMEOUT")
+		case codes.Unavailable:
+			h.writeError(w, http.StatusServiceUnavailable, "authentication service unavailable", "SERVICE_UNAVAILABLE")
+		default:
+			h.writeError(w, http.StatusInternalServerError, "internal server error", "INTERNAL_ERROR")
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(LogoutResponseDTO{
+		Message: "logged out successfully",
+	})
+}
+
+// VerifyEmail handles email verification HTTP POST requests.
+func (h *Handler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		h.writeError(w, http.StatusMethodNotAllowed, "method not allowed", "METHOD_NOT_ALLOWED")
+		return
+	}
+
+	contentType := r.Header.Get("Content-Type")
+	if !strings.HasPrefix(strings.ToLower(contentType), "application/json") {
+		h.writeError(w, http.StatusUnsupportedMediaType, "content-type must be application/json", "UNSUPPORTED_MEDIA_TYPE")
+		return
+	}
+
+	// Limit request payload to 1MB to prevent memory exhaustion
+	r.Body = http.MaxBytesReader(w, r.Body, 1048576)
+
+	var req VerifyEmailRequestDTO
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.writeError(w, http.StatusBadRequest, "invalid request body", "MALFORMED_JSON")
+		return
+	}
+
+	if strings.TrimSpace(req.Token) == "" {
+		h.writeError(w, http.StatusBadRequest, "token is required", "INVALID_ARGUMENT")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+
+	_, err := h.authClient.VerifyEmail(ctx, &authv1.VerifyEmailRequest{
+		Token: req.Token,
+	})
+	if err != nil {
+		st, ok := status.FromError(err)
+		if !ok {
+			h.writeError(w, http.StatusInternalServerError, "internal server error", "INTERNAL_ERROR")
+			return
+		}
+
+		switch st.Code() {
+		case codes.InvalidArgument:
+			h.writeError(w, http.StatusBadRequest, st.Message(), "INVALID_ARGUMENT")
+		case codes.PermissionDenied:
+			h.writeError(w, http.StatusForbidden, st.Message(), "FORBIDDEN")
+		case codes.DeadlineExceeded:
+			h.writeError(w, http.StatusGatewayTimeout, "authentication service timeout", "GATEWAY_TIMEOUT")
+		case codes.Unavailable:
+			h.writeError(w, http.StatusServiceUnavailable, "authentication service unavailable", "SERVICE_UNAVAILABLE")
+		default:
+			h.writeError(w, http.StatusInternalServerError, "internal server error", "INTERNAL_ERROR")
+		}
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(VerifyEmailResponseDTO{
+		Message: "email verified successfully",
+	})
 }
 
 func extractClientIP(r *http.Request) string {

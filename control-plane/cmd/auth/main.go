@@ -16,8 +16,10 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/session"
 	authgrpc "github.com/skxm03/kr0n-backend/control-plane/internal/auth/transport/grpc"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/user"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/verification"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/config"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/email"
 )
 
 func main() {
@@ -43,9 +45,19 @@ func run() error {
 	}
 	defer dbPool.Close()
 
+	emailSender := email.NewLogSender(nil)
+
 	userRepo := user.NewPostgresRepository(dbPool)
 	hasher := user.NewBcryptHasher(12)
-	userService := user.NewService(userRepo, hasher)
+	userService := user.NewService(
+		userRepo,
+		hasher,
+		user.WithEmailSender(emailSender),
+		user.WithTokenLifetime(cfg.EmailVerificationTokenLifetime),
+	)
+
+	verifRepo := verification.NewPostgresRepository(dbPool)
+	verifService := verification.NewService(verifRepo)
 
 	jwtSigner, err := session.NewJWTSigner([]byte(cfg.JWTSigningKey), cfg.JWTIssuer, cfg.AccessTokenLifetime)
 	if err != nil {
@@ -55,7 +67,11 @@ func run() error {
 	sessionRepo := session.NewPostgresRepository(dbPool)
 	sessionService := session.NewService(userService, sessionRepo, tokenIssuer, cfg.RefreshTokenLifetime)
 
-	grpcHandler := authgrpc.NewServer(userService, sessionService)
+	grpcHandler := authgrpc.NewServer(
+		userService,
+		sessionService,
+		authgrpc.WithVerificationService(verifService),
+	)
 
 	grpcServer := grpc.NewServer()
 	authv1.RegisterAuthServiceServer(grpcServer, grpcHandler)

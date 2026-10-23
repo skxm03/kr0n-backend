@@ -188,6 +188,33 @@ func TestE2E_UserRegistration(t *testing.T) {
 		if err := bcrypt.CompareHashAndPassword([]byte(dbHash), []byte(password)); err != nil {
 			t.Fatalf("stored password hash failed bcrypt verification: %v", err)
 		}
+
+		// Verify user starts unverified with email_verified_at = NULL
+		var dbVerifiedAt *time.Time
+		err = dbPool.QueryRow(ctx, "SELECT email_verified_at FROM users WHERE id = $1", parsedUUID).Scan(&dbVerifiedAt)
+		if err != nil {
+			t.Fatalf("failed to query email_verified_at: %v", err)
+		}
+		if dbVerifiedAt != nil {
+			t.Fatal("expected newly registered user to have email_verified_at = NULL in database")
+		}
+
+		// Verify verification token record was created atomically in PostgreSQL
+		var (
+			tokenCount int
+			tokenHash  string
+		)
+		err = dbPool.QueryRow(ctx, "SELECT count(*), COALESCE(max(token_hash), '') FROM email_verification_tokens WHERE user_id = $1", parsedUUID).
+			Scan(&tokenCount, &tokenHash)
+		if err != nil {
+			t.Fatalf("failed to query email_verification_tokens: %v", err)
+		}
+		if tokenCount != 1 {
+			t.Fatalf("expected exactly 1 verification token in database for newly registered user, got %d", tokenCount)
+		}
+		if tokenHash == "" {
+			t.Fatal("expected non-empty token hash in database")
+		}
 	})
 
 	// 5. Test Scenario 2: Duplicate Registration Returns 409 Conflict

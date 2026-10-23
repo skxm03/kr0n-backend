@@ -26,8 +26,9 @@ type Config struct {
 	AuthGRPCAddr         string
 	JWTSigningKey        string
 	JWTIssuer            string
-	AccessTokenLifetime  time.Duration
-	RefreshTokenLifetime time.Duration
+	AccessTokenLifetime            time.Duration
+	RefreshTokenLifetime           time.Duration
+	EmailVerificationTokenLifetime time.Duration
 }
 
 // GatewayConfig represents configuration for the API Gateway service.
@@ -112,13 +113,26 @@ func LoadFrom(lookup func(string) (string, bool)) (*Config, error) {
 		refreshTokenLifetime = d
 	}
 
+	emailVerificationTokenLifetime := 24 * time.Hour
+	if raw, ok := lookup("EMAIL_VERIFICATION_TOKEN_LIFETIME"); ok && strings.TrimSpace(raw) != "" {
+		d, err := time.ParseDuration(strings.TrimSpace(raw))
+		if err != nil {
+			return nil, fmt.Errorf("invalid EMAIL_VERIFICATION_TOKEN_LIFETIME: %w", err)
+		}
+		if d <= 0 {
+			return nil, errors.New("EMAIL_VERIFICATION_TOKEN_LIFETIME must be positive")
+		}
+		emailVerificationTokenLifetime = d
+	}
+
 	return &Config{
-		DatabaseURL:          databaseURL,
-		AuthGRPCAddr:         authGRPCAddr,
-		JWTSigningKey:        jwtSigningKey,
-		JWTIssuer:            jwtIssuer,
-		AccessTokenLifetime:  accessTokenLifetime,
-		RefreshTokenLifetime: refreshTokenLifetime,
+		DatabaseURL:                    databaseURL,
+		AuthGRPCAddr:                   authGRPCAddr,
+		JWTSigningKey:                  jwtSigningKey,
+		JWTIssuer:                      jwtIssuer,
+		AccessTokenLifetime:            accessTokenLifetime,
+		RefreshTokenLifetime:           refreshTokenLifetime,
+		EmailVerificationTokenLifetime: emailVerificationTokenLifetime,
 	}, nil
 }
 

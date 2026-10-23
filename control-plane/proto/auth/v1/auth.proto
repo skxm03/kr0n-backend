@@ -13,6 +13,15 @@ service AuthService {
 
   // Login authenticates credentials and issues tokens with an active session.
   rpc Login(LoginRequest) returns (LoginResponse);
+
+  // Refresh rotates the refresh token and issues a fresh access token.
+  rpc Refresh(RefreshRequest) returns (RefreshResponse);
+
+  // Logout revokes the session associated with the refresh token.
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+
+  // VerifyEmail validates a verification token and marks the user's email verified.
+  rpc VerifyEmail(VerifyEmailRequest) returns (VerifyEmailResponse);
 }
 
 message RegisterRequest {
@@ -49,4 +58,29 @@ message LoginResponse {
   string token_type = 3;
   int64 expires_in = 4;
   LoginUser user = 5;
+}
+
+message RefreshRequest {
+  string refresh_token = 1;
+}
+
+message RefreshResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  string token_type = 3;
+  int64 expires_in = 4;
+}
+
+message LogoutRequest {
+  string refresh_token = 1;
+}
+
+message LogoutResponse {
+}
+
+message VerifyEmailRequest {
+  string token = 1;
+}
+
+message VerifyEmailResponse {
 }

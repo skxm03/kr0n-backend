@@ -13,7 +13,19 @@ import (
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/session"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/user"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/verification"
 )
+
+type mockVerificationService struct {
+	verifyEmailFunc func(ctx context.Context, rawToken string) error
+}
+
+func (m *mockVerificationService) VerifyEmail(ctx context.Context, rawToken string) error {
+	if m.verifyEmailFunc != nil {
+		return m.verifyEmailFunc(ctx, rawToken)
+	}
+	return nil
+}
 
 type mockRegistrationService struct {
 	registerFunc func(ctx context.Context, params user.RegisterParams) (*user.User, error)
@@ -26,15 +38,31 @@ func (m *mockRegistrationService) Register(ctx context.Context, params user.Regi
 	return nil, nil
 }
 
-type mockLoginService struct {
-	loginFunc func(ctx context.Context, params session.LoginParams) (*session.LoginResult, error)
+type mockSessionService struct {
+	loginFunc   func(ctx context.Context, params session.LoginParams) (*session.LoginResult, error)
+	refreshFunc func(ctx context.Context, rawRefreshToken string) (*session.RefreshResult, error)
+	logoutFunc  func(ctx context.Context, rawRefreshToken string) error
 }
 
-func (m *mockLoginService) Login(ctx context.Context, params session.LoginParams) (*session.LoginResult, error) {
+func (m *mockSessionService) Login(ctx context.Context, params session.LoginParams) (*session.LoginResult, error) {
 	if m.loginFunc != nil {
 		return m.loginFunc(ctx, params)
 	}
 	return nil, nil
+}
+
+func (m *mockSessionService) Refresh(ctx context.Context, rawRefreshToken string) (*session.RefreshResult, error) {
+	if m.refreshFunc != nil {
+		return m.refreshFunc(ctx, rawRefreshToken)
+	}
+	return nil, nil
+}
+
+func (m *mockSessionService) Logout(ctx context.Context, rawRefreshToken string) error {
+	if m.logoutFunc != nil {
+		return m.logoutFunc(ctx, rawRefreshToken)
+	}
+	return nil
 }
 
 func TestServer_Register_Success(t *testing.T) {
@@ -189,7 +217,7 @@ func TestServer_Login_Success(t *testing.T) {
 		Status:      user.StatusActive,
 	}
 
-	mockLogin := &mockLoginService{
+	mockSvc := &mockSessionService{
 		loginFunc: func(ctx context.Context, params session.LoginParams) (*session.LoginResult, error) {
 			return &session.LoginResult{
 				AccessToken:  "access.jwt.token",
@@ -201,7 +229,7 @@ func TestServer_Login_Success(t *testing.T) {
 		},
 	}
 
-	server := NewServer(nil, mockLogin)
+	server := NewServer(nil, mockSvc)
 	resp, err := server.Login(context.Background(), &authv1.LoginRequest{
 		Email:     "user@kr0n.dev",
 		Password:  "password",
@@ -230,7 +258,7 @@ func TestServer_Login_Success(t *testing.T) {
 }
 
 func TestServer_Login_NilRequest(t *testing.T) {
-	server := NewServer(nil, &mockLoginService{})
+	server := NewServer(nil, &mockSessionService{})
 	_, err := server.Login(context.Background(), nil)
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -242,13 +270,13 @@ func TestServer_Login_NilRequest(t *testing.T) {
 }
 
 func TestServer_Login_InvalidCredentials(t *testing.T) {
-	mockLogin := &mockLoginService{
+	mockSvc := &mockSessionService{
 		loginFunc: func(ctx context.Context, params session.LoginParams) (*session.LoginResult, error) {
 			return nil, user.ErrInvalidCredentials
 		},
 	}
 
-	server := NewServer(nil, mockLogin)
+	server := NewServer(nil, mockSvc)
 	_, err := server.Login(context.Background(), &authv1.LoginRequest{
 		Email:    "user@kr0n.dev",
 		Password: "wrong",
@@ -270,13 +298,13 @@ func TestServer_Login_InvalidCredentials(t *testing.T) {
 }
 
 func TestServer_Login_InactiveUser(t *testing.T) {
-	mockLogin := &mockLoginService{
+	mockSvc := &mockSessionService{
 		loginFunc: func(ctx context.Context, params session.LoginParams) (*session.LoginResult, error) {
 			return nil, user.ErrUserNotActive
 		},
 	}
 
-	server := NewServer(nil, mockLogin)
+	server := NewServer(nil, mockSvc)
 	_, err := server.Login(context.Background(), &authv1.LoginRequest{
 		Email:    "inactive@kr0n.dev",
 		Password: "password",
@@ -292,13 +320,13 @@ func TestServer_Login_InactiveUser(t *testing.T) {
 }
 
 func TestServer_Login_InternalErrorMasked(t *testing.T) {
-	mockLogin := &mockLoginService{
+	mockSvc := &mockSessionService{
 		loginFunc: func(ctx context.Context, params session.LoginParams) (*session.LoginResult, error) {
 			return nil, errors.New("sensitive postgres query failure")
 		},
 	}
 
-	server := NewServer(nil, mockLogin)
+	server := NewServer(nil, mockSvc)
 	_, err := server.Login(context.Background(), &authv1.LoginRequest{
 		Email:    "user@kr0n.dev",
 		Password: "password",
@@ -313,5 +341,367 @@ func TestServer_Login_InternalErrorMasked(t *testing.T) {
 	}
 	if st.Message() != "internal server error" {
 		t.Fatalf("expected masked error 'internal server error', got %q", st.Message())
+	}
+}
+
+func TestServer_Refresh_Success(t *testing.T) {
+	mockSvc := &mockSessionService{
+		refreshFunc: func(ctx context.Context, rawRefreshToken string) (*session.RefreshResult, error) {
+			if rawRefreshToken != "valid_refresh_token" {
+				return nil, session.ErrInvalidRefreshToken
+			}
+			return &session.RefreshResult{
+				AccessToken:  "new_jwt_access",
+				RefreshToken: "new_opaque_refresh",
+				TokenType:    "Bearer",
+				ExpiresIn:    15 * time.Minute,
+			}, nil
+		},
+	}
+
+	server := NewServer(nil, mockSvc)
+	resp, err := server.Refresh(context.Background(), &authv1.RefreshRequest{
+		RefreshToken: "valid_refresh_token",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error on refresh: %v", err)
+	}
+
+	if resp.GetAccessToken() != "new_jwt_access" {
+		t.Fatalf("expected new access token, got %s", resp.GetAccessToken())
+	}
+	if resp.GetRefreshToken() != "new_opaque_refresh" {
+		t.Fatalf("expected new refresh token, got %s", resp.GetRefreshToken())
+	}
+	if resp.GetTokenType() != "Bearer" {
+		t.Fatalf("expected Bearer token type, got %s", resp.GetTokenType())
+	}
+	if resp.GetExpiresIn() != 900 {
+		t.Fatalf("expected 900 seconds, got %d", resp.GetExpiresIn())
+	}
+}
+
+func TestServer_Refresh_NilOrEmptyRequest(t *testing.T) {
+	server := NewServer(nil, &mockSessionService{})
+
+	// Nil request
+	_, err := server.Refresh(context.Background(), nil)
+	if err == nil {
+		t.Fatal("expected error on nil request, got nil")
+	}
+	st, ok := status.FromError(err)
+	if !ok || st.Code() != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument on nil request, got %v", err)
+	}
+
+	// Empty token
+	_, err = server.Refresh(context.Background(), &authv1.RefreshRequest{RefreshToken: ""})
+	if err == nil {
+		t.Fatal("expected error on empty token, got nil")
+	}
+	st, ok = status.FromError(err)
+	if !ok || st.Code() != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument on empty token, got %v", err)
+	}
+}
+
+func TestServer_Refresh_InvalidOrExpiredOrRevokedToken(t *testing.T) {
+	errCases := []struct {
+		name     string
+		retErr   error
+		wantMsg  string
+		wantCode codes.Code
+	}{
+		{
+			name:     "invalid token",
+			retErr:   session.ErrInvalidRefreshToken,
+			wantMsg:  "invalid refresh token",
+			wantCode: codes.Unauthenticated,
+		},
+		{
+			name:     "session not found",
+			retErr:   session.ErrSessionNotFound,
+			wantMsg:  "invalid refresh token",
+			wantCode: codes.Unauthenticated,
+		},
+		{
+			name:     "session expired",
+			retErr:   session.ErrSessionExpired,
+			wantMsg:  "invalid refresh token",
+			wantCode: codes.Unauthenticated,
+		},
+		{
+			name:     "session revoked",
+			retErr:   session.ErrSessionRevoked,
+			wantMsg:  "invalid refresh token",
+			wantCode: codes.Unauthenticated,
+		},
+		{
+			name:     "inactive user",
+			retErr:   user.ErrUserNotActive,
+			wantMsg:  "user account is not active",
+			wantCode: codes.PermissionDenied,
+		},
+	}
+
+	for _, tc := range errCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockSvc := &mockSessionService{
+				refreshFunc: func(ctx context.Context, rawRefreshToken string) (*session.RefreshResult, error) {
+					return nil, tc.retErr
+				},
+			}
+			server := NewServer(nil, mockSvc)
+			_, err := server.Refresh(context.Background(), &authv1.RefreshRequest{
+				RefreshToken: "test_token",
+			})
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			st, ok := status.FromError(err)
+			if !ok {
+				t.Fatalf("expected gRPC status error, got %T", err)
+			}
+			if st.Code() != tc.wantCode {
+				t.Fatalf("expected code %v, got %v", tc.wantCode, st.Code())
+			}
+			if st.Message() != tc.wantMsg {
+				t.Fatalf("expected message %q, got %q", tc.wantMsg, st.Message())
+			}
+		})
+	}
+}
+
+func TestServer_Refresh_InternalErrorMasked(t *testing.T) {
+	mockSvc := &mockSessionService{
+		refreshFunc: func(ctx context.Context, rawRefreshToken string) (*session.RefreshResult, error) {
+			return nil, errors.New("database connection refused")
+		},
+	}
+	server := NewServer(nil, mockSvc)
+	_, err := server.Refresh(context.Background(), &authv1.RefreshRequest{
+		RefreshToken: "test_token",
+	})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	st, ok := status.FromError(err)
+	if !ok || st.Code() != codes.Internal {
+		t.Fatalf("expected codes.Internal, got %v", err)
+	}
+	if st.Message() != "internal server error" {
+		t.Fatalf("expected 'internal server error', got %q", st.Message())
+	}
+}
+
+func TestServer_Logout_Success(t *testing.T) {
+	var loggedOutToken string
+	mockSvc := &mockSessionService{
+		logoutFunc: func(ctx context.Context, rawRefreshToken string) error {
+			loggedOutToken = rawRefreshToken
+			return nil
+		},
+	}
+
+	server := NewServer(nil, mockSvc)
+	resp, err := server.Logout(context.Background(), &authv1.LogoutRequest{
+		RefreshToken: "token_to_logout",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error on logout: %v", err)
+	}
+	if resp == nil {
+		t.Fatal("expected non-nil response")
+	}
+	if loggedOutToken != "token_to_logout" {
+		t.Fatalf("expected logout for token_to_logout, got %s", loggedOutToken)
+	}
+}
+
+func TestServer_Logout_NilOrEmptyRequest(t *testing.T) {
+	server := NewServer(nil, &mockSessionService{})
+
+	// Nil request
+	_, err := server.Logout(context.Background(), nil)
+	if err == nil {
+		t.Fatal("expected error on nil request, got nil")
+	}
+	st, ok := status.FromError(err)
+	if !ok || st.Code() != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument on nil request, got %v", err)
+	}
+
+	// Empty token
+	_, err = server.Logout(context.Background(), &authv1.LogoutRequest{RefreshToken: ""})
+	if err == nil {
+		t.Fatal("expected error on empty token, got nil")
+	}
+	st, ok = status.FromError(err)
+	if !ok || st.Code() != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument on empty token, got %v", err)
+	}
+}
+
+func TestServer_Logout_InternalErrorMasked(t *testing.T) {
+	mockSvc := &mockSessionService{
+		logoutFunc: func(ctx context.Context, rawRefreshToken string) error {
+			return errors.New("database failure")
+		},
+	}
+
+	server := NewServer(nil, mockSvc)
+	_, err := server.Logout(context.Background(), &authv1.LogoutRequest{
+		RefreshToken: "some_token",
+	})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	st, ok := status.FromError(err)
+	if !ok || st.Code() != codes.Internal {
+		t.Fatalf("expected codes.Internal, got %v", err)
+	}
+	if st.Message() != "internal server error" {
+		t.Fatalf("expected 'internal server error', got %q", st.Message())
+	}
+}
+
+func TestServer_VerifyEmail_Success(t *testing.T) {
+	mockVS := &mockVerificationService{
+		verifyEmailFunc: func(ctx context.Context, rawToken string) error {
+			if rawToken == "valid_token" {
+				return nil
+			}
+			return verification.ErrInvalidToken
+		},
+	}
+
+	server := NewServer(nil, nil, WithVerificationService(mockVS))
+	resp, err := server.VerifyEmail(context.Background(), &authv1.VerifyEmailRequest{
+		Token: "valid_token",
+	})
+	if err != nil {
+		t.Fatalf("expected success, got %v", err)
+	}
+	if resp == nil {
+		t.Fatal("expected non-nil response")
+	}
+}
+
+func TestServer_VerifyEmail_InvalidOrExpiredTokens(t *testing.T) {
+	testCases := []struct {
+		name string
+		err  error
+	}{
+		{"invalid token", verification.ErrInvalidToken},
+		{"expired token", verification.ErrTokenExpired},
+		{"already consumed token", verification.ErrTokenAlreadyConsumed},
+		{"user not found", verification.ErrUserNotFound},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockVS := &mockVerificationService{
+				verifyEmailFunc: func(ctx context.Context, rawToken string) error {
+					return tc.err
+				},
+			}
+
+			server := NewServer(nil, nil, WithVerificationService(mockVS))
+			_, err := server.VerifyEmail(context.Background(), &authv1.VerifyEmailRequest{
+				Token: "some_token",
+			})
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			st, ok := status.FromError(err)
+			if !ok || st.Code() != codes.InvalidArgument {
+				t.Fatalf("expected codes.InvalidArgument, got %v", err)
+			}
+			if st.Message() != "invalid or expired verification token" {
+				t.Fatalf("expected generic error message 'invalid or expired verification token', got %q", st.Message())
+			}
+		})
+	}
+}
+
+func TestServer_VerifyEmail_InactiveUser(t *testing.T) {
+	mockVS := &mockVerificationService{
+		verifyEmailFunc: func(ctx context.Context, rawToken string) error {
+			return verification.ErrUserNotActive
+		},
+	}
+
+	server := NewServer(nil, nil, WithVerificationService(mockVS))
+	_, err := server.VerifyEmail(context.Background(), &authv1.VerifyEmailRequest{
+		Token: "some_token",
+	})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	st, ok := status.FromError(err)
+	if !ok || st.Code() != codes.PermissionDenied {
+		t.Fatalf("expected codes.PermissionDenied, got %v", err)
+	}
+}
+
+func TestServer_VerifyEmail_ValidationErrors(t *testing.T) {
+	mockVS := &mockVerificationService{}
+	server := NewServer(nil, nil, WithVerificationService(mockVS))
+
+	// Nil request
+	_, err := server.VerifyEmail(context.Background(), nil)
+	if err == nil {
+		t.Fatal("expected error on nil request, got nil")
+	}
+	st, ok := status.FromError(err)
+	if !ok || st.Code() != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument on nil request, got %v", err)
+	}
+
+	// Empty token
+	_, err = server.VerifyEmail(context.Background(), &authv1.VerifyEmailRequest{Token: "   "})
+	if err == nil {
+		t.Fatal("expected error on empty token, got nil")
+	}
+	st, ok = status.FromError(err)
+	if !ok || st.Code() != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument on empty token, got %v", err)
+	}
+}
+
+func TestServer_VerifyEmail_InternalErrorMasked(t *testing.T) {
+	mockVS := &mockVerificationService{
+		verifyEmailFunc: func(ctx context.Context, rawToken string) error {
+			return errors.New("db connection pool exhausted")
+		},
+	}
+
+	server := NewServer(nil, nil, WithVerificationService(mockVS))
+	_, err := server.VerifyEmail(context.Background(), &authv1.VerifyEmailRequest{
+		Token: "some_token",
+	})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	st, ok := status.FromError(err)
+	if !ok || st.Code() != codes.Internal {
+		t.Fatalf("expected codes.Internal, got %v", err)
+	}
+	if st.Message() != "internal server error" {
+		t.Fatalf("expected 'internal server error', got %q", st.Message())
+	}
+}
+
+func TestServer_VerifyEmail_ServiceUnimplemented(t *testing.T) {
+	server := NewServer(nil, nil) // no verification service configured
+	_, err := server.VerifyEmail(context.Background(), &authv1.VerifyEmailRequest{
+		Token: "some_token",
+	})
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	st, ok := status.FromError(err)
+	if !ok || st.Code() != codes.Unimplemented {
+		t.Fatalf("expected codes.Unimplemented, got %v", err)
 	}
 }

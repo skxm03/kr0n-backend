@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestLoadFrom(t *testing.T) {
@@ -203,6 +204,75 @@ func TestLoadGatewayFrom(t *testing.T) {
 		}
 		if cfg.AuthGRPCAddr != "auth.internal:50051" {
 			t.Fatalf("expected auth.internal:50051, got %q", cfg.AuthGRPCAddr)
+		}
+	})
+}
+
+func TestLoad_EmailVerificationTokenLifetime(t *testing.T) {
+	t.Run("default lifetime", func(t *testing.T) {
+		lookup := func(key string) (string, bool) {
+			if key == "DATABASE_URL" {
+				return "postgres://user:pass@localhost:5432/db", true
+			}
+			return "", false
+		}
+		cfg, err := LoadFrom(lookup)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.EmailVerificationTokenLifetime != 24*time.Hour {
+			t.Fatalf("expected default 24h, got %v", cfg.EmailVerificationTokenLifetime)
+		}
+	})
+
+	t.Run("custom lifetime", func(t *testing.T) {
+		lookup := func(key string) (string, bool) {
+			if key == "DATABASE_URL" {
+				return "postgres://user:pass@localhost:5432/db", true
+			}
+			if key == "EMAIL_VERIFICATION_TOKEN_LIFETIME" {
+				return "48h", true
+			}
+			return "", false
+		}
+		cfg, err := LoadFrom(lookup)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.EmailVerificationTokenLifetime != 48*time.Hour {
+			t.Fatalf("expected 48h, got %v", cfg.EmailVerificationTokenLifetime)
+		}
+	})
+
+	t.Run("invalid lifetime duration", func(t *testing.T) {
+		lookup := func(key string) (string, bool) {
+			if key == "DATABASE_URL" {
+				return "postgres://user:pass@localhost:5432/db", true
+			}
+			if key == "EMAIL_VERIFICATION_TOKEN_LIFETIME" {
+				return "invalid", true
+			}
+			return "", false
+		}
+		_, err := LoadFrom(lookup)
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+	})
+
+	t.Run("negative lifetime duration", func(t *testing.T) {
+		lookup := func(key string) (string, bool) {
+			if key == "DATABASE_URL" {
+				return "postgres://user:pass@localhost:5432/db", true
+			}
+			if key == "EMAIL_VERIFICATION_TOKEN_LIFETIME" {
+				return "-1h", true
+			}
+			return "", false
+		}
+		_, err := LoadFrom(lookup)
+		if err == nil {
+			t.Fatal("expected error, got nil")
 		}
 	})
 }

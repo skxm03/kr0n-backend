@@ -4,6 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/verification"
 )
 
 // RegisterParams contains input arguments for registering a new user.
@@ -13,22 +18,49 @@ type RegisterParams struct {
 	DisplayName string
 }
 
-// Service orchestrates user-related domain capabilities.
-type Service struct {
-	repo   Repository
-	hasher PasswordHasher
-}
+// Option defines a functional option for configuring Service.
+type Option func(*Service)
 
-// NewService constructs a user Service.
-func NewService(repo Repository, hasher PasswordHasher) *Service {
-	return &Service{
-		repo:   repo,
-		hasher: hasher,
+// WithEmailSender configures the email sender used to dispatch verification emails.
+func WithEmailSender(sender verification.EmailSender) Option {
+	return func(s *Service) {
+		s.emailSender = sender
 	}
 }
 
+// WithTokenLifetime configures the lifetime of generated verification tokens.
+func WithTokenLifetime(lifetime time.Duration) Option {
+	return func(s *Service) {
+		if lifetime > 0 {
+			s.tokenLifetime = lifetime
+		}
+	}
+}
+
+// Service orchestrates user-related domain capabilities.
+type Service struct {
+	repo          Repository
+	hasher        PasswordHasher
+	emailSender   verification.EmailSender
+	tokenLifetime time.Duration
+}
+
+// NewService constructs a user Service.
+func NewService(repo Repository, hasher PasswordHasher, opts ...Option) *Service {
+	s := &Service{
+		repo:          repo,
+		hasher:        hasher,
+		tokenLifetime: 24 * time.Hour,
+	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
+}
+
 // Register validates parameters, applies password policies, computes password hash,
-// and persists the user entity and credentials.
+// generates a verification token, persists user, credentials, and verification token atomically,
+// and dispatches a verification email outside the database transaction.
 func (s *Service) Register(ctx context.Context, params RegisterParams) (*User, error) {
 	// 1. Validate password policy BEFORE doing expensive hashing or DB operations
 	if err := s.hasher.ValidatePolicy(params.Password); err != nil {
@@ -47,9 +79,34 @@ func (s *Service) Register(ctx context.Context, params RegisterParams) (*User, e
 		return nil, fmt.Errorf("hash password: %w", err)
 	}
 
-	// 4. Persist user and credential atomically
-	if err := s.repo.CreateWithPassword(ctx, newUser, hash); err != nil {
+	// 4. Generate verification token
+	rawToken, err := verification.GenerateToken()
+	if err != nil {
+		return nil, fmt.Errorf("generate verification token: %w", err)
+	}
+	tokenHash := verification.HashToken(rawToken)
+
+	now := time.Now().UTC()
+	token := &verification.Token{
+		ID:        uuid.New(),
+		UserID:    newUser.ID,
+		TokenHash: tokenHash,
+		ExpiresAt: now.Add(s.tokenLifetime),
+		CreatedAt: now,
+	}
+
+	// 5. Persist user, credential, and verification token atomically
+	if err := s.repo.CreateWithPasswordAndVerificationToken(ctx, newUser, hash, token); err != nil {
 		return nil, err
+	}
+
+	// 6. Dispatch verification email outside DB transaction.
+	// If email provider fails, do not roll back the database transaction (DB is authoritative).
+	// Never log the raw verification token.
+	if s.emailSender != nil {
+		if err := s.emailSender.SendVerificationEmail(ctx, newUser.Email, rawToken); err != nil {
+			log.Printf("failed to dispatch verification email for user %s: %v", newUser.ID, err)
+		}
 	}
 
 	return newUser, nil

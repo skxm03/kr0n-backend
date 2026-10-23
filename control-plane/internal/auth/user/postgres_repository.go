@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/verification"
 )
 
 // PostgresRepository implements Repository using PostgreSQL.
@@ -23,6 +24,13 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 
 // CreateWithPassword persists a User and their PasswordCredentials in a single atomic transaction.
 func (r *PostgresRepository) CreateWithPassword(ctx context.Context, u *User, passwordHash string) error {
+	return r.CreateWithPasswordAndVerificationToken(ctx, u, passwordHash, nil)
+}
+
+// CreateWithPasswordAndVerificationToken persists a User, PasswordCredentials, and optionally an
+// EmailVerificationToken in a single atomic database transaction. If any insert fails,
+// the entire transaction is rolled back, leaving behind no partially initialized account.
+func (r *PostgresRepository) CreateWithPasswordAndVerificationToken(ctx context.Context, u *User, passwordHash string, token *verification.Token) error {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
@@ -64,6 +72,23 @@ func (r *PostgresRepository) CreateWithPassword(ctx context.Context, u *User, pa
 	)
 	if err != nil {
 		return fmt.Errorf("insert password credentials: %w", err)
+	}
+
+	if token != nil {
+		const insertTokenSQL = `
+			INSERT INTO email_verification_tokens (id, user_id, token_hash, expires_at, created_at)
+			VALUES ($1, $2, $3, $4, $5);
+		`
+		_, err = tx.Exec(ctx, insertTokenSQL,
+			token.ID,
+			token.UserID,
+			token.TokenHash,
+			token.ExpiresAt,
+			token.CreatedAt,
+		)
+		if err != nil {
+			return fmt.Errorf("insert verification token: %w", err)
+		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {

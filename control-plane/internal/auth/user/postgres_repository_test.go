@@ -9,13 +9,17 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/verification"
 )
 
 func getTestDatabaseURL() string {
 	if url := os.Getenv("TEST_DATABASE_URL"); url != "" {
 		return url
 	}
-	return os.Getenv("DATABASE_URL")
+	if url := os.Getenv("DATABASE_URL"); url != "" {
+		return url
+	}
+	return "postgres://kr0n:kr0n_dev_password@localhost:5432/kr0n_test?sslmode=disable"
 }
 
 func setupTestPool(t *testing.T) *pgxpool.Pool {
@@ -202,5 +206,136 @@ func TestPostgresRepository_GetByEmailWithPassword_NotFound(t *testing.T) {
 	_, _, err := repo.GetByEmailWithPassword(ctx, "nonexistent@kr0n.dev")
 	if !errors.Is(err, ErrUserNotFound) {
 		t.Fatalf("expected ErrUserNotFound, got %v", err)
+	}
+}
+
+func TestPostgresRepository_CreateWithPasswordAndVerificationToken_Success(t *testing.T) {
+	pool := setupTestPool(t)
+	repo := NewPostgresRepository(pool)
+	ctx := context.Background()
+
+	uniqueEmail := "atomic_user_" + uuid.New().String() + "@kr0n.dev"
+	u, err := NewUser(uniqueEmail, "Atomic User")
+	if err != nil {
+		t.Fatalf("NewUser failed: %v", err)
+	}
+
+	rawToken, err := verification.GenerateToken()
+	if err != nil {
+		t.Fatalf("GenerateToken failed: %v", err)
+	}
+	tokenHash := verification.HashToken(rawToken)
+
+	now := time.Now().UTC()
+	token := &verification.Token{
+		ID:        uuid.New(),
+		UserID:    u.ID,
+		TokenHash: tokenHash,
+		ExpiresAt: now.Add(24 * time.Hour),
+		CreatedAt: now,
+	}
+
+	passwordHash := "$2a$12$mockpasswordhashforemailverificationatomic"
+	err = repo.CreateWithPasswordAndVerificationToken(ctx, u, passwordHash, token)
+	if err != nil {
+		t.Fatalf("CreateWithPasswordAndVerificationToken failed: %v", err)
+	}
+
+	// 1. Verify user created with email_verified_at = NULL
+	var (
+		dbVerifiedAt *time.Time
+		dbStatus     string
+	)
+	err = pool.QueryRow(ctx, "SELECT email_verified_at, status FROM users WHERE id = $1", u.ID).Scan(&dbVerifiedAt, &dbStatus)
+	if err != nil {
+		t.Fatalf("query users table failed: %v", err)
+	}
+	if dbVerifiedAt != nil {
+		t.Fatal("expected users.email_verified_at to be NULL upon creation")
+	}
+	if dbStatus != "active" {
+		t.Fatalf("expected status active, got %s", dbStatus)
+	}
+
+	// 2. Verify password_credentials created
+	var credUserID uuid.UUID
+	err = pool.QueryRow(ctx, "SELECT user_id FROM password_credentials WHERE user_id = $1", u.ID).Scan(&credUserID)
+	if err != nil {
+		t.Fatalf("query password_credentials failed: %v", err)
+	}
+
+	// 3. Verify token created with token_hash (NOT raw token)
+	var (
+		tokID         uuid.UUID
+		tokConsumedAt *time.Time
+	)
+	err = pool.QueryRow(ctx, "SELECT id, consumed_at FROM email_verification_tokens WHERE token_hash = $1", tokenHash).Scan(&tokID, &tokConsumedAt)
+	if err != nil {
+		t.Fatalf("query email_verification_tokens failed: %v", err)
+	}
+	if tokID != token.ID {
+		t.Fatalf("expected token ID %v, got %v", token.ID, tokID)
+	}
+	if tokConsumedAt != nil {
+		t.Fatal("expected token to NOT be consumed upon creation")
+	}
+
+	// 4. Confirm raw verification token does NOT exist in PostgreSQL
+	var rawCount int
+	_ = pool.QueryRow(ctx, "SELECT count(*) FROM email_verification_tokens WHERE token_hash = $1", rawToken).Scan(&rawCount)
+	if rawCount != 0 {
+		t.Fatalf("CRITICAL SECURITY VIOLATION: raw verification token was found in PostgreSQL")
+	}
+}
+
+func TestPostgresRepository_CreateWithPasswordAndVerificationToken_RollbackOnTokenError(t *testing.T) {
+	pool := setupTestPool(t)
+	repo := NewPostgresRepository(pool)
+	ctx := context.Background()
+
+	// First create an existing token to cause a unique constraint violation on token_hash
+	existingEmail := "existing_token_user_" + uuid.New().String() + "@kr0n.dev"
+	u1, _ := NewUser(existingEmail, "First User")
+	tokenHash := verification.HashToken("collision_" + uuid.New().String())
+	now := time.Now().UTC()
+
+	token1 := &verification.Token{
+		ID:        uuid.New(),
+		UserID:    u1.ID,
+		TokenHash: tokenHash,
+		ExpiresAt: now.Add(24 * time.Hour),
+		CreatedAt: now,
+	}
+	if err := repo.CreateWithPasswordAndVerificationToken(ctx, u1, "passhash1", token1); err != nil {
+		t.Fatalf("setup first user failed: %v", err)
+	}
+
+	// Now try to create a second user with the same token_hash
+	uniqueEmail2 := "failed_atomic_user_" + uuid.New().String() + "@kr0n.dev"
+	u2, _ := NewUser(uniqueEmail2, "Second User")
+	token2 := &verification.Token{
+		ID:        uuid.New(),
+		UserID:    u2.ID,
+		TokenHash: tokenHash, // duplicate!
+		ExpiresAt: now.Add(24 * time.Hour),
+		CreatedAt: now,
+	}
+
+	err := repo.CreateWithPasswordAndVerificationToken(ctx, u2, "passhash2", token2)
+	if err == nil {
+		t.Fatal("expected token unique violation error, got nil")
+	}
+
+	// Verify atomicity: u2 must NOT exist in users table
+	var count int
+	_ = pool.QueryRow(ctx, "SELECT count(*) FROM users WHERE id = $1", u2.ID).Scan(&count)
+	if count != 0 {
+		t.Fatalf("expected user row to be rolled back, found count=%d", count)
+	}
+
+	// Verify password credential for u2 does NOT exist
+	_ = pool.QueryRow(ctx, "SELECT count(*) FROM password_credentials WHERE user_id = $1", u2.ID).Scan(&count)
+	if count != 0 {
+		t.Fatalf("expected password_credentials row to be rolled back, found count=%d", count)
 	}
 }
