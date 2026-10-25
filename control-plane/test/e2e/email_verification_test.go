@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/jwtkeys"
 	"io"
 	"net"
 	"net/http"
@@ -27,7 +28,7 @@ import (
 )
 
 func TestE2E_EmailVerification_Lifecycle(t *testing.T) {
-	testDBURL := getTestDatabaseURL()
+	testDBURL := getTestDatabaseURL(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -56,7 +57,7 @@ func TestE2E_EmailVerification_Lifecycle(t *testing.T) {
 	verifRepo := verification.NewPostgresRepository(dbPool)
 	verifService := verification.NewService(verifRepo)
 
-	jwtSigner, err := session.NewJWTSigner([]byte("test_jwt_secret_key_at_least_32_bytes_long!"), "kr0n-test", 15*time.Minute)
+	jwtSigner, err := jwtkeys.NewSigner(jwtkeys.DevPrivateKey(), "k1", "kr0n-test", "kr0n-api", 15*time.Minute)
 	if err != nil {
 		t.Fatalf("failed to create jwt signer: %v", err)
 	}
@@ -95,7 +96,7 @@ func TestE2E_EmailVerification_Lifecycle(t *testing.T) {
 
 	authClient := authv1.NewAuthServiceClient(authConn)
 	gwHandler := gateway.NewHandler(authClient)
-	gwRouter := gateway.NewRouter(gwHandler)
+	gwRouter := gateway.NewServerHandler(gwHandler, gateway.Options{})
 
 	httpListener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -419,7 +420,7 @@ func TestE2E_EmailVerification_Lifecycle(t *testing.T) {
 }
 
 func TestE2E_EmailVerification_Manual10StepsVerification(t *testing.T) {
-	testDBURL := getTestDatabaseURL()
+	testDBURL := getTestDatabaseURL(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -457,7 +458,7 @@ func TestE2E_EmailVerification_Manual10StepsVerification(t *testing.T) {
 
 	authClient := authv1.NewAuthServiceClient(authConn)
 	gwHandler := gateway.NewHandler(authClient)
-	gwRouter := gateway.NewRouter(gwHandler)
+	gwRouter := gateway.NewServerHandler(gwHandler, gateway.Options{})
 
 	httpListener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

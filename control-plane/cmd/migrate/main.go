@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"log"
@@ -9,12 +8,9 @@ import (
 	"strconv"
 
 	"github.com/golang-migrate/migrate/v4"
-	pgx "github.com/golang-migrate/migrate/v4/database/pgx/v5"
-	"github.com/golang-migrate/migrate/v4/source/iofs"
-	_ "github.com/jackc/pgx/v5/stdlib"
 
 	"github.com/skxm03/kr0n-backend/control-plane/internal/config"
-	"github.com/skxm03/kr0n-backend/control-plane/migrations"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
 )
 
 func main() {
@@ -30,7 +26,7 @@ func main() {
 		log.Fatalf("failed to load configuration: %v", err)
 	}
 
-	m, closeFn, err := newMigrator(cfg.DatabaseURL)
+	m, closeFn, err := database.NewMigrator(cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("failed to initialize migrator: %v", err)
 	}
@@ -85,43 +81,6 @@ func main() {
 		printUsage()
 		os.Exit(1)
 	}
-}
-
-func newMigrator(databaseURL string) (*migrate.Migrate, func(), error) {
-	db, err := sql.Open("pgx/v5", databaseURL)
-	if err != nil {
-		return nil, nil, fmt.Errorf("open database: %w", err)
-	}
-
-	driver, err := pgx.WithInstance(db, &pgx.Config{})
-	if err != nil {
-		db.Close()
-		return nil, nil, fmt.Errorf("create pgx migration driver: %w", err)
-	}
-
-	sourceDriver, err := iofs.New(migrations.FS, ".")
-	if err != nil {
-		db.Close()
-		return nil, nil, fmt.Errorf("create iofs source driver: %w", err)
-	}
-
-	m, err := migrate.NewWithInstance("iofs", sourceDriver, "pgx5", driver)
-	if err != nil {
-		db.Close()
-		return nil, nil, fmt.Errorf("create migrate instance: %w", err)
-	}
-
-	closeFn := func() {
-		sourceErr, dbErr := m.Close()
-		if sourceErr != nil {
-			log.Printf("warning: error closing migration source: %v", sourceErr)
-		}
-		if dbErr != nil {
-			log.Printf("warning: error closing migration database: %v", dbErr)
-		}
-	}
-
-	return m, closeFn, nil
 }
 
 func printUsage() {

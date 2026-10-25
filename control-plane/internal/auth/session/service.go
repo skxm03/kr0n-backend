@@ -22,7 +22,7 @@ type TokenIssuer interface {
 	Issue(userID uuid.UUID, sessionID uuid.UUID, now time.Time) (accessToken, rawRefreshToken, tokenHash string, expiresIn time.Duration, err error)
 }
 
-// DefaultTokenIssuer issues an HMAC-SHA256 JWT access token and secure random opaque refresh token.
+// DefaultTokenIssuer issues a signed JWT access token and secure random opaque refresh token.
 type DefaultTokenIssuer struct {
 	signer TokenSigner
 }
@@ -103,24 +103,39 @@ func (s *Service) Login(ctx context.Context, params LoginParams) (*LoginResult, 
 		return nil, err
 	}
 
-	// 2. Prepare session identity and timestamps
-	sessionID := uuid.New()
+	return s.CreateSessionForUser(ctx, authenticatedUser, params.UserAgent, params.ClientIP)
+}
+
+// CreateSessionForUser issues an access token and refresh token and persists the session for an already-authenticated user.
+func (s *Service) CreateSessionForUser(ctx context.Context, authenticatedUser *user.User, userAgent *string, clientIP *net.IP) (*LoginResult, error) {
+	if authenticatedUser == nil {
+		return nil, user.ErrUserNotFound
+	}
+	if authenticatedUser.Status != user.StatusActive {
+		return nil, user.ErrUserNotActive
+	}
+
+	// Prepare session identity and timestamps
+	sessionID, err := uuid.NewV7()
+	if err != nil {
+		sessionID = uuid.New()
+	}
 	now := time.Now().UTC()
 	expiresAt := now.Add(s.sessionLifetime)
 
-	// 3. Generate tokens BEFORE persisting session
+	// Generate tokens BEFORE persisting session
 	accessToken, rawRefreshToken, tokenHash, expiresIn, err := s.tokenIssuer.Issue(authenticatedUser.ID, sessionID, now)
 	if err != nil {
 		return nil, fmt.Errorf("issue tokens: %w", err)
 	}
 
-	// 4. Persist session with refresh token hash atomically
+	// Persist session with refresh token hash atomically
 	sessionRecord := &Session{
 		ID:         sessionID,
 		UserID:     authenticatedUser.ID,
 		TokenHash:  tokenHash,
-		UserAgent:  params.UserAgent,
-		IPAddress:  params.ClientIP,
+		UserAgent:  userAgent,
+		IPAddress:  clientIP,
 		ExpiresAt:  expiresAt,
 		RevokedAt:  nil,
 		CreatedAt:  now,
@@ -205,17 +220,35 @@ func (s *Service) Refresh(ctx context.Context, rawRefreshToken string) (*Refresh
 
 // Logout revokes the session associated with the supplied refresh token.
 // It is idempotent and safe, returning nil even if the token does not exist or is already revoked.
-func (s *Service) Logout(ctx context.Context, rawRefreshToken string) error {
+// If the session existed prior to revocation, it is returned for audit attribution.
+func (s *Service) Logout(ctx context.Context, rawRefreshToken string) (*Session, error) {
 	if strings.TrimSpace(rawRefreshToken) == "" {
-		return nil
+		return nil, nil
 	}
 
 	tokenHash := HashRefreshToken(rawRefreshToken)
 	now := time.Now().UTC()
 
+	sess, _ := s.sessionRepo.GetByTokenHash(ctx, tokenHash)
 	if err := s.sessionRepo.RevokeByTokenHash(ctx, tokenHash, now); err != nil {
-		return fmt.Errorf("revoke session: %w", err)
+		return nil, fmt.Errorf("revoke session: %w", err)
 	}
 
-	return nil
+	return sess, nil
+}
+
+// ListSessions returns all active (non-revoked, non-expired) sessions for a user.
+func (s *Service) ListSessions(ctx context.Context, userID uuid.UUID) ([]Session, error) {
+	if userID == uuid.Nil {
+		return nil, ErrSessionNotFound
+	}
+	return s.sessionRepo.ListActiveByUserID(ctx, userID, time.Now().UTC())
+}
+
+// RevokeSession revokes a single session owned by userID.
+func (s *Service) RevokeSession(ctx context.Context, userID, sessionID uuid.UUID) error {
+	if userID == uuid.Nil || sessionID == uuid.Nil {
+		return ErrSessionNotFound
+	}
+	return s.sessionRepo.RevokeByID(ctx, userID, sessionID, time.Now().UTC())
 }

@@ -22,6 +22,93 @@ service AuthService {
 
   // VerifyEmail validates a verification token and marks the user's email verified.
   rpc VerifyEmail(VerifyEmailRequest) returns (VerifyEmailResponse);
+
+  // GetJWKS returns the active public signing keys in JSON Web Key Set format.
+  rpc GetJWKS(GetJWKSRequest) returns (GetJWKSResponse);
+
+  // ResendVerification issues a new email verification token and sends it if the account is unverified.
+  rpc ResendVerification(ResendVerificationRequest) returns (ResendVerificationResponse);
+
+  // RequestPasswordReset issues a password reset token and sends it if the account exists.
+  rpc RequestPasswordReset(RequestPasswordResetRequest) returns (RequestPasswordResetResponse);
+
+  // ConfirmPasswordReset consumes a password reset token and updates the user's password.
+  rpc ConfirmPasswordReset(ConfirmPasswordResetRequest) returns (ConfirmPasswordResetResponse);
+
+  // ChangePassword verifies current_password, updates password, and revokes other sessions.
+  rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
+
+  // GetMe retrieves the authenticated user's profile.
+  rpc GetMe(GetMeRequest) returns (GetMeResponse);
+
+  // ListSessions returns active sessions for the authenticated user.
+  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse);
+
+  // RevokeSession revokes a specific session belonging to the authenticated user.
+  rpc RevokeSession(RevokeSessionRequest) returns (RevokeSessionResponse);
+
+  // StartGitHubOAuth generates a PKCE challenge, state, and GitHub authorize URL.
+  rpc StartGitHubOAuth(StartGitHubOAuthRequest) returns (StartGitHubOAuthResponse);
+
+  // CompleteGitHubOAuth exchanges an OAuth code + PKCE verifier, links/creates the user, and issues a session.
+  rpc CompleteGitHubOAuth(CompleteGitHubOAuthRequest) returns (LoginResponse);
+
+  // CheckPermission evaluates whether a caller principal holds a permission in an organization.
+  rpc CheckPermission(CheckPermissionRequest) returns (CheckPermissionResponse);
+
+  // ListRoles returns all RBAC roles and their granted permissions.
+  rpc ListRoles(ListRolesRequest) returns (ListRolesResponse);
+
+  // CreateOrganization creates an organization with the caller as owner.
+  rpc CreateOrganization(CreateOrganizationRequest) returns (OrganizationResponse);
+
+  // ListOrganizations lists all organizations the user belongs to.
+  rpc ListOrganizations(ListOrganizationsRequest) returns (ListOrganizationsResponse);
+
+  // GetOrganization returns an organization by ID.
+  rpc GetOrganization(GetOrganizationRequest) returns (OrganizationResponse);
+
+  // UpdateOrganization updates an organization's name.
+  rpc UpdateOrganization(UpdateOrganizationRequest) returns (OrganizationResponse);
+
+  // DeleteOrganization deletes an organization.
+  rpc DeleteOrganization(DeleteOrganizationRequest) returns (DeleteOrganizationResponse);
+
+  // ListMembers lists members of an organization.
+  rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);
+
+  // AddMember adds an existing user by email to an organization.
+  rpc AddMember(AddMemberRequest) returns (MemberInfo);
+
+  // UpdateMemberRole updates a member's role in an organization.
+  rpc UpdateMemberRole(UpdateMemberRoleRequest) returns (UpdateMemberRoleResponse);
+
+  // RemoveMember removes a member from an organization.
+  rpc RemoveMember(RemoveMemberRequest) returns (RemoveMemberResponse);
+
+  // CreateInvite creates an organization invitation token.
+  rpc CreateInvite(CreateInviteRequest) returns (CreateInviteResponse);
+
+  // AcceptInvite accepts an organization invitation token.
+  rpc AcceptInvite(AcceptInviteRequest) returns (OrganizationResponse);
+
+  // RevokeInvite revokes a pending organization invitation.
+  rpc RevokeInvite(RevokeInviteRequest) returns (RevokeInviteResponse);
+
+  // CreateAPIToken creates an org-scoped API token (`kr0n_pat_...`).
+  rpc CreateAPIToken(CreateAPITokenRequest) returns (CreateAPITokenResponse);
+
+  // ListAPITokens lists active API tokens for an organization.
+  rpc ListAPITokens(ListAPITokensRequest) returns (ListAPITokensResponse);
+
+  // RevokeAPIToken revokes an organization API token.
+  rpc RevokeAPIToken(RevokeAPITokenRequest) returns (RevokeAPITokenResponse);
+
+  // ValidateAPIToken validates a raw `kr0n_pat_...` token and returns its org scope and permissions.
+  rpc ValidateAPIToken(ValidateAPITokenRequest) returns (ValidateAPITokenResponse);
+
+  // ListAuditEvents lists append-only audit events for an organization, gated by `audit:read`.
+  rpc ListAuditEvents(ListAuditEventsRequest) returns (ListAuditEventsResponse);
 }
 
 message RegisterRequest {
@@ -83,4 +170,334 @@ message VerifyEmailRequest {
 }
 
 message VerifyEmailResponse {
+}
+
+message GetJWKSRequest {
+}
+
+message JWK {
+  string kty = 1;
+  string crv = 2;
+  string kid = 3;
+  string alg = 4;
+  string use = 5;
+  string x = 6;
+}
+
+message GetJWKSResponse {
+  repeated JWK keys = 1;
+}
+
+message ResendVerificationRequest {
+  string email = 1;
+}
+
+message ResendVerificationResponse {
+}
+
+message RequestPasswordResetRequest {
+  string email = 1;
+}
+
+message RequestPasswordResetResponse {
+}
+
+message ConfirmPasswordResetRequest {
+  string token = 1;
+  string new_password = 2;
+}
+
+message ConfirmPasswordResetResponse {
+}
+
+message ChangePasswordRequest {
+  string user_id = 1;
+  string session_id = 2;
+  string current_password = 3;
+  string new_password = 4;
+}
+
+message ChangePasswordResponse {
+}
+
+message GetMeRequest {
+  string user_id = 1;
+}
+
+message GetMeResponse {
+  string id = 1;
+  string email = 2;
+  string display_name = 3;
+  string avatar_url = 4;
+  string status = 5;
+  bool email_verified = 6;
+  google.protobuf.Timestamp email_verified_at = 7;
+  google.protobuf.Timestamp created_at = 8;
+}
+
+message ListSessionsRequest {
+  string user_id = 1;
+}
+
+message SessionInfo {
+  string id = 1;
+  string user_agent = 2;
+  string ip_address = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp last_seen_at = 5;
+  google.protobuf.Timestamp expires_at = 6;
+}
+
+message ListSessionsResponse {
+  repeated SessionInfo sessions = 1;
+}
+
+message RevokeSessionRequest {
+  string user_id = 1;
+  string session_id = 2;
+}
+
+message RevokeSessionResponse {
+}
+
+message StartGitHubOAuthRequest {
+}
+
+message StartGitHubOAuthResponse {
+  string authorize_url = 1;
+  string state = 2;
+  string code_verifier = 3;
+}
+
+message CompleteGitHubOAuthRequest {
+  string code = 1;
+  string code_verifier = 2;
+  string user_agent = 3;
+  string client_ip = 4;
+}
+
+message CallerPrincipal {
+  string user_id = 1;
+  string kind = 2;
+  string token_org_id = 3;
+  repeated string token_permissions = 4;
+}
+
+message CheckPermissionRequest {
+  CallerPrincipal caller = 1;
+  string org_id = 2;
+  string permission = 3;
+}
+
+message CheckPermissionResponse {
+  bool allowed = 1;
+}
+
+message ListRolesRequest {
+}
+
+message RoleInfo {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  repeated string permissions = 4;
+}
+
+message ListRolesResponse {
+  repeated RoleInfo roles = 1;
+}
+
+message CreateOrganizationRequest {
+  string user_id = 1;
+  string name = 2;
+  string slug = 3;
+}
+
+message OrganizationResponse {
+  string id = 1;
+  string name = 2;
+  string slug = 3;
+  string role_id = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+message ListOrganizationsRequest {
+  string user_id = 1;
+}
+
+message ListOrganizationsResponse {
+  repeated OrganizationResponse organizations = 1;
+}
+
+message GetOrganizationRequest {
+  CallerPrincipal caller = 1;
+  string org_id = 2;
+}
+
+message UpdateOrganizationRequest {
+  CallerPrincipal caller = 1;
+  string org_id = 2;
+  string name = 3;
+}
+
+message DeleteOrganizationRequest {
+  CallerPrincipal caller = 1;
+  string org_id = 2;
+}
+
+message DeleteOrganizationResponse {
+}
+
+message ListMembersRequest {
+  CallerPrincipal caller = 1;
+  string org_id = 2;
+}
+
+message MemberInfo {
+  string user_id = 1;
+  string email = 2;
+  string display_name = 3;
+  string role_id = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+message ListMembersResponse {
+  repeated MemberInfo members = 1;
+}
+
+message AddMemberRequest {
+  CallerPrincipal caller = 1;
+  string org_id = 2;
+  string email = 3;
+  string role_id = 4;
+}
+
+message UpdateMemberRoleRequest {
+  CallerPrincipal caller = 1;
+  string org_id = 2;
+  string target_user_id = 3;
+  string role_id = 4;
+}
+
+message UpdateMemberRoleResponse {
+}
+
+message RemoveMemberRequest {
+  CallerPrincipal caller = 1;
+  string org_id = 2;
+  string target_user_id = 3;
+}
+
+message RemoveMemberResponse {
+}
+
+message CreateInviteRequest {
+  CallerPrincipal caller = 1;
+  string org_id = 2;
+  string email = 3;
+  string role_id = 4;
+}
+
+message CreateInviteResponse {
+  string id = 1;
+  string org_id = 2;
+  string email = 3;
+  string role_id = 4;
+  string token = 5;
+  google.protobuf.Timestamp expires_at = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message AcceptInviteRequest {
+  string user_id = 1;
+  string token = 2;
+}
+
+message RevokeInviteRequest {
+  CallerPrincipal caller = 1;
+  string org_id = 2;
+  string invite_id = 3;
+}
+
+message RevokeInviteResponse {
+}
+
+message CreateAPITokenRequest {
+  CallerPrincipal caller = 1;
+  string org_id = 2;
+  string name = 3;
+  repeated string permissions = 4;
+  int64 expires_in_seconds = 5;
+}
+
+message APITokenInfo {
+  string id = 1;
+  string org_id = 2;
+  string created_by_user_id = 3;
+  string name = 4;
+  string token_prefix = 5;
+  repeated string permissions = 6;
+  google.protobuf.Timestamp expires_at = 7;
+  google.protobuf.Timestamp last_used_at = 8;
+  google.protobuf.Timestamp created_at = 9;
+}
+
+message CreateAPITokenResponse {
+  APITokenInfo token = 1;
+  string secret = 2;
+}
+
+message ListAPITokensRequest {
+  CallerPrincipal caller = 1;
+  string org_id = 2;
+}
+
+message ListAPITokensResponse {
+  repeated APITokenInfo tokens = 1;
+}
+
+message RevokeAPITokenRequest {
+  CallerPrincipal caller = 1;
+  string org_id = 2;
+  string token_id = 3;
+}
+
+message RevokeAPITokenResponse {
+}
+
+message ValidateAPITokenRequest {
+  string token = 1;
+}
+
+message ValidateAPITokenResponse {
+  string token_id = 1;
+  string org_id = 2;
+  string user_id = 3;
+  repeated string permissions = 4;
+}
+
+message ListAuditEventsRequest {
+  CallerPrincipal caller = 1;
+  string org_id = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message AuditEventInfo {
+  string id = 1;
+  string org_id = 2;
+  string actor_user_id = 3;
+  string actor_type = 4;
+  string action = 5;
+  string resource_type = 6;
+  string resource_id = 7;
+  string ip_address = 8;
+  string user_agent = 9;
+  string metadata_json = 10;
+  google.protobuf.Timestamp created_at = 11;
+}
+
+message ListAuditEventsResponse {
+  repeated AuditEventInfo events = 1;
 }

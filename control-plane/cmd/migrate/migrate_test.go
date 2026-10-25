@@ -14,16 +14,16 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/skxm03/kr0n-backend/control-plane/internal/config"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/testdb"
 )
 
 func TestMigrationsLifecycle(t *testing.T) {
-	cfg, err := config.Load()
-	if err != nil {
-		t.Fatalf("config.Load() failed: %v", err)
-	}
+	// Always run destructive up/down lifecycle tests in a dedicated, throwaway owned test database.
+	// Never read or touch DATABASE_URL.
+	ownedDBURL := testdb.NewOwnedDatabase(t)
 
-	db, err := sql.Open("pgx/v5", cfg.DatabaseURL)
+	db, err := sql.Open("pgx/v5", ownedDBURL)
 	if err != nil {
 		t.Fatalf("sql.Open() failed: %v", err)
 	}
@@ -36,14 +36,16 @@ func TestMigrationsLifecycle(t *testing.T) {
 		t.Fatalf("database ping failed: %v", err)
 	}
 
-	m, closeMigrator, err := newMigrator(cfg.DatabaseURL)
+	m, closeMigrator, err := database.NewMigrator(ownedDBURL)
 	if err != nil {
-		t.Fatalf("newMigrator failed: %v", err)
+		t.Fatalf("database.NewMigrator failed: %v", err)
 	}
 	defer closeMigrator()
 
-	// Step 1: Ensure clean state by rolling back if already applied
-	_ = m.Down()
+	// Step 1: Fresh owned database starts with no migrations applied
+	if _, _, err := m.Version(); !errors.Is(err, migrate.ErrNilVersion) {
+		t.Fatalf("expected fresh owned database to have ErrNilVersion, got: %v", err)
+	}
 
 	// Step 2: Apply migration up
 	t.Log("Step 2: Running migration up...")
@@ -55,8 +57,8 @@ func TestMigrationsLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get version: %v", err)
 	}
-	if version != 1 || dirty {
-		t.Fatalf("expected version 1 (dirty: false), got version %d (dirty: %t)", version, dirty)
+	if version != 2 || dirty {
+		t.Fatalf("expected version 2 (dirty: false), got version %d (dirty: %t)", version, dirty)
 	}
 
 	// Step 3: Migration up again (idempotency check)
@@ -79,6 +81,11 @@ func TestMigrationsLifecycle(t *testing.T) {
 		"role_permissions",
 		"organization_memberships",
 		"outbox_events",
+		"refresh_token_history",
+		"password_reset_tokens",
+		"api_tokens",
+		"organization_invites",
+		"audit_events",
 	}
 
 	for _, table := range expectedTables {
@@ -108,8 +115,8 @@ func TestMigrationsLifecycle(t *testing.T) {
 	if err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM permissions;").Scan(&permCount); err != nil {
 		t.Fatalf("failed to query permissions count: %v", err)
 	}
-	if permCount != 7 {
-		t.Fatalf("expected 7 seeded permissions, got %d", permCount)
+	if permCount != 23 {
+		t.Fatalf("expected 23 seeded permissions, got %d", permCount)
 	}
 
 	// Step 5: Constraint verification
@@ -272,7 +279,7 @@ func TestMigrationsLifecycle(t *testing.T) {
 
 	// Step 6: Migration down
 	t.Log("Step 6: Running migration down...")
-	if err := m.Steps(-1); err != nil {
+	if err := m.Down(); err != nil {
 		t.Fatalf("migration down failed: %v", err)
 	}
 
@@ -300,8 +307,8 @@ func TestMigrationsLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get version after re-apply: %v", err)
 	}
-	if versionAfterReapply != 1 || dirtyAfterReapply {
-		t.Fatalf("expected version 1 (dirty: false) after re-apply, got %d (dirty: %t)", versionAfterReapply, dirtyAfterReapply)
+	if versionAfterReapply != 2 || dirtyAfterReapply {
+		t.Fatalf("expected version 2 (dirty: false) after re-apply, got %d (dirty: %t)", versionAfterReapply, dirtyAfterReapply)
 	}
 
 	t.Log("Integration test completed successfully!")

@@ -40,18 +40,42 @@ var (
 
 	// ErrUserNotActive indicates the user account is suspended or deactivated.
 	ErrUserNotActive = errors.New("user account is not active")
+
+	// ErrEmailNotVerified indicates login requires a verified email address.
+	ErrEmailNotVerified = errors.New("email address is not verified")
+
+	// ErrInvalidResetToken indicates a password reset token is invalid, expired, or already used.
+	ErrInvalidResetToken = errors.New("invalid or expired password reset token")
+
+	// ErrOAuthEmailNotVerified indicates the OAuth provider did not supply a verified email address.
+	ErrOAuthEmailNotVerified = errors.New("oauth email address is not verified")
+
+	// ErrOAuthAccountConflict indicates the user account is already linked to a different identity for the provider.
+	ErrOAuthAccountConflict = errors.New("account is already linked to another oauth identity")
 )
+
+// OAuthProfile represents a verified identity returned by an OAuth provider (e.g., GitHub).
+type OAuthProfile struct {
+	Provider       string
+	ProviderUserID string
+	Email          string
+	EmailVerified  bool
+	DisplayName    string
+	AvatarURL      *string
+}
 
 // User represents the authoritative user entity.
 type User struct {
-	ID              uuid.UUID
-	Email           string
-	DisplayName     string
-	AvatarURL       *string
-	Status          Status
-	EmailVerifiedAt *time.Time
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	ID                  uuid.UUID
+	Email               string
+	DisplayName         string
+	AvatarURL           *string
+	Status              Status
+	EmailVerifiedAt     *time.Time
+	FailedLoginAttempts int
+	LockedUntil         *time.Time
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 // CanonicalizeEmail normalizes and validates an email address according to system invariants.
@@ -99,8 +123,12 @@ func NewUser(rawEmail, rawDisplayName string) (*User, error) {
 	}
 
 	now := time.Now().UTC()
+	id, err := uuid.NewV7()
+	if err != nil {
+		id = uuid.New()
+	}
 	return &User{
-		ID:          uuid.New(),
+		ID:          id,
 		Email:       email,
 		DisplayName: displayName,
 		Status:      StatusActive,

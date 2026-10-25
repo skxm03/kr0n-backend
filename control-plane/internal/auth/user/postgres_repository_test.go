@@ -3,55 +3,21 @@ package user
 import (
 	"context"
 	"errors"
-	"os"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/verification"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/testdb"
 )
 
-func getTestDatabaseURL() string {
-	if url := os.Getenv("TEST_DATABASE_URL"); url != "" {
-		return url
-	}
-	if url := os.Getenv("DATABASE_URL"); url != "" {
-		return url
-	}
-	return "postgres://kr0n:kr0n_dev_password@localhost:5432/kr0n_test?sslmode=disable"
-}
-
+// setupTestPool returns a pool on the isolated, fully migrated test database (TEST_DATABASE_URL
+// only; DATABASE_URL is never used). See internal/testdb.
 func setupTestPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	dbURL := getTestDatabaseURL()
-	if dbURL == "" {
-		t.Skip("skipping postgres integration test: neither TEST_DATABASE_URL nor DATABASE_URL set")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	config, err := pgxpool.ParseConfig(dbURL)
-	if err != nil {
-		t.Fatalf("parse db config: %v", err)
-	}
-
-	pool, err := pgxpool.NewWithConfig(ctx, config)
-	if err != nil {
-		t.Fatalf("connect to test db: %v", err)
-	}
-
-	if err := pool.Ping(ctx); err != nil {
-		pool.Close()
-		t.Skipf("cannot reach test db at %s: %v", dbURL, err)
-	}
-
-	t.Cleanup(func() {
-		pool.Close()
-	})
-
-	return pool
+	return testdb.Pool(t)
 }
 
 func TestPostgresRepository_CreateWithPassword_Success(t *testing.T) {
@@ -67,9 +33,9 @@ func TestPostgresRepository_CreateWithPassword_Success(t *testing.T) {
 	const passwordHash = "$2a$12$e8I7n.oE/1u9jFq7m5yRyeuG.F/5kX5g5g1"
 	ctx := context.Background()
 
-	err = repo.CreateWithPassword(ctx, u, passwordHash)
+	err = repo.CreateWithPasswordAndVerificationToken(ctx, u, passwordHash, nil)
 	if err != nil {
-		t.Fatalf("CreateWithPassword failed: %v", err)
+		t.Fatalf("CreateWithPasswordAndVerificationToken failed: %v", err)
 	}
 
 	// Verify users table row
@@ -111,7 +77,7 @@ func TestPostgresRepository_CreateWithPassword_DuplicateEmail(t *testing.T) {
 
 	ctx := context.Background()
 	const hash = "$2a$12$e8I7n.oE/1u9jFq7m5yRyeuG.F/5kX5g5g1"
-	if err := repo.CreateWithPassword(ctx, u1, hash); err != nil {
+	if err := repo.CreateWithPasswordAndVerificationToken(ctx, u1, hash, nil); err != nil {
 		t.Fatalf("initial insert failed: %v", err)
 	}
 
@@ -121,7 +87,7 @@ func TestPostgresRepository_CreateWithPassword_DuplicateEmail(t *testing.T) {
 		t.Fatalf("NewUser 2 failed: %v", err)
 	}
 
-	err = repo.CreateWithPassword(ctx, u2, hash)
+	err = repo.CreateWithPasswordAndVerificationToken(ctx, u2, hash, nil)
 	if err == nil {
 		t.Fatal("expected duplicate email error, got nil")
 	}
@@ -142,7 +108,7 @@ func TestPostgresRepository_CreateWithPassword_RollbackOnCredentialFailure(t *te
 
 	ctx := context.Background()
 	// Empty password hash violates check constraint 'password_hash_non_empty'
-	err = repo.CreateWithPassword(ctx, u, "")
+	err = repo.CreateWithPasswordAndVerificationToken(ctx, u, "", nil)
 	if err == nil {
 		t.Fatal("expected failure on empty password hash, got nil")
 	}
@@ -171,9 +137,9 @@ func TestPostgresRepository_GetByEmailWithPassword_Success(t *testing.T) {
 	const passwordHash = "$2a$12$e8I7n.oE/1u9jFq7m5yRyeuG.F/5kX5g5g1"
 	ctx := context.Background()
 
-	err = repo.CreateWithPassword(ctx, u, passwordHash)
+	err = repo.CreateWithPasswordAndVerificationToken(ctx, u, passwordHash, nil)
 	if err != nil {
-		t.Fatalf("CreateWithPassword failed: %v", err)
+		t.Fatalf("CreateWithPasswordAndVerificationToken failed: %v", err)
 	}
 
 	gotUser, gotHash, err := repo.GetByEmailWithPassword(ctx, uniqueEmail)
@@ -337,5 +303,213 @@ func TestPostgresRepository_CreateWithPasswordAndVerificationToken_RollbackOnTok
 	_ = pool.QueryRow(ctx, "SELECT count(*) FROM password_credentials WHERE user_id = $1", u2.ID).Scan(&count)
 	if count != 0 {
 		t.Fatalf("expected password_credentials row to be rolled back, found count=%d", count)
+	}
+}
+
+func TestPostgresRepository_ResolveOAuthUser_ScenariosAndTakeoverDefense(t *testing.T) {
+	pool := setupTestPool(t)
+	repo := NewPostgresRepository(pool)
+	hasher := NewBcryptHasher(12)
+	svc := NewService(repo, hasher, WithRequireVerifiedEmail(true))
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	// 1. Provider email unverified or missing must be rejected
+	if _, err := repo.ResolveOAuthUser(ctx, OAuthProfile{
+		Provider: "github", ProviderUserID: "gh_unv_" + uuid.NewString(), Email: "u@kr0n.dev", EmailVerified: false,
+	}, now); !errors.Is(err, ErrOAuthEmailNotVerified) {
+		t.Fatalf("expected ErrOAuthEmailNotVerified for unverified email, got %v", err)
+	}
+	if _, err := repo.ResolveOAuthUser(ctx, OAuthProfile{
+		Provider: "github", ProviderUserID: "gh_empty_" + uuid.NewString(), Email: "", EmailVerified: true,
+	}, now); !errors.Is(err, ErrOAuthEmailNotVerified) {
+		t.Fatalf("expected ErrOAuthEmailNotVerified for empty email, got %v", err)
+	}
+
+	// 2. Brand-new GitHub user -> creates verified user + oauth_identities
+	newEmail := "gh_new_" + uuid.NewString() + "@kr0n.dev"
+	newGHID := "gh_new_" + uuid.NewString()
+	created, err := repo.ResolveOAuthUser(ctx, OAuthProfile{
+		Provider: "github", ProviderUserID: newGHID, Email: newEmail, EmailVerified: true, DisplayName: "New GH",
+	}, now)
+	if err != nil {
+		t.Fatalf("ResolveOAuthUser new user: %v", err)
+	}
+	if created.Email != newEmail || created.EmailVerifiedAt == nil {
+		t.Fatalf("expected verified new user, got %+v", created)
+	}
+
+	// 3. Existing OAuth identity -> resolves same user idempotently
+	again, err := repo.ResolveOAuthUser(ctx, OAuthProfile{
+		Provider: "github", ProviderUserID: newGHID, Email: newEmail, EmailVerified: true, DisplayName: "New GH",
+	}, now)
+	if err != nil || again.ID != created.ID {
+		t.Fatalf("expected existing OAuth identity to resolve to %s, got %+v (err=%v)", created.ID, again, err)
+	}
+
+	// 4. Existing account with VERIFIED email -> links OAuth while preserving verified password & sessions
+	verifiedEmail := "gh_verified_" + uuid.NewString() + "@kr0n.dev"
+	verifiedUser, err := svc.Register(ctx, RegisterParams{
+		Email: verifiedEmail, Password: "LegitUserPassword123!", DisplayName: "Legit User",
+	})
+	if err != nil {
+		t.Fatalf("Register verified user: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE users SET email_verified_at = $1 WHERE id = $2`, now, verifiedUser.ID); err != nil {
+		t.Fatalf("mark verified: %v", err)
+	}
+	legitSessionID := uuid.New()
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO sessions (id, user_id, token_hash, expires_at)
+		VALUES ($1, $2, $3, $4)
+	`, legitSessionID, verifiedUser.ID, "legit_sess_"+uuid.NewString(), now.Add(time.Hour)); err != nil {
+		t.Fatalf("insert legit session: %v", err)
+	}
+
+	linkedVerified, err := repo.ResolveOAuthUser(ctx, OAuthProfile{
+		Provider: "github", ProviderUserID: "gh_ver_" + uuid.NewString(), Email: verifiedEmail, EmailVerified: true, DisplayName: "Legit GH",
+	}, now)
+	if err != nil || linkedVerified.ID != verifiedUser.ID {
+		t.Fatalf("link verified user: err=%v user=%+v", err, linkedVerified)
+	}
+	// Legitimate password login and session must still work!
+	if _, err := svc.Authenticate(ctx, AuthenticateParams{Email: verifiedEmail, Password: "LegitUserPassword123!"}); err != nil {
+		t.Fatalf("legitimate verified user's password must still work after OAuth link: %v", err)
+	}
+	var legitRevokedAt *time.Time
+	_ = pool.QueryRow(ctx, `SELECT revoked_at FROM sessions WHERE id = $1`, legitSessionID).Scan(&legitRevokedAt)
+	if legitRevokedAt != nil {
+		t.Fatal("legitimate verified user's session must NOT be revoked on OAuth link")
+	}
+
+	// 5. Attack scenario (HIGH-02): Attacker pre-registers victim's email WITHOUT verifying it,
+	// sets an attacker password, creates a session and a password-reset token. Victim then signs in
+	// with GitHub using that verified email. Attacker must lose all access.
+	victimEmail := "victim_" + uuid.NewString() + "@kr0n.dev"
+	attackerPass := "AttackerChosenPass123!"
+	squattedUser, err := svc.Register(ctx, RegisterParams{
+		Email: victimEmail, Password: attackerPass, DisplayName: "Attacker Squat",
+	})
+	if err != nil {
+		t.Fatalf("attacker pre-register: %v", err)
+	}
+	attackerSessionID := uuid.New()
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO sessions (id, user_id, token_hash, expires_at)
+		VALUES ($1, $2, $3, $4)
+	`, attackerSessionID, squattedUser.ID, "attacker_sess_"+uuid.NewString(), now.Add(time.Hour)); err != nil {
+		t.Fatalf("insert attacker session: %v", err)
+	}
+	attackerResetHash := verification.HashToken("attacker_reset_" + uuid.NewString())
+	if err := repo.CreatePasswordResetToken(ctx, &verification.Token{
+		ID: uuid.New(), UserID: squattedUser.ID, TokenHash: attackerResetHash, ExpiresAt: now.Add(time.Hour), CreatedAt: now,
+	}); err != nil {
+		t.Fatalf("CreatePasswordResetToken: %v", err)
+	}
+
+	// Victim signs in via GitHub OAuth with verified victimEmail
+	reclaimed, err := repo.ResolveOAuthUser(ctx, OAuthProfile{
+		Provider: "github", ProviderUserID: "gh_victim_" + uuid.NewString(), Email: victimEmail, EmailVerified: true, DisplayName: "Real Victim",
+	}, now)
+	if err != nil {
+		t.Fatalf("victim ResolveOAuthUser: %v", err)
+	}
+	if reclaimed.ID != squattedUser.ID || reclaimed.EmailVerifiedAt == nil || reclaimed.DisplayName != "Real Victim" {
+		t.Fatalf("unexpected reclaimed user: %+v", reclaimed)
+	}
+
+	// Attacker's password must NOT work!
+	if _, err := svc.Authenticate(ctx, AuthenticateParams{Email: victimEmail, Password: attackerPass}); !errors.Is(err, ErrInvalidCredentials) {
+		t.Fatalf("CRITICAL: attacker password must be rejected after victim OAuth sign-in, got %v", err)
+	}
+	var credCount int
+	_ = pool.QueryRow(ctx, `SELECT count(*) FROM password_credentials WHERE user_id = $1`, reclaimed.ID).Scan(&credCount)
+	if credCount != 0 {
+		t.Fatalf("expected unverified password_credentials to be deleted, found %d", credCount)
+	}
+	// Attacker's pre-existing session must be revoked!
+	var attackerRevokedAt *time.Time
+	_ = pool.QueryRow(ctx, `SELECT revoked_at FROM sessions WHERE id = $1`, attackerSessionID).Scan(&attackerRevokedAt)
+	if attackerRevokedAt == nil {
+		t.Fatal("CRITICAL: pre-existing session on unverified account must be revoked upon OAuth reclamation")
+	}
+	// Pending reset and verification tokens must be consumed!
+	var unconsumedTokens int
+	_ = pool.QueryRow(ctx, `
+		SELECT (SELECT count(*) FROM email_verification_tokens WHERE user_id = $1 AND consumed_at IS NULL) +
+		       (SELECT count(*) FROM password_reset_tokens WHERE user_id = $1 AND consumed_at IS NULL)
+	`, reclaimed.ID).Scan(&unconsumedTokens)
+	if unconsumedTokens != 0 {
+		t.Fatalf("expected all pending verification/reset tokens to be consumed on OAuth reclamation, got %d", unconsumedTokens)
+	}
+
+	// 6. Uniqueness conflict & rollback: trying to link a DIFFERENT GitHub account to the same user
+	// must fail with ErrOAuthAccountConflict and leave the original identity intact.
+	if _, err := repo.ResolveOAuthUser(ctx, OAuthProfile{
+		Provider: "github", ProviderUserID: "gh_impostor_" + uuid.NewString(), Email: victimEmail, EmailVerified: true, DisplayName: "Impostor",
+	}, now); !errors.Is(err, ErrOAuthAccountConflict) {
+		t.Fatalf("expected ErrOAuthAccountConflict when linking second github identity to same user, got %v", err)
+	}
+
+	// 7. Concurrent OAuth callbacks for the same brand-new user resolve cleanly to the same user
+	concEmail := "gh_conc_" + uuid.NewString() + "@kr0n.dev"
+	concGHID := "gh_conc_" + uuid.NewString()
+	var wg sync.WaitGroup
+	results := make([]*User, 6)
+	errs := make([]error, 6)
+	for i := 0; i < 6; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			results[idx], errs[idx] = repo.ResolveOAuthUser(ctx, OAuthProfile{
+				Provider: "github", ProviderUserID: concGHID, Email: concEmail, EmailVerified: true, DisplayName: "Conc",
+			}, now)
+		}(i)
+	}
+	wg.Wait()
+	for i := 0; i < 6; i++ {
+		if errs[i] != nil {
+			t.Fatalf("concurrent callback %d failed: %v", i, errs[i])
+		}
+		if results[i].ID != results[0].ID {
+			t.Fatalf("concurrent callbacks created distinct users: %s vs %s", results[0].ID, results[i].ID)
+		}
+	}
+}
+
+func TestPostgresRepository_TokenReplacementInvalidatesPriorTokens(t *testing.T) {
+	pool := setupTestPool(t)
+	repo := NewPostgresRepository(pool)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	u, _ := NewUser("tok_replace_"+uuid.NewString()+"@kr0n.dev", "Tok Replace")
+	v1 := &verification.Token{ID: uuid.New(), UserID: u.ID, TokenHash: verification.HashToken("v1_" + uuid.NewString()), ExpiresAt: now.Add(time.Hour), CreatedAt: now}
+	if err := repo.CreateWithPasswordAndVerificationToken(ctx, u, "hash", v1); err != nil {
+		t.Fatalf("CreateWithPasswordAndVerificationToken: %v", err)
+	}
+	v2 := &verification.Token{ID: uuid.New(), UserID: u.ID, TokenHash: verification.HashToken("v2_" + uuid.NewString()), ExpiresAt: now.Add(time.Hour), CreatedAt: now.Add(time.Second)}
+	if err := repo.CreateVerificationToken(ctx, v2); err != nil {
+		t.Fatalf("CreateVerificationToken: %v", err)
+	}
+	var activeVerif int
+	_ = pool.QueryRow(ctx, `SELECT count(*) FROM email_verification_tokens WHERE user_id = $1 AND consumed_at IS NULL`, u.ID).Scan(&activeVerif)
+	if activeVerif != 1 {
+		t.Fatalf("expected exactly 1 active verification token after replacement, got %d", activeVerif)
+	}
+
+	r1 := &verification.Token{ID: uuid.New(), UserID: u.ID, TokenHash: verification.HashToken("r1_" + uuid.NewString()), ExpiresAt: now.Add(time.Hour), CreatedAt: now}
+	r2 := &verification.Token{ID: uuid.New(), UserID: u.ID, TokenHash: verification.HashToken("r2_" + uuid.NewString()), ExpiresAt: now.Add(time.Hour), CreatedAt: now.Add(time.Second)}
+	if err := repo.CreatePasswordResetToken(ctx, r1); err != nil {
+		t.Fatalf("CreatePasswordResetToken r1: %v", err)
+	}
+	if err := repo.CreatePasswordResetToken(ctx, r2); err != nil {
+		t.Fatalf("CreatePasswordResetToken r2: %v", err)
+	}
+	if _, err := repo.ConsumePasswordResetAndUpdatePassword(ctx, r1.TokenHash, "newhash", now.Add(2*time.Second)); !errors.Is(err, ErrInvalidResetToken) {
+		t.Fatalf("superseded reset token r1 must be rejected, got %v", err)
+	}
+	if _, err := repo.ConsumePasswordResetAndUpdatePassword(ctx, r2.TokenHash, "newhash", now.Add(2*time.Second)); err != nil {
+		t.Fatalf("latest reset token r2 must succeed: %v", err)
 	}
 }

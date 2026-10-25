@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/jwtkeys"
 	"net"
 	"sync"
 	"testing"
@@ -32,6 +33,7 @@ type mockSessionRepo struct {
 
 	created  []*Session
 	sessions map[string]*Session
+	history  map[string]*Session
 	users    map[uuid.UUID]user.Status
 	mu       sync.Mutex
 }
@@ -39,6 +41,7 @@ type mockSessionRepo struct {
 func newMockSessionRepo() *mockSessionRepo {
 	return &mockSessionRepo{
 		sessions: make(map[string]*Session),
+		history:  make(map[string]*Session),
 		users:    make(map[uuid.UUID]user.Status),
 	}
 }
@@ -79,6 +82,15 @@ func (m *mockSessionRepo) Rotate(ctx context.Context, oldTokenHash string, now t
 
 	sess, ok := m.sessions[oldTokenHash]
 	if !ok {
+		if m.history != nil {
+			if histSess, found := m.history[oldTokenHash]; found {
+				if histSess.RevokedAt == nil {
+					rev := now
+					histSess.RevokedAt = &rev
+				}
+				return nil, ErrSessionRevoked
+			}
+		}
 		return nil, ErrSessionNotFound
 	}
 
@@ -92,6 +104,10 @@ func (m *mockSessionRepo) Rotate(ctx context.Context, oldTokenHash string, now t
 		return nil, err
 	}
 
+	if m.history == nil {
+		m.history = make(map[string]*Session)
+	}
+	m.history[oldTokenHash] = sess
 	delete(m.sessions, oldTokenHash)
 	sess.TokenHash = newTokenHash
 	sess.LastSeenAt = now
@@ -113,6 +129,33 @@ func (m *mockSessionRepo) RevokeByTokenHash(ctx context.Context, tokenHash strin
 		sess.RevokedAt = &revokedAt
 	}
 	return nil
+}
+
+func (m *mockSessionRepo) ListActiveByUserID(ctx context.Context, userID uuid.UUID, now time.Time) ([]Session, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []Session
+	for _, s := range m.sessions {
+		if s.UserID == userID && s.RevokedAt == nil && s.ExpiresAt.After(now) {
+			out = append(out, *s)
+		}
+	}
+	return out, nil
+}
+
+func (m *mockSessionRepo) RevokeByID(ctx context.Context, userID, sessionID uuid.UUID, revokedAt time.Time) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, s := range m.sessions {
+		if s.ID == sessionID && s.UserID == userID {
+			if s.RevokedAt == nil {
+				rev := revokedAt
+				s.RevokedAt = &rev
+			}
+			return nil
+		}
+	}
+	return ErrSessionNotFound
 }
 
 type mockTokenIssuer struct {
@@ -149,78 +192,6 @@ func TestSession_HashAndVerify(t *testing.T) {
 	}
 }
 
-func TestJWTSigner_SignAndVerify(t *testing.T) {
-	key := []byte("secret_key_at_least_32_bytes_long_1234567")
-	issuer := "kr0n-auth"
-	lifetime := 15 * time.Minute
-
-	signer, err := NewJWTSigner(key, issuer, lifetime)
-	if err != nil {
-		t.Fatalf("NewJWTSigner failed: %v", err)
-	}
-
-	userID := uuid.New()
-	sessionID := uuid.New()
-	now := time.Now().UTC()
-
-	token, exp, err := signer.Sign(userID, sessionID, now)
-	if err != nil {
-		t.Fatalf("Sign failed: %v", err)
-	}
-	if exp != lifetime {
-		t.Fatalf("expected expires_in %v, got %v", lifetime, exp)
-	}
-
-	claims, err := signer.Verify(token, now)
-	if err != nil {
-		t.Fatalf("Verify failed: %v", err)
-	}
-
-	if claims.Issuer != issuer {
-		t.Fatalf("expected issuer %s, got %s", issuer, claims.Issuer)
-	}
-	if claims.Subject != userID.String() {
-		t.Fatalf("expected sub %s, got %s", userID.String(), claims.Subject)
-	}
-	if claims.SessionID != sessionID.String() {
-		t.Fatalf("expected sid %s, got %s", sessionID.String(), claims.SessionID)
-	}
-	if claims.ExpiresAt != now.Add(lifetime).Unix() {
-		t.Fatalf("expected exp %v, got %v", now.Add(lifetime).Unix(), claims.ExpiresAt)
-	}
-
-	// Test expired token
-	futureTime := now.Add(16 * time.Minute)
-	_, err = signer.Verify(token, futureTime)
-	if !errors.Is(err, ErrTokenExpired) {
-		t.Fatalf("expected ErrTokenExpired, got %v", err)
-	}
-
-	// Test tampered token
-	tampered := token + "tampered"
-	_, err = signer.Verify(tampered, now)
-	if !errors.Is(err, ErrInvalidToken) {
-		t.Fatalf("expected ErrInvalidToken, got %v", err)
-	}
-}
-
-func TestJWTSigner_InvalidConfiguration(t *testing.T) {
-	_, err := NewJWTSigner([]byte("short"), "kr0n-auth", 15*time.Minute)
-	if !errors.Is(err, ErrInvalidSignerKey) {
-		t.Fatalf("expected ErrInvalidSignerKey, got %v", err)
-	}
-
-	_, err = NewJWTSigner([]byte("secret_key_at_least_32_bytes_long_1234567"), "", 15*time.Minute)
-	if !errors.Is(err, ErrInvalidIssuer) {
-		t.Fatalf("expected ErrInvalidIssuer, got %v", err)
-	}
-
-	_, err = NewJWTSigner([]byte("secret_key_at_least_32_bytes_long_1234567"), "kr0n-auth", 0)
-	if !errors.Is(err, ErrInvalidLifetime) {
-		t.Fatalf("expected ErrInvalidLifetime, got %v", err)
-	}
-}
-
 func TestService_Login_Success(t *testing.T) {
 	userID := uuid.New()
 	testUser := &user.User{
@@ -236,7 +207,7 @@ func TestService_Login_Success(t *testing.T) {
 		},
 	}
 	repo := &mockSessionRepo{}
-	signer, _ := NewJWTSigner([]byte("secret_key_at_least_32_bytes_long_1234567"), "kr0n-auth", 15*time.Minute)
+	signer := testSigner(t)
 	issuer := NewDefaultTokenIssuer(signer)
 
 	svc := NewService(auth, repo, issuer, 30*24*time.Hour)
@@ -296,7 +267,7 @@ func TestService_Login_InvalidCredentials(t *testing.T) {
 		},
 	}
 	repo := &mockSessionRepo{}
-	signer, _ := NewJWTSigner([]byte("secret_key_at_least_32_bytes_long_1234567"), "kr0n-auth", 15*time.Minute)
+	signer := testSigner(t)
 	issuer := NewDefaultTokenIssuer(signer)
 
 	svc := NewService(auth, repo, issuer, 30*24*time.Hour)
@@ -321,7 +292,7 @@ func TestService_Login_InactiveUser(t *testing.T) {
 		},
 	}
 	repo := &mockSessionRepo{}
-	signer, _ := NewJWTSigner([]byte("secret_key_at_least_32_bytes_long_1234567"), "kr0n-auth", 15*time.Minute)
+	signer := testSigner(t)
 	issuer := NewDefaultTokenIssuer(signer)
 
 	svc := NewService(auth, repo, issuer, 30*24*time.Hour)
@@ -377,7 +348,7 @@ func TestService_Login_SessionRepoFailure(t *testing.T) {
 			return errors.New("db disk full")
 		},
 	}
-	signer, _ := NewJWTSigner([]byte("secret_key_at_least_32_bytes_long_1234567"), "kr0n-auth", 15*time.Minute)
+	signer := testSigner(t)
 	issuer := NewDefaultTokenIssuer(signer)
 
 	svc := NewService(auth, repo, issuer, 30*24*time.Hour)
@@ -478,88 +449,6 @@ func TestSession_ModelInvariants(t *testing.T) {
 	if expiredSess.ExpiresAt.After(now) {
 		t.Fatal("expected session to be expired")
 	}
-}
-
-func TestJWT_ClaimsVerification(t *testing.T) {
-	key := []byte("secret_key_at_least_32_bytes_long_1234567")
-	issuer := "kr0n-auth"
-	lifetime := 15 * time.Minute
-
-	signer, err := NewJWTSigner(key, issuer, lifetime)
-	if err != nil {
-		t.Fatalf("NewJWTSigner failed: %v", err)
-	}
-
-	userID := uuid.New()
-	sessID := uuid.New()
-	now := time.Now().UTC()
-
-	token, exp, err := signer.Sign(userID, sessID, now)
-	if err != nil {
-		t.Fatalf("Sign failed: %v", err)
-	}
-	if exp != lifetime {
-		t.Fatalf("expected lifetime %v, got %v", lifetime, exp)
-	}
-
-	claims, err := signer.Verify(token, now)
-	if err != nil {
-		t.Fatalf("Verify failed: %v", err)
-	}
-
-	if claims.Issuer != issuer {
-		t.Fatalf("expected issuer %s, got %s", issuer, claims.Issuer)
-	}
-	if claims.Subject != userID.String() {
-		t.Fatalf("expected sub %s, got %s", userID.String(), claims.Subject)
-	}
-	if claims.SessionID != sessID.String() {
-		t.Fatalf("expected sid %s, got %s", sessID.String(), claims.SessionID)
-	}
-	if claims.IssuedAt != now.Unix() {
-		t.Fatalf("expected iat %d, got %d", now.Unix(), claims.IssuedAt)
-	}
-	if claims.ExpiresAt != now.Add(lifetime).Unix() {
-		t.Fatalf("expected exp %d, got %d", now.Add(lifetime).Unix(), claims.ExpiresAt)
-	}
-}
-
-func setupTestSessionService() (*Service, *mockSessionRepo, *user.User, string, *Session) {
-	userID := uuid.New()
-	testUser := &user.User{
-		ID:          userID,
-		Email:       "service_test@kr0n.dev",
-		DisplayName: "Service Test User",
-		Status:      user.StatusActive,
-	}
-
-	auth := &mockAuthenticator{
-		authFunc: func(ctx context.Context, params user.AuthenticateParams) (*user.User, error) {
-			return testUser, nil
-		},
-	}
-	repo := newMockSessionRepo()
-	repo.users[userID] = user.StatusActive
-
-	signer, _ := NewJWTSigner([]byte("secret_key_at_least_32_bytes_long_1234567"), "kr0n-auth", 15*time.Minute)
-	issuer := NewDefaultTokenIssuer(signer)
-	svc := NewService(auth, repo, issuer, 30*24*time.Hour)
-
-	rawRefresh, _ := GenerateRefreshToken()
-	tokenHash := HashRefreshToken(rawRefresh)
-	now := time.Now().UTC()
-	sess := &Session{
-		ID:         uuid.New(),
-		UserID:     userID,
-		TokenHash:  tokenHash,
-		ExpiresAt:  now.Add(30 * 24 * time.Hour),
-		RevokedAt:  nil,
-		CreatedAt:  now,
-		LastSeenAt: now,
-	}
-	_ = repo.Create(context.Background(), sess)
-
-	return svc, repo, testUser, rawRefresh, sess
 }
 
 func TestService_Refresh_Success(t *testing.T) {
@@ -672,22 +561,16 @@ func TestService_Refresh_InactiveUser(t *testing.T) {
 }
 
 func TestService_Refresh_RotationCycle(t *testing.T) {
-	svc, _, _, initialToken, _ := setupTestSessionService()
+	svc, _, _, initialToken, sess := setupTestSessionService()
 	ctx := context.Background()
 
-	// 1. First refresh rotates initial token
+	// 1. First refresh rotates initial token -> res1.RefreshToken
 	res1, err := svc.Refresh(ctx, initialToken)
 	if err != nil {
 		t.Fatalf("first refresh failed: %v", err)
 	}
 
-	// 2. Old token must fail
-	_, err = svc.Refresh(ctx, initialToken)
-	if !errors.Is(err, ErrInvalidRefreshToken) {
-		t.Fatalf("expected old refresh token to fail after rotation, got %v", err)
-	}
-
-	// 3. New token succeeds
+	// 2. Second refresh with res1.RefreshToken rotates -> res2.RefreshToken
 	res2, err := svc.Refresh(ctx, res1.RefreshToken)
 	if err != nil {
 		t.Fatalf("refresh with new rotated token failed: %v", err)
@@ -696,10 +579,50 @@ func TestService_Refresh_RotationCycle(t *testing.T) {
 		t.Fatal("expected second rotation to produce another fresh token")
 	}
 
-	// 4. Old rotated token from first refresh must now fail
-	_, err = svc.Refresh(ctx, res1.RefreshToken)
-	if !errors.Is(err, ErrInvalidRefreshToken) {
-		t.Fatalf("expected first rotated token to fail after second rotation, got %v", err)
+	// 3. Reusing already-rotated initialToken triggers reuse detection and revokes the session!
+	_, err = svc.Refresh(ctx, initialToken)
+	if !errors.Is(err, ErrSessionRevoked) {
+		t.Fatalf("expected reused refresh token to revoke session with ErrSessionRevoked, got %v", err)
+	}
+	if sess.RevokedAt == nil {
+		t.Fatal("expected session RevokedAt to be set upon token reuse detection")
+	}
+
+	// 4. Even the latest token (res2.RefreshToken) must now fail because the session was revoked
+	_, err = svc.Refresh(ctx, res2.RefreshToken)
+	if !errors.Is(err, ErrSessionRevoked) {
+		t.Fatalf("expected latest token to fail after reuse-triggered revocation, got %v", err)
+	}
+}
+
+func TestService_ListAndRevokeSessions(t *testing.T) {
+	svc, _, testUser, _, sess := setupTestSessionService()
+	ctx := context.Background()
+
+	list, err := svc.ListSessions(ctx, testUser.ID)
+	if err != nil {
+		t.Fatalf("ListSessions: %v", err)
+	}
+	if len(list) != 1 || list[0].ID != sess.ID {
+		t.Fatalf("expected 1 active session %s, got %+v", sess.ID, list)
+	}
+
+	// Revoke non-existent session
+	if err := svc.RevokeSession(ctx, testUser.ID, uuid.New()); !errors.Is(err, ErrSessionNotFound) {
+		t.Fatalf("expected ErrSessionNotFound, got %v", err)
+	}
+
+	// Revoke existing session
+	if err := svc.RevokeSession(ctx, testUser.ID, sess.ID); err != nil {
+		t.Fatalf("RevokeSession: %v", err)
+	}
+
+	listAfter, err := svc.ListSessions(ctx, testUser.ID)
+	if err != nil {
+		t.Fatalf("ListSessions after revoke: %v", err)
+	}
+	if len(listAfter) != 0 {
+		t.Fatalf("expected 0 active sessions after revoke, got %d", len(listAfter))
 	}
 }
 
@@ -707,7 +630,7 @@ func TestService_Logout_RevokesSession(t *testing.T) {
 	svc, repo, _, rawRefresh, sess := setupTestSessionService()
 	ctx := context.Background()
 
-	err := svc.Logout(ctx, rawRefresh)
+	_, err := svc.Logout(ctx, rawRefresh)
 	if err != nil {
 		t.Fatalf("Logout failed: %v", err)
 	}
@@ -733,18 +656,18 @@ func TestService_Logout_SafeAndIdempotent(t *testing.T) {
 	ctx := context.Background()
 
 	// Logout with invalid token is safe/idempotent
-	if err := svc.Logout(ctx, "invalid_random_token_123"); err != nil {
+	if _, err := svc.Logout(ctx, "invalid_random_token_123"); err != nil {
 		t.Fatalf("expected nil on invalid token logout, got %v", err)
 	}
-	if err := svc.Logout(ctx, ""); err != nil {
+	if _, err := svc.Logout(ctx, ""); err != nil {
 		t.Fatalf("expected nil on empty token logout, got %v", err)
 	}
 
 	// Calling logout twice with valid token is idempotent
-	if err := svc.Logout(ctx, rawRefresh); err != nil {
+	if _, err := svc.Logout(ctx, rawRefresh); err != nil {
 		t.Fatalf("first logout failed: %v", err)
 	}
-	if err := svc.Logout(ctx, rawRefresh); err != nil {
+	if _, err := svc.Logout(ctx, rawRefresh); err != nil {
 		t.Fatalf("second logout must be idempotent and succeed: %v", err)
 	}
 }
@@ -783,4 +706,51 @@ func TestService_Refresh_ConcurrentRequestsPreventDoubleRotation(t *testing.T) {
 	if failureCount != concurrency-1 {
 		t.Fatalf("expected exactly %d concurrent refreshes to fail, got %d", concurrency-1, failureCount)
 	}
+}
+
+func testSigner(t *testing.T) *jwtkeys.Signer {
+	t.Helper()
+	s, err := jwtkeys.NewSigner(jwtkeys.DevPrivateKey(), "k1", "kr0n-auth", "kr0n-api", 15*time.Minute)
+	if err != nil {
+		t.Fatalf("new signer: %v", err)
+	}
+	return s
+}
+
+func setupTestSessionService() (*Service, *mockSessionRepo, *user.User, string, *Session) {
+	userID := uuid.New()
+	testUser := &user.User{
+		ID:          userID,
+		Email:       "service_test@kr0n.dev",
+		DisplayName: "Service Test User",
+		Status:      user.StatusActive,
+	}
+
+	auth := &mockAuthenticator{
+		authFunc: func(ctx context.Context, params user.AuthenticateParams) (*user.User, error) {
+			return testUser, nil
+		},
+	}
+	repo := newMockSessionRepo()
+	repo.users[userID] = user.StatusActive
+
+	signer, _ := jwtkeys.NewSigner(jwtkeys.DevPrivateKey(), "k1", "kr0n-auth", "kr0n-api", 15*time.Minute)
+	issuer := NewDefaultTokenIssuer(signer)
+	svc := NewService(auth, repo, issuer, 30*24*time.Hour)
+
+	rawRefresh, _ := GenerateRefreshToken()
+	tokenHash := HashRefreshToken(rawRefresh)
+	now := time.Now().UTC()
+	sess := &Session{
+		ID:         uuid.New(),
+		UserID:     userID,
+		TokenHash:  tokenHash,
+		ExpiresAt:  now.Add(30 * 24 * time.Hour),
+		RevokedAt:  nil,
+		CreatedAt:  now,
+		LastSeenAt: now,
+	}
+	_ = repo.Create(context.Background(), sess)
+
+	return svc, repo, testUser, rawRefresh, sess
 }

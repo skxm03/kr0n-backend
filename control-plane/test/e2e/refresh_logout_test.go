@@ -179,7 +179,29 @@ func TestE2E_Refresh_Logout_Lifecycle(t *testing.T) {
 		t.Fatal("old refresh token must no longer match database hash")
 	}
 
-	// 4. VERIFY OLD REFRESH TOKEN FAILS AFTER ROTATION
+	// 4. VERIFY NEW REFRESH TOKEN SUCCEEDS (SECOND ROTATION)
+	newRefBody, _ := json.Marshal(map[string]string{
+		"refresh_token": refData.RefreshToken,
+	})
+	newRefReq, _ := http.NewRequestWithContext(ctx, http.MethodPost, refreshURL, bytes.NewReader(newRefBody))
+	newRefReq.Header.Set("Content-Type", "application/json")
+
+	newRefResp, err := http.DefaultClient.Do(newRefReq)
+	if err != nil {
+		t.Fatalf("second refresh request failed: %v", err)
+	}
+	defer newRefResp.Body.Close()
+	if newRefResp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(newRefResp.Body)
+		t.Fatalf("expected 200 OK on second refresh, got %d: %s", newRefResp.StatusCode, string(b))
+	}
+
+	var secondRefData gateway.RefreshResponseDTO
+	_ = json.NewDecoder(newRefResp.Body).Decode(&secondRefData)
+
+	latestRefreshToken := secondRefData.RefreshToken
+
+	// 5. VERIFY OLD REFRESH TOKEN FAILS AFTER ROTATION AND REVOKES SESSION ON REUSE
 	oldRefBody, _ := json.Marshal(map[string]string{
 		"refresh_token": initialRefresh,
 	})
@@ -204,28 +226,6 @@ func TestE2E_Refresh_Logout_Lifecycle(t *testing.T) {
 	if errResp.Code != "UNAUTHORIZED" {
 		t.Fatalf("expected code UNAUTHORIZED, got %s", errResp.Code)
 	}
-
-	// 5. VERIFY NEW REFRESH TOKEN SUCCEEDS
-	newRefBody, _ := json.Marshal(map[string]string{
-		"refresh_token": refData.RefreshToken,
-	})
-	newRefReq, _ := http.NewRequestWithContext(ctx, http.MethodPost, refreshURL, bytes.NewReader(newRefBody))
-	newRefReq.Header.Set("Content-Type", "application/json")
-
-	newRefResp, err := http.DefaultClient.Do(newRefReq)
-	if err != nil {
-		t.Fatalf("second refresh request failed: %v", err)
-	}
-	defer newRefResp.Body.Close()
-	if newRefResp.StatusCode != http.StatusOK {
-		b, _ := io.ReadAll(newRefResp.Body)
-		t.Fatalf("expected 200 OK on second refresh, got %d: %s", newRefResp.StatusCode, string(b))
-	}
-
-	var secondRefData gateway.RefreshResponseDTO
-	_ = json.NewDecoder(newRefResp.Body).Decode(&secondRefData)
-
-	latestRefreshToken := secondRefData.RefreshToken
 
 	// 6. LOGOUT
 	logoutBody, _ := json.Marshal(map[string]string{

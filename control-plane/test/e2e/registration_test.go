@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/jwtkeys"
 	"io"
 	"net"
 	"net/http"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -23,18 +23,17 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/user"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/testdb"
 )
 
-func getTestDatabaseURL() string {
-	if url := os.Getenv("TEST_DATABASE_URL"); url != "" {
-		return url
-	}
-	// Default to isolated test database
-	return "postgres://kr0n:kr0n_dev_password@localhost:5432/kr0n_test?sslmode=disable"
+// getTestDatabaseURL returns the isolated, fully migrated test database (TEST_DATABASE_URL only).
+func getTestDatabaseURL(t *testing.T) string {
+	t.Helper()
+	return testdb.Migrated(t)
 }
 
 func TestE2E_UserRegistration(t *testing.T) {
-	testDBURL := getTestDatabaseURL()
+	testDBURL := getTestDatabaseURL(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -52,7 +51,7 @@ func TestE2E_UserRegistration(t *testing.T) {
 	hasher := user.NewBcryptHasher(12)
 	userService := user.NewService(userRepo, hasher)
 
-	jwtSigner, err := session.NewJWTSigner([]byte("test_jwt_secret_key_at_least_32_bytes_long!"), "kr0n-test", 15*time.Minute)
+	jwtSigner, err := jwtkeys.NewSigner(jwtkeys.DevPrivateKey(), "k1", "kr0n-test", "kr0n-api", 15*time.Minute)
 	if err != nil {
 		t.Fatalf("failed to create jwt signer: %v", err)
 	}
@@ -87,7 +86,7 @@ func TestE2E_UserRegistration(t *testing.T) {
 
 	authClient := authv1.NewAuthServiceClient(authConn)
 	gwHandler := gateway.NewHandler(authClient)
-	gwRouter := gateway.NewRouter(gwHandler)
+	gwRouter := gateway.NewServerHandler(gwHandler, gateway.Options{})
 
 	httpListener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

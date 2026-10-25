@@ -9,32 +9,31 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/verification"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/email"
 )
 
 type mockRepository struct {
-	createFunc      func(ctx context.Context, u *User, passwordHash string) error
-	createTokenFunc func(ctx context.Context, u *User, passwordHash string, token *verification.Token) error
-	getFunc         func(ctx context.Context, email string) (*User, string, error)
-	created         []*User
-	createdTokens   []*verification.Token
-}
-
-func (m *mockRepository) CreateWithPassword(ctx context.Context, u *User, passwordHash string) error {
-	if m.createFunc != nil {
-		return m.createFunc(ctx, u, passwordHash)
-	}
-	m.created = append(m.created, u)
-	return nil
+	createTokenFunc  func(ctx context.Context, u *User, passwordHash string, token *verification.Token) error
+	getFunc          func(ctx context.Context, email string) (*User, string, error)
+	getByIDFunc      func(ctx context.Context, id uuid.UUID) (*User, error)
+	getByIDPwFunc    func(ctx context.Context, id uuid.UUID) (*User, string, error)
+	recordFailFunc   func(ctx context.Context, userID uuid.UUID, maxAttempts int, lockoutDuration time.Duration, now time.Time) error
+	resetFailFunc    func(ctx context.Context, userID uuid.UUID) error
+	consumeResetFunc func(ctx context.Context, tokenHash, newPasswordHash string, now time.Time) (uuid.UUID, error)
+	updatePwFunc     func(ctx context.Context, userID uuid.UUID, newPasswordHash string, revokeSessionExcept *uuid.UUID, now time.Time) error
+	resolveOAuthFunc func(ctx context.Context, profile OAuthProfile, now time.Time) (*User, error)
+	created          []*User
+	createdTokens    []*verification.Token
+	resetTokens      []*verification.Token
+	failureRecorded  int
+	failuresReset    bool
 }
 
 func (m *mockRepository) CreateWithPasswordAndVerificationToken(ctx context.Context, u *User, passwordHash string, token *verification.Token) error {
 	if m.createTokenFunc != nil {
 		return m.createTokenFunc(ctx, u, passwordHash, token)
-	}
-	if m.createFunc != nil {
-		return m.createFunc(ctx, u, passwordHash)
 	}
 	m.created = append(m.created, u)
 	if token != nil {
@@ -48,6 +47,67 @@ func (m *mockRepository) GetByEmailWithPassword(ctx context.Context, email strin
 		return m.getFunc(ctx, email)
 	}
 	return nil, "", ErrUserNotFound
+}
+
+func (m *mockRepository) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
+	if m.getByIDFunc != nil {
+		return m.getByIDFunc(ctx, id)
+	}
+	return nil, ErrUserNotFound
+}
+
+func (m *mockRepository) GetByIDWithPassword(ctx context.Context, id uuid.UUID) (*User, string, error) {
+	if m.getByIDPwFunc != nil {
+		return m.getByIDPwFunc(ctx, id)
+	}
+	return nil, "", ErrUserNotFound
+}
+
+func (m *mockRepository) RecordLoginFailure(ctx context.Context, userID uuid.UUID, maxAttempts int, lockoutDuration time.Duration, now time.Time) error {
+	m.failureRecorded++
+	if m.recordFailFunc != nil {
+		return m.recordFailFunc(ctx, userID, maxAttempts, lockoutDuration, now)
+	}
+	return nil
+}
+
+func (m *mockRepository) ResetLoginFailures(ctx context.Context, userID uuid.UUID) error {
+	m.failuresReset = true
+	if m.resetFailFunc != nil {
+		return m.resetFailFunc(ctx, userID)
+	}
+	return nil
+}
+
+func (m *mockRepository) CreateVerificationToken(ctx context.Context, token *verification.Token) error {
+	m.createdTokens = append(m.createdTokens, token)
+	return nil
+}
+
+func (m *mockRepository) CreatePasswordResetToken(ctx context.Context, token *verification.Token) error {
+	m.resetTokens = append(m.resetTokens, token)
+	return nil
+}
+
+func (m *mockRepository) ConsumePasswordResetAndUpdatePassword(ctx context.Context, tokenHash, newPasswordHash string, now time.Time) (uuid.UUID, error) {
+	if m.consumeResetFunc != nil {
+		return m.consumeResetFunc(ctx, tokenHash, newPasswordHash, now)
+	}
+	return uuid.Nil, nil
+}
+
+func (m *mockRepository) UpdatePassword(ctx context.Context, userID uuid.UUID, newPasswordHash string, revokeSessionExcept *uuid.UUID, now time.Time) error {
+	if m.updatePwFunc != nil {
+		return m.updatePwFunc(ctx, userID, newPasswordHash, revokeSessionExcept, now)
+	}
+	return nil
+}
+
+func (m *mockRepository) ResolveOAuthUser(ctx context.Context, profile OAuthProfile, now time.Time) (*User, error) {
+	if m.resolveOAuthFunc != nil {
+		return m.resolveOAuthFunc(ctx, profile, now)
+	}
+	return &User{ID: uuid.New(), Email: profile.Email, DisplayName: profile.DisplayName, Status: StatusActive}, nil
 }
 
 type mockHasher struct {
@@ -136,7 +196,7 @@ func TestService_Register_PolicyFailBeforeHash(t *testing.T) {
 
 func TestService_Register_DuplicateEmail(t *testing.T) {
 	repo := &mockRepository{
-		createFunc: func(ctx context.Context, u *User, passwordHash string) error {
+		createTokenFunc: func(ctx context.Context, u *User, passwordHash string, token *verification.Token) error {
 			return ErrEmailAlreadyExists
 		},
 	}
@@ -422,5 +482,234 @@ func TestService_Register_DoesNotLogRawToken(t *testing.T) {
 				t.Fatalf("CRITICAL SECURITY VIOLATION: possible raw token in log: %s", w)
 			}
 		}
+	}
+}
+
+func TestService_Authenticate_LockoutAndRequireVerifiedEmail(t *testing.T) {
+	future := time.Now().UTC().Add(10 * time.Minute)
+	lockedUser := &User{
+		ID:          uuid.New(),
+		Email:       "locked@kr0n.dev",
+		DisplayName: "Locked",
+		Status:      StatusActive,
+		LockedUntil: &future,
+	}
+	unverifiedUser := &User{
+		ID:                  uuid.New(),
+		Email:               "unverified@kr0n.dev",
+		DisplayName:         "Unverified",
+		Status:              StatusActive,
+		FailedLoginAttempts: 2,
+	}
+
+	repo := &mockRepository{
+		getFunc: func(ctx context.Context, email string) (*User, string, error) {
+			switch email {
+			case "locked@kr0n.dev":
+				return lockedUser, "pw", nil
+			case "unverified@kr0n.dev":
+				return unverifiedUser, "pw", nil
+			default:
+				return nil, "", ErrUserNotFound
+			}
+		},
+	}
+	hasher := &mockHasher{}
+	svc := NewService(repo, hasher, WithRequireVerifiedEmail(true), WithLockoutPolicy(5, 15*time.Minute))
+
+	// 1. Locked user should get ErrInvalidCredentials even with valid password
+	if _, err := svc.Authenticate(context.Background(), AuthenticateParams{Email: "locked@kr0n.dev", Password: "pw"}); !errors.Is(err, ErrInvalidCredentials) {
+		t.Fatalf("expected ErrInvalidCredentials for locked user, got %v", err)
+	}
+
+	// 2. Wrong password on active user records failure
+	if _, err := svc.Authenticate(context.Background(), AuthenticateParams{Email: "unverified@kr0n.dev", Password: "wrong"}); !errors.Is(err, ErrInvalidCredentials) {
+		t.Fatalf("expected ErrInvalidCredentials for wrong password, got %v", err)
+	}
+	if repo.failureRecorded != 1 {
+		t.Fatalf("expected 1 failure recorded, got %d", repo.failureRecorded)
+	}
+
+	// 3. Correct password resets failure count, then fails with ErrEmailNotVerified when required
+	if _, err := svc.Authenticate(context.Background(), AuthenticateParams{Email: "unverified@kr0n.dev", Password: "pw"}); !errors.Is(err, ErrEmailNotVerified) {
+		t.Fatalf("expected ErrEmailNotVerified, got %v", err)
+	}
+	if !repo.failuresReset {
+		t.Fatal("expected failures to be reset on valid password")
+	}
+
+	// 4. Verified user succeeds
+	now := time.Now().UTC()
+	unverifiedUser.EmailVerifiedAt = &now
+	if _, err := svc.Authenticate(context.Background(), AuthenticateParams{Email: "unverified@kr0n.dev", Password: "pw"}); err != nil {
+		t.Fatalf("expected verified user to succeed, got %v", err)
+	}
+}
+
+func TestService_ResendVerification(t *testing.T) {
+	unverifiedUser := &User{
+		ID:          uuid.New(),
+		Email:       "unverified@kr0n.dev",
+		DisplayName: "Unverified",
+		Status:      StatusActive,
+	}
+	now := time.Now().UTC()
+	verifiedUser := &User{
+		ID:              uuid.New(),
+		Email:           "verified@kr0n.dev",
+		DisplayName:     "Verified",
+		Status:          StatusActive,
+		EmailVerifiedAt: &now,
+	}
+
+	repo := &mockRepository{
+		getFunc: func(ctx context.Context, email string) (*User, string, error) {
+			switch email {
+			case "unverified@kr0n.dev":
+				return unverifiedUser, "pw", nil
+			case "verified@kr0n.dev":
+				return verifiedUser, "pw", nil
+			default:
+				return nil, "", ErrUserNotFound
+			}
+		},
+	}
+	sender := email.NewInMemorySender()
+	svc := NewService(repo, &mockHasher{}, WithEmailSender(sender))
+
+	// Non-existent user -> nil, no email sent
+	if err := svc.ResendVerification(context.Background(), "nobody@kr0n.dev"); err != nil {
+		t.Fatalf("expected nil for unknown email, got %v", err)
+	}
+	// Already verified user -> nil, no email sent
+	if err := svc.ResendVerification(context.Background(), "verified@kr0n.dev"); err != nil {
+		t.Fatalf("expected nil for verified email, got %v", err)
+	}
+	if len(sender.Messages()) != 0 {
+		t.Fatalf("expected 0 emails sent so far, got %d", len(sender.Messages()))
+	}
+
+	// Unverified user -> token persisted and email sent
+	if err := svc.ResendVerification(context.Background(), "unverified@kr0n.dev"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(sender.Messages()) != 1 {
+		t.Fatalf("expected 1 verification email, got %d", len(sender.Messages()))
+	}
+}
+
+func TestService_PasswordResetAndChangePassword(t *testing.T) {
+	u := &User{
+		ID:          uuid.New(),
+		Email:       "reset@kr0n.dev",
+		DisplayName: "Reset User",
+		Status:      StatusActive,
+	}
+	var consumedHash, updatedHash string
+	repo := &mockRepository{
+		getFunc: func(ctx context.Context, email string) (*User, string, error) {
+			if email == "reset@kr0n.dev" {
+				return u, "old_pw", nil
+			}
+			return nil, "", ErrUserNotFound
+		},
+		getByIDPwFunc: func(ctx context.Context, id uuid.UUID) (*User, string, error) {
+			if id == u.ID {
+				return u, "old_pw", nil
+			}
+			return nil, "", ErrUserNotFound
+		},
+		getByIDFunc: func(ctx context.Context, id uuid.UUID) (*User, error) {
+			if id == u.ID {
+				return u, nil
+			}
+			return nil, ErrUserNotFound
+		},
+		consumeResetFunc: func(ctx context.Context, tokenHash, newPasswordHash string, now time.Time) (uuid.UUID, error) {
+			consumedHash = tokenHash
+			updatedHash = newPasswordHash
+			return u.ID, nil
+		},
+		updatePwFunc: func(ctx context.Context, userID uuid.UUID, newPasswordHash string, revokeSessionExcept *uuid.UUID, now time.Time) error {
+			updatedHash = newPasswordHash
+			return nil
+		},
+	}
+	sender := email.NewInMemorySender()
+	hasher := &mockHasher{hashResult: "new_hashed_pw"}
+	svc := NewService(repo, hasher, WithEmailSender(sender), WithPasswordResetTokenLifetime(30*time.Minute))
+
+	// 1. RequestPasswordReset for unknown user -> nil, no email
+	if err := svc.RequestPasswordReset(context.Background(), "unknown@kr0n.dev"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(sender.Messages()) != 0 {
+		t.Fatal("expected no reset email for unknown user")
+	}
+
+	// 2. RequestPasswordReset for active user -> sends reset email
+	if err := svc.RequestPasswordReset(context.Background(), "reset@kr0n.dev"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	resetMsgs := sender.Messages()
+	if len(resetMsgs) != 1 {
+		t.Fatalf("expected 1 reset email, got %d", len(resetMsgs))
+	}
+
+	// 3. ConfirmPasswordReset verifies hash matches token
+	if _, err := svc.ConfirmPasswordReset(context.Background(), resetMsgs[0].RawToken, "NewValidPassword123!"); err != nil {
+		t.Fatalf("ConfirmPasswordReset: %v", err)
+	}
+	if consumedHash != verification.HashToken(resetMsgs[0].RawToken) {
+		t.Fatal("expected consumedHash to match raw reset token hash")
+	}
+	if updatedHash != "new_hashed_pw" {
+		t.Fatalf("expected updatedHash 'new_hashed_pw', got %q", updatedHash)
+	}
+
+	// 4. ChangePassword with wrong current password fails
+	if err := svc.ChangePassword(context.Background(), u.ID, "wrong_pw", "AnotherPassword123!", nil); !errors.Is(err, ErrInvalidCredentials) {
+		t.Fatalf("expected ErrInvalidCredentials, got %v", err)
+	}
+
+	// 5. ChangePassword with valid current password succeeds
+	updatedHash = ""
+	if err := svc.ChangePassword(context.Background(), u.ID, "old_pw", "AnotherPassword123!", nil); err != nil {
+		t.Fatalf("ChangePassword: %v", err)
+	}
+	if updatedHash != "new_hashed_pw" {
+		t.Fatalf("expected updatedHash 'new_hashed_pw', got %q", updatedHash)
+	}
+
+	// 6. GetProfile returns user
+	prof, err := svc.GetProfile(context.Background(), u.ID)
+	if err != nil || prof.Email != u.Email {
+		t.Fatalf("GetProfile failed: %v, %+v", err, prof)
+	}
+}
+
+func TestService_ResolveOAuthUser(t *testing.T) {
+	var gotProfile OAuthProfile
+	repo := &mockRepository{
+		resolveOAuthFunc: func(ctx context.Context, profile OAuthProfile, now time.Time) (*User, error) {
+			gotProfile = profile
+			return &User{ID: uuid.New(), Email: profile.Email, DisplayName: profile.DisplayName, Status: StatusActive}, nil
+		},
+	}
+	svc := NewService(repo, &mockHasher{})
+
+	// Unverified email must be rejected
+	if _, err := svc.ResolveOAuthUser(context.Background(), OAuthProfile{
+		Provider: "github", ProviderUserID: "123", Email: "unv@kr0n.dev", EmailVerified: false,
+	}); !errors.Is(err, ErrOAuthEmailNotVerified) {
+		t.Fatalf("expected ErrOAuthEmailNotVerified, got %v", err)
+	}
+
+	// Verified email is canonicalized and passed to repository
+	u, err := svc.ResolveOAuthUser(context.Background(), OAuthProfile{
+		Provider: "github", ProviderUserID: "123", Email: "  OCTO@Kr0n.dev ", EmailVerified: true, DisplayName: "Octo",
+	})
+	if err != nil || u.Email != "octo@kr0n.dev" || gotProfile.Email != "octo@kr0n.dev" {
+		t.Fatalf("unexpected result: err=%v u=%+v gotProfile=%+v", err, u, gotProfile)
 	}
 }

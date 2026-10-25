@@ -21,5 +21,25 @@ services:
             timeout: 5s
             retries: 5
 
+    redis:
+        image: redis:7-alpine
+        container_name: kr0n-redis
+        restart: unless-stopped
+        ports:
+            - '6379:6379'
+        healthcheck:
+            test: ['CMD', 'redis-cli', 'ping']
+            interval: 5s
+            timeout: 3s
+            retries: 5
+
+    mailpit:
+        image: axllent/mailpit:latest
+        container_name: kr0n-mailpit
+        restart: unless-stopped
+        ports:
+            - '1025:1025' # SMTP
+            - '8025:8025' # web UI
+
 volumes:
     kr0n_postgres_data:

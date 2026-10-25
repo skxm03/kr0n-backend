@@ -1,10 +1,14 @@
 package config
 
 import (
+	"crypto/ed25519"
+	"encoding/base64"
 	"errors"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/jwtkeys"
 )
 
 func TestLoadFrom(t *testing.T) {
@@ -273,6 +277,88 @@ func TestLoad_EmailVerificationTokenLifetime(t *testing.T) {
 		_, err := LoadFrom(lookup)
 		if err == nil {
 			t.Fatal("expected error, got nil")
+		}
+	})
+}
+
+func TestHardening_NonDevRefusesDefaultDevKeysAndPlaintextGRPC(t *testing.T) {
+	devSeed := jwtkeys.DevPrivateKey().Seed()
+	devPrivB64 := base64.StdEncoding.EncodeToString(devSeed)
+	devPubB64 := base64.StdEncoding.EncodeToString(jwtkeys.DevPrivateKey().Public().(ed25519.PublicKey))
+
+	pub, priv, _ := ed25519.GenerateKey(nil)
+	prodPrivB64 := base64.StdEncoding.EncodeToString(priv.Seed())
+	prodPubB64 := base64.StdEncoding.EncodeToString(pub)
+
+	t.Run("auth refuses missing key outside dev", func(t *testing.T) {
+		env := map[string]string{
+			"DATABASE_URL": "postgres://u:p@localhost:5432/db",
+			"KR0N_ENV":     "staging",
+		}
+		if _, err := LoadFrom(func(k string) (string, bool) { v, ok := env[k]; return v, ok }); err == nil {
+			t.Fatal("expected error when JWT_PRIVATE_KEY unset in staging")
+		}
+	})
+
+	t.Run("auth refuses default dev key outside dev", func(t *testing.T) {
+		env := map[string]string{
+			"DATABASE_URL":            "postgres://u:p@localhost:5432/db",
+			"KR0N_ENV":                "production",
+			"JWT_PRIVATE_KEY":         devPrivB64,
+			"AUTH_GRPC_TLS_CERT_FILE": "/etc/tls/tls.crt",
+			"AUTH_GRPC_TLS_KEY_FILE":  "/etc/tls/tls.key",
+		}
+		if _, err := LoadFrom(func(k string) (string, bool) { v, ok := env[k]; return v, ok }); err == nil {
+			t.Fatal("expected error when default dev private key is passed in production")
+		}
+	})
+
+	t.Run("auth refuses plaintext gRPC outside dev", func(t *testing.T) {
+		env := map[string]string{
+			"DATABASE_URL":    "postgres://u:p@localhost:5432/db",
+			"KR0N_ENV":        "production",
+			"JWT_PRIVATE_KEY": prodPrivB64,
+		}
+		if _, err := LoadFrom(func(k string) (string, bool) { v, ok := env[k]; return v, ok }); err == nil {
+			t.Fatal("expected error when TLS cert/key unset in production")
+		}
+	})
+
+	t.Run("auth succeeds outside dev with real key and TLS cert/key", func(t *testing.T) {
+		env := map[string]string{
+			"DATABASE_URL":            "postgres://u:p@localhost:5432/db",
+			"KR0N_ENV":                "production",
+			"JWT_PRIVATE_KEY":         prodPrivB64,
+			"AUTH_GRPC_TLS_CERT_FILE": "/etc/tls/tls.crt",
+			"AUTH_GRPC_TLS_KEY_FILE":  "/etc/tls/tls.key",
+		}
+		cfg, err := LoadFrom(func(k string) (string, bool) { v, ok := env[k]; return v, ok })
+		if err != nil || cfg.AuthGRPCTLSCertFile == "" {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+
+	t.Run("gateway refuses default dev public key outside dev", func(t *testing.T) {
+		env := map[string]string{
+			"KR0N_ENV":        "production",
+			"JWT_PUBLIC_KEYS": "k1:" + devPubB64,
+		}
+		if _, err := LoadGatewayFrom(func(k string) (string, bool) { v, ok := env[k]; return v, ok }); err == nil {
+			t.Fatal("expected error when default dev public key is passed in production")
+		}
+	})
+
+	t.Run("gateway disables plaintext gRPC outside dev", func(t *testing.T) {
+		env := map[string]string{
+			"KR0N_ENV":        "production",
+			"JWT_PUBLIC_KEYS": "k1:" + prodPubB64,
+		}
+		cfg, err := LoadGatewayFrom(func(k string) (string, bool) { v, ok := env[k]; return v, ok })
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.AuthGRPCTLSPlain {
+			t.Fatal("expected AuthGRPCTLSPlain=false outside dev")
 		}
 	})
 }

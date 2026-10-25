@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"errors"
+	"net"
 	"testing"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/jwtkeys"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/session"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/user"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/verification"
@@ -28,7 +30,13 @@ func (m *mockVerificationService) VerifyEmail(ctx context.Context, rawToken stri
 }
 
 type mockRegistrationService struct {
-	registerFunc func(ctx context.Context, params user.RegisterParams) (*user.User, error)
+	registerFunc       func(ctx context.Context, params user.RegisterParams) (*user.User, error)
+	resendFunc         func(ctx context.Context, rawEmail string) error
+	reqResetFunc       func(ctx context.Context, rawEmail string) error
+	confirmResetFunc   func(ctx context.Context, rawToken, newPassword string) (uuid.UUID, error)
+	changePasswordFunc func(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string, currentSessionID *uuid.UUID) error
+	getProfileFunc     func(ctx context.Context, userID uuid.UUID) (*user.User, error)
+	resolveOAuthFunc   func(ctx context.Context, profile user.OAuthProfile) (*user.User, error)
 }
 
 func (m *mockRegistrationService) Register(ctx context.Context, params user.RegisterParams) (*user.User, error) {
@@ -38,10 +46,55 @@ func (m *mockRegistrationService) Register(ctx context.Context, params user.Regi
 	return nil, nil
 }
 
+func (m *mockRegistrationService) ResendVerification(ctx context.Context, rawEmail string) error {
+	if m.resendFunc != nil {
+		return m.resendFunc(ctx, rawEmail)
+	}
+	return nil
+}
+
+func (m *mockRegistrationService) RequestPasswordReset(ctx context.Context, rawEmail string) error {
+	if m.reqResetFunc != nil {
+		return m.reqResetFunc(ctx, rawEmail)
+	}
+	return nil
+}
+
+func (m *mockRegistrationService) ConfirmPasswordReset(ctx context.Context, rawToken, newPassword string) (uuid.UUID, error) {
+	if m.confirmResetFunc != nil {
+		return m.confirmResetFunc(ctx, rawToken, newPassword)
+	}
+	return uuid.Nil, nil
+}
+
+func (m *mockRegistrationService) ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string, currentSessionID *uuid.UUID) error {
+	if m.changePasswordFunc != nil {
+		return m.changePasswordFunc(ctx, userID, currentPassword, newPassword, currentSessionID)
+	}
+	return nil
+}
+
+func (m *mockRegistrationService) GetProfile(ctx context.Context, userID uuid.UUID) (*user.User, error) {
+	if m.getProfileFunc != nil {
+		return m.getProfileFunc(ctx, userID)
+	}
+	return nil, user.ErrUserNotFound
+}
+
+func (m *mockRegistrationService) ResolveOAuthUser(ctx context.Context, profile user.OAuthProfile) (*user.User, error) {
+	if m.resolveOAuthFunc != nil {
+		return m.resolveOAuthFunc(ctx, profile)
+	}
+	return nil, nil
+}
+
 type mockSessionService struct {
-	loginFunc   func(ctx context.Context, params session.LoginParams) (*session.LoginResult, error)
-	refreshFunc func(ctx context.Context, rawRefreshToken string) (*session.RefreshResult, error)
-	logoutFunc  func(ctx context.Context, rawRefreshToken string) error
+	loginFunc             func(ctx context.Context, params session.LoginParams) (*session.LoginResult, error)
+	refreshFunc           func(ctx context.Context, rawRefreshToken string) (*session.RefreshResult, error)
+	logoutFunc            func(ctx context.Context, rawRefreshToken string) (*session.Session, error)
+	listSessionsFunc      func(ctx context.Context, userID uuid.UUID) ([]session.Session, error)
+	revokeSessFunc        func(ctx context.Context, userID, sessionID uuid.UUID) error
+	createSessForUserFunc func(ctx context.Context, authenticatedUser *user.User, userAgent *string, clientIP *net.IP) (*session.LoginResult, error)
 }
 
 func (m *mockSessionService) Login(ctx context.Context, params session.LoginParams) (*session.LoginResult, error) {
@@ -58,11 +111,36 @@ func (m *mockSessionService) Refresh(ctx context.Context, rawRefreshToken string
 	return nil, nil
 }
 
-func (m *mockSessionService) Logout(ctx context.Context, rawRefreshToken string) error {
+func (m *mockSessionService) Logout(ctx context.Context, rawRefreshToken string) (*session.Session, error) {
 	if m.logoutFunc != nil {
 		return m.logoutFunc(ctx, rawRefreshToken)
 	}
+	return &session.Session{ID: uuid.New(), UserID: uuid.New()}, nil
+}
+
+func (m *mockSessionService) ListSessions(ctx context.Context, userID uuid.UUID) ([]session.Session, error) {
+	if m.listSessionsFunc != nil {
+		return m.listSessionsFunc(ctx, userID)
+	}
+	return nil, nil
+}
+
+func (m *mockSessionService) RevokeSession(ctx context.Context, userID, sessionID uuid.UUID) error {
+	if m.revokeSessFunc != nil {
+		return m.revokeSessFunc(ctx, userID, sessionID)
+	}
 	return nil
+}
+
+func (m *mockSessionService) CreateSessionForUser(ctx context.Context, authenticatedUser *user.User, userAgent *string, clientIP *net.IP) (*session.LoginResult, error) {
+	if m.createSessForUserFunc != nil {
+		return m.createSessForUserFunc(ctx, authenticatedUser, userAgent, clientIP)
+	}
+	return &session.LoginResult{
+		AccessToken:  "mock-access-token",
+		RefreshToken: "mock-refresh-token",
+		User:         authenticatedUser,
+	}, nil
 }
 
 func TestServer_Register_Success(t *testing.T) {
@@ -497,9 +575,9 @@ func TestServer_Refresh_InternalErrorMasked(t *testing.T) {
 func TestServer_Logout_Success(t *testing.T) {
 	var loggedOutToken string
 	mockSvc := &mockSessionService{
-		logoutFunc: func(ctx context.Context, rawRefreshToken string) error {
+		logoutFunc: func(ctx context.Context, rawRefreshToken string) (*session.Session, error) {
 			loggedOutToken = rawRefreshToken
-			return nil
+			return &session.Session{ID: uuid.New(), UserID: uuid.New()}, nil
 		},
 	}
 
@@ -544,8 +622,8 @@ func TestServer_Logout_NilOrEmptyRequest(t *testing.T) {
 
 func TestServer_Logout_InternalErrorMasked(t *testing.T) {
 	mockSvc := &mockSessionService{
-		logoutFunc: func(ctx context.Context, rawRefreshToken string) error {
-			return errors.New("database failure")
+		logoutFunc: func(ctx context.Context, rawRefreshToken string) (*session.Session, error) {
+			return nil, errors.New("database failure")
 		},
 	}
 
@@ -703,5 +781,124 @@ func TestServer_VerifyEmail_ServiceUnimplemented(t *testing.T) {
 	st, ok := status.FromError(err)
 	if !ok || st.Code() != codes.Unimplemented {
 		t.Fatalf("expected codes.Unimplemented, got %v", err)
+	}
+}
+
+func TestServer_GetJWKS(t *testing.T) {
+	signer, err := jwtkeys.NewSigner(jwtkeys.DevPrivateKey(), "k1", "kr0n-auth", "kr0n-api", 15*time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := NewServer(nil, nil, WithJWKS(signer.PublicJWK()))
+
+	if _, err := server.GetJWKS(context.Background(), nil); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument on nil request, got %v", err)
+	}
+
+	resp, err := server.GetJWKS(context.Background(), &authv1.GetJWKSRequest{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resp.GetKeys()) != 1 {
+		t.Fatalf("expected 1 key, got %d", len(resp.GetKeys()))
+	}
+	got := resp.GetKeys()[0]
+	if got.GetKid() != "k1" || got.GetKty() != "OKP" || got.GetCrv() != "Ed25519" || got.GetAlg() != "EdDSA" {
+		t.Fatalf("unexpected JWK %+v", got)
+	}
+}
+
+func TestServer_P4AccountAndSessionRPCs(t *testing.T) {
+	now := time.Now().UTC()
+	uid := uuid.New()
+	sid := uuid.New()
+
+	regSvc := &mockRegistrationService{
+		confirmResetFunc: func(ctx context.Context, rawToken, newPassword string) (uuid.UUID, error) {
+			if rawToken == "bad" {
+				return uuid.Nil, user.ErrInvalidResetToken
+			}
+			return uid, nil
+		},
+		changePasswordFunc: func(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string, currentSessionID *uuid.UUID) error {
+			if currentPassword == "wrong" {
+				return user.ErrInvalidCredentials
+			}
+			return nil
+		},
+		getProfileFunc: func(ctx context.Context, userID uuid.UUID) (*user.User, error) {
+			if userID != uid {
+				return nil, user.ErrUserNotFound
+			}
+			return &user.User{
+				ID:              uid,
+				Email:           "me@kr0n.dev",
+				DisplayName:     "Me",
+				Status:          user.StatusActive,
+				EmailVerifiedAt: &now,
+				CreatedAt:       now,
+			}, nil
+		},
+	}
+	ua := "test-agent"
+	sessSvc := &mockSessionService{
+		listSessionsFunc: func(ctx context.Context, userID uuid.UUID) ([]session.Session, error) {
+			return []session.Session{
+				{ID: sid, UserID: userID, UserAgent: &ua, CreatedAt: now, LastSeenAt: now, ExpiresAt: now.Add(time.Hour)},
+			}, nil
+		},
+		revokeSessFunc: func(ctx context.Context, userID, sessionID uuid.UUID) error {
+			if sessionID != sid {
+				return session.ErrSessionNotFound
+			}
+			return nil
+		},
+	}
+
+	server := NewServer(regSvc, sessSvc)
+	ctx := context.Background()
+
+	// ResendVerification
+	if _, err := server.ResendVerification(ctx, &authv1.ResendVerificationRequest{Email: "me@kr0n.dev"}); err != nil {
+		t.Fatalf("ResendVerification: %v", err)
+	}
+
+	// RequestPasswordReset
+	if _, err := server.RequestPasswordReset(ctx, &authv1.RequestPasswordResetRequest{Email: "me@kr0n.dev"}); err != nil {
+		t.Fatalf("RequestPasswordReset: %v", err)
+	}
+
+	// ConfirmPasswordReset
+	if _, err := server.ConfirmPasswordReset(ctx, &authv1.ConfirmPasswordResetRequest{Token: "bad", NewPassword: "ValidPassword123!"}); status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument on bad reset token, got %v", err)
+	}
+	if _, err := server.ConfirmPasswordReset(ctx, &authv1.ConfirmPasswordResetRequest{Token: "good", NewPassword: "ValidPassword123!"}); err != nil {
+		t.Fatalf("ConfirmPasswordReset: %v", err)
+	}
+
+	// ChangePassword
+	if _, err := server.ChangePassword(ctx, &authv1.ChangePasswordRequest{UserId: uid.String(), CurrentPassword: "wrong", NewPassword: "ValidPassword123!"}); status.Code(err) != codes.Unauthenticated {
+		t.Fatalf("expected Unauthenticated on wrong current password, got %v", err)
+	}
+	if _, err := server.ChangePassword(ctx, &authv1.ChangePasswordRequest{UserId: uid.String(), SessionId: sid.String(), CurrentPassword: "ok", NewPassword: "ValidPassword123!"}); err != nil {
+		t.Fatalf("ChangePassword: %v", err)
+	}
+
+	// GetMe
+	meResp, err := server.GetMe(ctx, &authv1.GetMeRequest{UserId: uid.String()})
+	if err != nil || meResp.GetEmail() != "me@kr0n.dev" || !meResp.GetEmailVerified() {
+		t.Fatalf("GetMe failed: %v, %+v", err, meResp)
+	}
+
+	// ListSessions & RevokeSession
+	listResp, err := server.ListSessions(ctx, &authv1.ListSessionsRequest{UserId: uid.String()})
+	if err != nil || len(listResp.GetSessions()) != 1 || listResp.GetSessions()[0].GetId() != sid.String() {
+		t.Fatalf("ListSessions failed: %v, %+v", err, listResp)
+	}
+	if _, err := server.RevokeSession(ctx, &authv1.RevokeSessionRequest{UserId: uid.String(), SessionId: uuid.New().String()}); status.Code(err) != codes.NotFound {
+		t.Fatalf("expected NotFound, got %v", err)
+	}
+	if _, err := server.RevokeSession(ctx, &authv1.RevokeSessionRequest{UserId: uid.String(), SessionId: sid.String()}); err != nil {
+		t.Fatalf("RevokeSession: %v", err)
 	}
 }

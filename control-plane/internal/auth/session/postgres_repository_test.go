@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -12,48 +11,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/user"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/testdb"
 )
 
-func getTestDatabaseURL() string {
-	if url := os.Getenv("TEST_DATABASE_URL"); url != "" {
-		return url
-	}
-	if url := os.Getenv("DATABASE_URL"); url != "" {
-		return url
-	}
-	return "postgres://kr0n:kr0n_dev_password@localhost:5432/kr0n_test?sslmode=disable"
-}
-
+// setupTestPool returns a pool on the isolated, fully migrated test database (TEST_DATABASE_URL
+// only; DATABASE_URL is never used). See internal/testdb.
 func setupTestPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	dbURL := getTestDatabaseURL()
-	if dbURL == "" {
-		t.Skip("skipping postgres integration test: neither TEST_DATABASE_URL nor DATABASE_URL set")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	config, err := pgxpool.ParseConfig(dbURL)
-	if err != nil {
-		t.Fatalf("parse db config: %v", err)
-	}
-
-	pool, err := pgxpool.NewWithConfig(ctx, config)
-	if err != nil {
-		t.Fatalf("connect to test db: %v", err)
-	}
-
-	if err := pool.Ping(ctx); err != nil {
-		pool.Close()
-		t.Skipf("cannot reach test db at %s: %v", dbURL, err)
-	}
-
-	t.Cleanup(func() {
-		pool.Close()
-	})
-
-	return pool
+	return testdb.Pool(t)
 }
 
 func TestPostgresRepository_CreateSession(t *testing.T) {
@@ -69,8 +34,8 @@ func TestPostgresRepository_CreateSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewUser failed: %v", err)
 	}
-	if err := userRepo.CreateWithPassword(ctx, u, "$2a$12$e8I7n.oE/1u9jFq7m5yRyeuG.F/5kX5g5g1"); err != nil {
-		t.Fatalf("CreateWithPassword failed: %v", err)
+	if err := userRepo.CreateWithPasswordAndVerificationToken(ctx, u, "$2a$12$e8I7n.oE/1u9jFq7m5yRyeuG.F/5kX5g5g1", nil); err != nil {
+		t.Fatalf("CreateWithPasswordAndVerificationToken failed: %v", err)
 	}
 
 	// 2. Generate refresh token and hash
@@ -166,8 +131,8 @@ func createTestUserAndSession(t *testing.T, pool *pgxpool.Pool) (*user.User, str
 	if err != nil {
 		t.Fatalf("NewUser failed: %v", err)
 	}
-	if err := userRepo.CreateWithPassword(ctx, u, "$2a$12$e8I7n.oE/1u9jFq7m5yRyeuG.F/5kX5g5g1"); err != nil {
-		t.Fatalf("CreateWithPassword failed: %v", err)
+	if err := userRepo.CreateWithPasswordAndVerificationToken(ctx, u, "$2a$12$e8I7n.oE/1u9jFq7m5yRyeuG.F/5kX5g5g1", nil); err != nil {
+		t.Fatalf("CreateWithPasswordAndVerificationToken failed: %v", err)
 	}
 
 	rawRefreshToken, err := GenerateRefreshToken()

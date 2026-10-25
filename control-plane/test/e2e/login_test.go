@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/jwtkeys"
 	"io"
 	"net"
 	"net/http"
@@ -25,7 +26,7 @@ import (
 
 func startE2ECluster(t *testing.T, ctx context.Context) (*pgxpool.Pool, string, func()) {
 	t.Helper()
-	testDBURL := getTestDatabaseURL()
+	testDBURL := getTestDatabaseURL(t)
 
 	dbPool, err := database.NewPostgresPool(ctx, testDBURL)
 	if err != nil {
@@ -37,7 +38,7 @@ func startE2ECluster(t *testing.T, ctx context.Context) (*pgxpool.Pool, string, 
 	hasher := user.NewBcryptHasher(12)
 	userService := user.NewService(userRepo, hasher)
 
-	jwtSigner, err := session.NewJWTSigner([]byte("test_jwt_secret_key_at_least_32_bytes_long!"), "kr0n-test", 15*time.Minute)
+	jwtSigner, err := jwtkeys.NewSigner(jwtkeys.DevPrivateKey(), "k1", "kr0n-test", "kr0n-api", 15*time.Minute)
 	if err != nil {
 		t.Fatalf("failed to create jwt signer: %v", err)
 	}
@@ -68,7 +69,7 @@ func startE2ECluster(t *testing.T, ctx context.Context) (*pgxpool.Pool, string, 
 
 	authClient := authv1.NewAuthServiceClient(authConn)
 	gwHandler := gateway.NewHandler(authClient)
-	gwRouter := gateway.NewRouter(gwHandler)
+	gwRouter := gateway.NewServerHandler(gwHandler, gateway.Options{})
 
 	httpListener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

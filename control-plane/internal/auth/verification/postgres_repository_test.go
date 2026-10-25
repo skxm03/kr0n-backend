@@ -3,7 +3,6 @@ package verification
 import (
 	"context"
 	"errors"
-	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -11,45 +10,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/testdb"
 )
 
-func getTestDatabaseURL() string {
-	if url := os.Getenv("TEST_DATABASE_URL"); url != "" {
-		return url
-	}
-	if url := os.Getenv("DATABASE_URL"); url != "" {
-		return url
-	}
-	return "postgres://kr0n:kr0n_dev_password@localhost:5432/kr0n_test?sslmode=disable"
-}
-
+// setupTestPool returns a pool on the isolated, fully migrated test database (TEST_DATABASE_URL
+// only; DATABASE_URL is never used). See internal/testdb.
 func setupTestPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	dbURL := getTestDatabaseURL()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	config, err := pgxpool.ParseConfig(dbURL)
-	if err != nil {
-		t.Fatalf("parse db config: %v", err)
-	}
-
-	pool, err := pgxpool.NewWithConfig(ctx, config)
-	if err != nil {
-		t.Fatalf("connect to test db: %v", err)
-	}
-
-	if err := pool.Ping(ctx); err != nil {
-		pool.Close()
-		t.Skipf("cannot reach test db at %s: %v", dbURL, err)
-	}
-
-	t.Cleanup(func() {
-		pool.Close()
-	})
-
-	return pool
+	return testdb.Pool(t)
 }
 
 func createTestUser(t *testing.T, pool *pgxpool.Pool, status string) uuid.UUID {
@@ -70,62 +38,16 @@ func createTestUser(t *testing.T, pool *pgxpool.Pool, status string) uuid.UUID {
 	return userID
 }
 
-func TestPostgresRepository_CreateAndGetByTokenHash(t *testing.T) {
-	pool := setupTestPool(t)
-	repo := NewPostgresRepository(pool)
-	ctx := context.Background()
-
-	testUserID := createTestUser(t, pool, "active")
-
-	rawToken, err := GenerateToken()
-	if err != nil {
-		t.Fatalf("GenerateToken failed: %v", err)
-	}
-	tokenHash := HashToken(rawToken)
-
-	now := time.Now().UTC().Truncate(time.Microsecond)
-	expiresAt := now.Add(24 * time.Hour)
-
-	tok := &Token{
-		ID:        uuid.New(),
-		UserID:    testUserID,
-		TokenHash: tokenHash,
-		ExpiresAt: expiresAt,
-		CreatedAt: now,
-	}
-
-	// 1. Create verification token
-	if err := repo.Create(ctx, tok); err != nil {
-		t.Fatalf("Create token failed: %v", err)
-	}
-
-	// 2. Lookup by token hash
-	retrieved, err := repo.GetByTokenHash(ctx, tokenHash)
-	if err != nil {
-		t.Fatalf("GetByTokenHash failed: %v", err)
-	}
-
-	if retrieved.ID != tok.ID {
-		t.Fatalf("expected ID %v, got %v", tok.ID, retrieved.ID)
-	}
-	if retrieved.UserID != testUserID {
-		t.Fatalf("expected UserID %v, got %v", testUserID, retrieved.UserID)
-	}
-	if retrieved.TokenHash != tokenHash {
-		t.Fatalf("expected TokenHash %v, got %v", tokenHash, retrieved.TokenHash)
-	}
-	if retrieved.ConsumedAt != nil {
-		t.Fatal("expected ConsumedAt to be nil")
-	}
-
-	// Verify raw token is NEVER found in the database table
-	var count int
-	err = pool.QueryRow(ctx, "SELECT count(*) FROM email_verification_tokens WHERE token_hash = $1", rawToken).Scan(&count)
-	if err != nil {
-		t.Fatalf("query failed: %v", err)
-	}
-	if count != 0 {
-		t.Fatalf("CRITICAL SECURITY VIOLATION: raw verification token found in PostgreSQL: count=%d", count)
+func insertTestToken(t *testing.T, pool *pgxpool.Pool, tok *Token) {
+	t.Helper()
+	const insertSQL = `
+		INSERT INTO email_verification_tokens (id, user_id, token_hash, expires_at, consumed_at, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6);
+	`
+	if _, err := pool.Exec(context.Background(), insertSQL,
+		tok.ID, tok.UserID, tok.TokenHash, tok.ExpiresAt, tok.ConsumedAt, tok.CreatedAt,
+	); err != nil {
+		t.Fatalf("insert test token failed: %v", err)
 	}
 }
 
@@ -151,8 +73,15 @@ func TestPostgresRepository_VerifyAndConsume_Success(t *testing.T) {
 		CreatedAt: now,
 	}
 
-	if err := repo.Create(ctx, tok); err != nil {
-		t.Fatalf("Create token failed: %v", err)
+	insertTestToken(t, pool, tok)
+
+	// Verify raw token is NEVER found in the database table
+	var count int
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM email_verification_tokens WHERE token_hash = $1", rawToken).Scan(&count); err != nil {
+		t.Fatalf("query failed: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("CRITICAL SECURITY VIOLATION: raw verification token found in PostgreSQL: count=%d", count)
 	}
 
 	// Verify initially unverified
@@ -222,9 +151,7 @@ func TestPostgresRepository_VerifyAndConsume_ExpiredToken(t *testing.T) {
 		CreatedAt: now.Add(-2 * time.Hour),
 	}
 
-	if err := repo.Create(ctx, tok); err != nil {
-		t.Fatalf("Create token failed: %v", err)
-	}
+	insertTestToken(t, pool, tok)
 
 	_, err := repo.VerifyAndConsume(ctx, tokenHash, now)
 	if !errors.Is(err, ErrTokenExpired) {
@@ -258,9 +185,7 @@ func TestPostgresRepository_VerifyAndConsume_Concurrent(t *testing.T) {
 		CreatedAt: now,
 	}
 
-	if err := repo.Create(ctx, tok); err != nil {
-		t.Fatalf("Create token failed: %v", err)
-	}
+	insertTestToken(t, pool, tok)
 
 	const goroutines = 10
 	var successCount int64
@@ -310,9 +235,7 @@ func TestPostgresRepository_VerifyAndConsume_RollbackOnInactiveUser(t *testing.T
 		CreatedAt: now,
 	}
 
-	if err := repo.Create(ctx, tok); err != nil {
-		t.Fatalf("Create token failed: %v", err)
-	}
+	insertTestToken(t, pool, tok)
 
 	_, err := repo.VerifyAndConsume(ctx, tokenHash, now)
 	if !errors.Is(err, ErrUserNotActive) {
@@ -320,11 +243,11 @@ func TestPostgresRepository_VerifyAndConsume_RollbackOnInactiveUser(t *testing.T
 	}
 
 	// Confirm token was NOT consumed due to transaction rollback
-	retrieved, err := repo.GetByTokenHash(ctx, tokenHash)
-	if err != nil {
-		t.Fatalf("GetByTokenHash failed: %v", err)
+	var consumedAt *time.Time
+	if err := pool.QueryRow(ctx, "SELECT consumed_at FROM email_verification_tokens WHERE token_hash = $1", tokenHash).Scan(&consumedAt); err != nil {
+		t.Fatalf("query token consumed_at failed: %v", err)
 	}
-	if retrieved.ConsumedAt != nil {
+	if consumedAt != nil {
 		t.Fatal("expected token to NOT be consumed after transaction rollback")
 	}
 }

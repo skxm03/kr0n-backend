@@ -16,8 +16,6 @@ type mockRepository struct {
 	tokens map[string]*Token // keyed by tokenHash
 	users  map[uuid.UUID]*mockUser
 
-	createFunc           func(ctx context.Context, token *Token) error
-	getByTokenHashFunc   func(ctx context.Context, tokenHash string) (*Token, error)
 	verifyAndConsumeFunc func(ctx context.Context, tokenHash string, now time.Time) (*Token, error)
 }
 
@@ -32,29 +30,6 @@ func newMockRepository() *mockRepository {
 		tokens: make(map[string]*Token),
 		users:  make(map[uuid.UUID]*mockUser),
 	}
-}
-
-func (m *mockRepository) Create(ctx context.Context, token *Token) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.createFunc != nil {
-		return m.createFunc(ctx, token)
-	}
-	m.tokens[token.TokenHash] = token
-	return nil
-}
-
-func (m *mockRepository) GetByTokenHash(ctx context.Context, tokenHash string) (*Token, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if m.getByTokenHashFunc != nil {
-		return m.getByTokenHashFunc(ctx, tokenHash)
-	}
-	tok, ok := m.tokens[tokenHash]
-	if !ok {
-		return nil, ErrInvalidToken
-	}
-	return tok, nil
 }
 
 func (m *mockRepository) VerifyAndConsume(ctx context.Context, tokenHash string, now time.Time) (*Token, error) {
