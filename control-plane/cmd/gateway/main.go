@@ -53,6 +53,7 @@ func run() error {
 		}
 		tlsConfig := &tls.Config{
 			Certificates: []tls.Certificate{cert},
+			ServerName:   cfg.AuthGRPCServerName,
 			MinVersion:   tls.VersionTLS12,
 		}
 		if cfg.AuthGRPCTLSCAFile != "" {
@@ -62,19 +63,31 @@ func run() error {
 			}
 			pool := x509.NewCertPool()
 			if !pool.AppendCertsFromPEM(caPEM) {
-				return errors.New("failed to parse auth ca cert")
+				return errors.New("failed to parse auth ca cert: file contains no valid certificates")
 			}
 			tlsConfig.RootCAs = pool
 		}
 		dialCreds = credentials.NewTLS(tlsConfig)
 	} else if cfg.AuthGRPCTLSCAFile != "" {
-		c, err := credentials.NewClientTLSFromFile(cfg.AuthGRPCTLSCAFile, "")
+		caPEM, err := os.ReadFile(cfg.AuthGRPCTLSCAFile)
 		if err != nil {
-			return err
+			return fmt.Errorf("read auth ca file: %w", err)
 		}
-		dialCreds = c
+		pool := x509.NewCertPool()
+		if !pool.AppendCertsFromPEM(caPEM) {
+			return errors.New("failed to parse auth ca cert: file contains no valid certificates")
+		}
+		tlsConfig := &tls.Config{
+			RootCAs:    pool,
+			ServerName: cfg.AuthGRPCServerName,
+			MinVersion: tls.VersionTLS12,
+		}
+		dialCreds = credentials.NewTLS(tlsConfig)
 	} else if !cfg.AuthGRPCTLSPlain {
-		dialCreds = credentials.NewTLS(&tls.Config{MinVersion: tls.VersionTLS12})
+		dialCreds = credentials.NewTLS(&tls.Config{
+			ServerName: cfg.AuthGRPCServerName,
+			MinVersion: tls.VersionTLS12,
+		})
 	} else if cfg.Env == "dev" {
 		dialCreds = insecure.NewCredentials()
 	} else {

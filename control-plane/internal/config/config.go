@@ -81,6 +81,7 @@ type GatewayConfig struct {
 	AuthGRPCTLSCAFile   string
 	AuthGRPCTLSCertFile string
 	AuthGRPCTLSKeyFile  string
+	AuthGRPCServerName  string
 	AuthGRPCTLSPlain    bool
 	AuthServiceToken    string
 }
@@ -147,8 +148,14 @@ func LoadFrom(lookup func(string) (string, bool)) (*Config, error) {
 	if (tlsCert == "") != (tlsKey == "") {
 		return nil, errors.New("both AUTH_GRPC_TLS_CERT_FILE and AUTH_GRPC_TLS_KEY_FILE must be set together")
 	}
-	if env != "dev" && tlsCert == "" {
-		return nil, errors.New("AUTH_GRPC_TLS_CERT_FILE and AUTH_GRPC_TLS_KEY_FILE are required when KR0N_ENV != dev (plaintext gRPC is only allowed in dev)")
+	clientCA := envOr(lookup, "AUTH_GRPC_CLIENT_CA_FILE", "")
+	if env != "dev" {
+		if tlsCert == "" {
+			return nil, errors.New("AUTH_GRPC_TLS_CERT_FILE and AUTH_GRPC_TLS_KEY_FILE are required when KR0N_ENV != dev (plaintext gRPC is only allowed in dev)")
+		}
+		if clientCA == "" {
+			return nil, errors.New("AUTH_GRPC_CLIENT_CA_FILE is required when KR0N_ENV != dev (mTLS client certificate verification is mandatory in non-dev)")
+		}
 	}
 
 	jwtIssuer := "kr0n-auth"
@@ -283,6 +290,32 @@ func LoadGatewayFrom(lookup func(string) (string, bool)) (*GatewayConfig, error)
 		return nil, errors.New("plaintext Auth gRPC is only allowed when KR0N_ENV=dev")
 	}
 
+	gatewayCert := envOr(lookup, "GATEWAY_GRPC_TLS_CERT_FILE", envOr(lookup, "AUTH_GRPC_TLS_CERT_FILE", ""))
+	gatewayKey := envOr(lookup, "GATEWAY_GRPC_TLS_KEY_FILE", envOr(lookup, "AUTH_GRPC_TLS_KEY_FILE", ""))
+	if (gatewayCert == "") != (gatewayKey == "") {
+		return nil, errors.New("both GATEWAY_GRPC_TLS_CERT_FILE and GATEWAY_GRPC_TLS_KEY_FILE must be set together")
+	}
+	if env != "dev" {
+		if tlsCAFile == "" {
+			return nil, errors.New("AUTH_GRPC_TLS_CA_FILE is required when KR0N_ENV != dev (CA certificate is required to verify Auth server TLS)")
+		}
+		if gatewayCert == "" || gatewayKey == "" {
+			return nil, errors.New("GATEWAY_GRPC_TLS_CERT_FILE and GATEWAY_GRPC_TLS_KEY_FILE are required when KR0N_ENV != dev (mTLS client certificate is mandatory in non-dev)")
+		}
+	}
+
+	targetHost, _, err := net.SplitHostPort(authGRPCAddr)
+	if err != nil {
+		targetHost = authGRPCAddr
+	}
+	serverName := envOr(lookup, "AUTH_GRPC_SERVER_NAME", "")
+	if serverName == "" {
+		if net.ParseIP(targetHost) != nil && env != "dev" {
+			return nil, fmt.Errorf("AUTH_GRPC_SERVER_NAME is required when AUTH_GRPC_ADDR uses an IP address (%s) in non-dev mode", targetHost)
+		}
+		serverName = targetHost
+	}
+
 	var trusted []*net.IPNet
 	for _, c := range strings.Split(envOr(lookup, "TRUSTED_PROXY_CIDRS", ""), ",") {
 		if c = strings.TrimSpace(c); c == "" {
@@ -326,8 +359,9 @@ func LoadGatewayFrom(lookup func(string) (string, bool)) (*GatewayConfig, error)
 		AuthRateCapacity:    authCap,
 		AuthRatePerSec:      authRate,
 		AuthGRPCTLSCAFile:   tlsCAFile,
-		AuthGRPCTLSCertFile: envOr(lookup, "GATEWAY_GRPC_TLS_CERT_FILE", envOr(lookup, "AUTH_GRPC_TLS_CERT_FILE", "")),
-		AuthGRPCTLSKeyFile:  envOr(lookup, "GATEWAY_GRPC_TLS_KEY_FILE", envOr(lookup, "AUTH_GRPC_TLS_KEY_FILE", "")),
+		AuthGRPCTLSCertFile: gatewayCert,
+		AuthGRPCTLSKeyFile:  gatewayKey,
+		AuthGRPCServerName:  serverName,
 		AuthGRPCTLSPlain:    tlsPlain,
 		AuthServiceToken:    envOr(lookup, "AUTH_SERVICE_TOKEN", ""),
 	}, nil

@@ -102,10 +102,12 @@ func run() error {
 	auditService := audit.NewService(auditRepo)
 
 	serviceAuthConfig := authgrpc.ServiceAuthConfig{
-		Enabled:            !config.IsDevEnv(cfg.Env) || cfg.AuthGRPCClientCAFile != "" || cfg.AuthServiceToken != "",
-		AllowedClientNames: cfg.AuthGRPCAllowedClients,
-		ServiceToken:       cfg.AuthServiceToken,
-		AllowInsecureDev:   config.IsDevEnv(cfg.Env) && cfg.AuthGRPCClientCAFile == "" && cfg.AuthServiceToken == "",
+		Enabled:             !config.IsDevEnv(cfg.Env) || cfg.AuthGRPCClientCAFile != "" || cfg.AuthServiceToken != "",
+		RequireClientCert:   !config.IsDevEnv(cfg.Env) || cfg.AuthGRPCClientCAFile != "",
+		RequireServiceToken: cfg.AuthServiceToken != "",
+		AllowedClientNames:  cfg.AuthGRPCAllowedClients,
+		ServiceToken:        cfg.AuthServiceToken,
+		AllowInsecureDev:    config.IsDevEnv(cfg.Env) && cfg.AuthGRPCClientCAFile == "" && cfg.AuthServiceToken == "",
 	}
 
 	grpcHandler := authgrpc.NewServer(
@@ -136,7 +138,7 @@ func run() error {
 			}
 			pool := x509.NewCertPool()
 			if !pool.AppendCertsFromPEM(caPEM) {
-				return errors.New("failed to parse client ca cert")
+				return errors.New("failed to parse client ca cert: file contains no valid certificates")
 			}
 			tlsConfig.ClientCAs = pool
 			tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert

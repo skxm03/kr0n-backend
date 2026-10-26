@@ -30,10 +30,12 @@
 ## Security & Service Boundary
 
 ### Internal gRPC Service Authentication & mTLS
-The API Gateway and Auth Service communicate over internal gRPC (`:50051`). In production:
-- **Mutual TLS (mTLS)**: Enforced via `AUTH_GRPC_CLIENT_CA_FILE` (`tls.RequireAndVerifyClientCert`), validating client certificates against trusted internal CA pools.
-- **Client Identity Verification**: The Auth service verifies the client's Subject CommonName / DNS SAN against configured trusted callers (`AUTH_GRPC_ALLOWED_CLIENTS`, e.g. `kr0n-gateway`).
-- **Service Token Fallback**: A shared secret (`AUTH_SERVICE_TOKEN`) can be passed via `x-service-token` or `Authorization: Bearer <token>` gRPC metadata.
+The API Gateway and Auth Service communicate over internal gRPC (`:50051`). In production (`KR0N_ENV != dev`):
+- **Mandatory Mutual TLS (mTLS)**: Enforced via `AUTH_GRPC_CLIENT_CA_FILE` (`tls.RequireAndVerifyClientCert`), validating client certificates against trusted internal CA pools. Startup fails closed if the CA file is missing, empty, or unparseable.
+- **Client Identity Verification**: The Auth service verifies the client's Subject CommonName / DNS SAN against configured trusted callers (`AUTH_GRPC_ALLOWED_CLIENTS`, e.g. `kr0n-gateway`). A certificate chaining to the CA is rejected if its identity is not on the allowlist.
+- **No Token-Only Bypass**: A shared service token cannot authenticate a caller whose client certificate is missing or untrusted. Token-only authentication is restricted strictly to local dev environments.
+- **Dual-Mode Defense-in-Depth**: When `AUTH_SERVICE_TOKEN` is configured in production, both valid mTLS credentials and the service token must succeed (`AND` conjunction, never `OR`).
+- **Hostname & Server-Name Verification**: The Gateway validates the Auth server certificate SAN against `AUTH_GRPC_SERVER_NAME` (or the dial target host). In non-dev environments, dialing an IP address without an explicit `AUTH_GRPC_SERVER_NAME` fails closed at startup.
 - **Principal Spoofing Prevention**: The Auth gRPC service strictly rejects calls carrying `CallerPrincipal` or user credentials unless they originate from an authenticated, trusted internal service. Unauthenticated callers attempting to invoke protected RPCs receive `codes.Unauthenticated`.
 - Plaintext gRPC and unauthenticated dev bypass are strictly prohibited unless `KR0N_ENV=dev`.
 

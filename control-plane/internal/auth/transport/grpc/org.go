@@ -110,12 +110,12 @@ func toAPITokenProto(t *org.APIToken) *authv1.APITokenInfo {
 
 // CheckPermission evaluates whether a caller holds a permission in an organization.
 func (s *Server) CheckPermission(ctx context.Context, req *authv1.CheckPermissionRequest) (*authv1.CheckPermissionResponse, error) {
-	if s.orgService == nil {
-		return nil, status.Error(codes.Unimplemented, "org service not configured")
-	}
 	p, err := s.parseCallerPrincipal(ctx, req.GetCaller())
 	if err != nil {
 		return nil, err
+	}
+	if s.orgService == nil {
+		return nil, status.Error(codes.Unimplemented, "org service not configured")
 	}
 	orgID, err := uuid.Parse(strings.TrimSpace(req.GetOrgId()))
 	if err != nil {
@@ -130,6 +130,9 @@ func (s *Server) CheckPermission(ctx context.Context, req *authv1.CheckPermissio
 
 // ListRoles returns all RBAC roles and their granted permissions.
 func (s *Server) ListRoles(ctx context.Context, req *authv1.ListRolesRequest) (*authv1.ListRolesResponse, error) {
+	if s.serviceAuth.Enabled && !IsTrustedService(ctx) {
+		return nil, status.Error(codes.Unauthenticated, "trusted service authentication required")
+	}
 	if s.orgService == nil {
 		return nil, status.Error(codes.Unimplemented, "org service not configured")
 	}
@@ -203,12 +206,12 @@ func (s *Server) ListOrganizations(ctx context.Context, req *authv1.ListOrganiza
 
 // GetOrganization returns an organization by ID.
 func (s *Server) GetOrganization(ctx context.Context, req *authv1.GetOrganizationRequest) (*authv1.OrganizationResponse, error) {
-	if s.orgService == nil {
-		return nil, status.Error(codes.Unimplemented, "org service not configured")
-	}
 	p, err := s.parseCallerPrincipal(ctx, req.GetCaller())
 	if err != nil {
 		return nil, err
+	}
+	if s.orgService == nil {
+		return nil, status.Error(codes.Unimplemented, "org service not configured")
 	}
 	orgID, err := uuid.Parse(strings.TrimSpace(req.GetOrgId()))
 	if err != nil {
@@ -223,12 +226,12 @@ func (s *Server) GetOrganization(ctx context.Context, req *authv1.GetOrganizatio
 
 // UpdateOrganization updates an organization's name.
 func (s *Server) UpdateOrganization(ctx context.Context, req *authv1.UpdateOrganizationRequest) (*authv1.OrganizationResponse, error) {
-	if s.orgService == nil {
-		return nil, status.Error(codes.Unimplemented, "org service not configured")
-	}
 	p, err := s.parseCallerPrincipal(ctx, req.GetCaller())
 	if err != nil {
 		return nil, err
+	}
+	if s.orgService == nil {
+		return nil, status.Error(codes.Unimplemented, "org service not configured")
 	}
 	orgID, err := uuid.Parse(strings.TrimSpace(req.GetOrgId()))
 	if err != nil {
@@ -253,12 +256,12 @@ func (s *Server) UpdateOrganization(ctx context.Context, req *authv1.UpdateOrgan
 
 // DeleteOrganization deletes an organization.
 func (s *Server) DeleteOrganization(ctx context.Context, req *authv1.DeleteOrganizationRequest) (*authv1.DeleteOrganizationResponse, error) {
-	if s.orgService == nil {
-		return nil, status.Error(codes.Unimplemented, "org service not configured")
-	}
 	p, err := s.parseCallerPrincipal(ctx, req.GetCaller())
 	if err != nil {
 		return nil, err
+	}
+	if s.orgService == nil {
+		return nil, status.Error(codes.Unimplemented, "org service not configured")
 	}
 	orgID, err := uuid.Parse(strings.TrimSpace(req.GetOrgId()))
 	if err != nil {
@@ -281,12 +284,12 @@ func (s *Server) DeleteOrganization(ctx context.Context, req *authv1.DeleteOrgan
 
 // ListMembers lists members of an organization.
 func (s *Server) ListMembers(ctx context.Context, req *authv1.ListMembersRequest) (*authv1.ListMembersResponse, error) {
-	if s.orgService == nil {
-		return nil, status.Error(codes.Unimplemented, "org service not configured")
-	}
 	p, err := s.parseCallerPrincipal(ctx, req.GetCaller())
 	if err != nil {
 		return nil, err
+	}
+	if s.orgService == nil {
+		return nil, status.Error(codes.Unimplemented, "org service not configured")
 	}
 	orgID, err := uuid.Parse(strings.TrimSpace(req.GetOrgId()))
 	if err != nil {
@@ -311,12 +314,12 @@ func (s *Server) ListMembers(ctx context.Context, req *authv1.ListMembersRequest
 
 // AddMember adds an existing user by email to an organization.
 func (s *Server) AddMember(ctx context.Context, req *authv1.AddMemberRequest) (*authv1.MemberInfo, error) {
-	if s.orgService == nil {
-		return nil, status.Error(codes.Unimplemented, "org service not configured")
-	}
 	p, err := s.parseCallerPrincipal(ctx, req.GetCaller())
 	if err != nil {
 		return nil, err
+	}
+	if s.orgService == nil {
+		return nil, status.Error(codes.Unimplemented, "org service not configured")
 	}
 	orgID, err := uuid.Parse(strings.TrimSpace(req.GetOrgId()))
 	if err != nil {
@@ -347,12 +350,12 @@ func (s *Server) AddMember(ctx context.Context, req *authv1.AddMemberRequest) (*
 
 // UpdateMemberRole updates a member's role in an organization.
 func (s *Server) UpdateMemberRole(ctx context.Context, req *authv1.UpdateMemberRoleRequest) (*authv1.UpdateMemberRoleResponse, error) {
-	if s.orgService == nil {
-		return nil, status.Error(codes.Unimplemented, "org service not configured")
-	}
 	p, err := s.parseCallerPrincipal(ctx, req.GetCaller())
 	if err != nil {
 		return nil, err
+	}
+	if s.orgService == nil {
+		return nil, status.Error(codes.Unimplemented, "org service not configured")
 	}
 	orgID, err := uuid.Parse(strings.TrimSpace(req.GetOrgId()))
 	if err != nil {
@@ -380,12 +383,12 @@ func (s *Server) UpdateMemberRole(ctx context.Context, req *authv1.UpdateMemberR
 
 // RemoveMember removes a member from an organization.
 func (s *Server) RemoveMember(ctx context.Context, req *authv1.RemoveMemberRequest) (*authv1.RemoveMemberResponse, error) {
-	if s.orgService == nil {
-		return nil, status.Error(codes.Unimplemented, "org service not configured")
-	}
 	p, err := s.parseCallerPrincipal(ctx, req.GetCaller())
 	if err != nil {
 		return nil, err
+	}
+	if s.orgService == nil {
+		return nil, status.Error(codes.Unimplemented, "org service not configured")
 	}
 	orgID, err := uuid.Parse(strings.TrimSpace(req.GetOrgId()))
 	if err != nil {
@@ -412,12 +415,12 @@ func (s *Server) RemoveMember(ctx context.Context, req *authv1.RemoveMemberReque
 
 // CreateInvite creates an organization invitation token.
 func (s *Server) CreateInvite(ctx context.Context, req *authv1.CreateInviteRequest) (*authv1.CreateInviteResponse, error) {
-	if s.orgService == nil {
-		return nil, status.Error(codes.Unimplemented, "org service not configured")
-	}
 	p, err := s.parseCallerPrincipal(ctx, req.GetCaller())
 	if err != nil {
 		return nil, err
+	}
+	if s.orgService == nil {
+		return nil, status.Error(codes.Unimplemented, "org service not configured")
 	}
 	orgID, err := uuid.Parse(strings.TrimSpace(req.GetOrgId()))
 	if err != nil {
@@ -479,12 +482,12 @@ func (s *Server) AcceptInvite(ctx context.Context, req *authv1.AcceptInviteReque
 
 // RevokeInvite revokes a pending organization invitation.
 func (s *Server) RevokeInvite(ctx context.Context, req *authv1.RevokeInviteRequest) (*authv1.RevokeInviteResponse, error) {
-	if s.orgService == nil {
-		return nil, status.Error(codes.Unimplemented, "org service not configured")
-	}
 	p, err := s.parseCallerPrincipal(ctx, req.GetCaller())
 	if err != nil {
 		return nil, err
+	}
+	if s.orgService == nil {
+		return nil, status.Error(codes.Unimplemented, "org service not configured")
 	}
 	orgID, err := uuid.Parse(strings.TrimSpace(req.GetOrgId()))
 	if err != nil {
@@ -511,12 +514,12 @@ func (s *Server) RevokeInvite(ctx context.Context, req *authv1.RevokeInviteReque
 
 // CreateAPIToken creates an org-scoped API token (`kr0n_pat_...`).
 func (s *Server) CreateAPIToken(ctx context.Context, req *authv1.CreateAPITokenRequest) (*authv1.CreateAPITokenResponse, error) {
-	if s.orgService == nil {
-		return nil, status.Error(codes.Unimplemented, "org service not configured")
-	}
 	p, err := s.parseCallerPrincipal(ctx, req.GetCaller())
 	if err != nil {
 		return nil, err
+	}
+	if s.orgService == nil {
+		return nil, status.Error(codes.Unimplemented, "org service not configured")
 	}
 	orgID, err := uuid.Parse(strings.TrimSpace(req.GetOrgId()))
 	if err != nil {
@@ -544,12 +547,12 @@ func (s *Server) CreateAPIToken(ctx context.Context, req *authv1.CreateAPITokenR
 
 // ListAPITokens lists active API tokens for an organization.
 func (s *Server) ListAPITokens(ctx context.Context, req *authv1.ListAPITokensRequest) (*authv1.ListAPITokensResponse, error) {
-	if s.orgService == nil {
-		return nil, status.Error(codes.Unimplemented, "org service not configured")
-	}
 	p, err := s.parseCallerPrincipal(ctx, req.GetCaller())
 	if err != nil {
 		return nil, err
+	}
+	if s.orgService == nil {
+		return nil, status.Error(codes.Unimplemented, "org service not configured")
 	}
 	orgID, err := uuid.Parse(strings.TrimSpace(req.GetOrgId()))
 	if err != nil {
@@ -568,12 +571,12 @@ func (s *Server) ListAPITokens(ctx context.Context, req *authv1.ListAPITokensReq
 
 // RevokeAPIToken revokes an organization API token.
 func (s *Server) RevokeAPIToken(ctx context.Context, req *authv1.RevokeAPITokenRequest) (*authv1.RevokeAPITokenResponse, error) {
-	if s.orgService == nil {
-		return nil, status.Error(codes.Unimplemented, "org service not configured")
-	}
 	p, err := s.parseCallerPrincipal(ctx, req.GetCaller())
 	if err != nil {
 		return nil, err
+	}
+	if s.orgService == nil {
+		return nil, status.Error(codes.Unimplemented, "org service not configured")
 	}
 	orgID, err := uuid.Parse(strings.TrimSpace(req.GetOrgId()))
 	if err != nil {
@@ -600,6 +603,9 @@ func (s *Server) RevokeAPIToken(ctx context.Context, req *authv1.RevokeAPITokenR
 
 // ValidateAPIToken validates a raw `kr0n_pat_...` token and returns its org scope and permissions.
 func (s *Server) ValidateAPIToken(ctx context.Context, req *authv1.ValidateAPITokenRequest) (*authv1.ValidateAPITokenResponse, error) {
+	if s.serviceAuth.Enabled && !IsTrustedService(ctx) {
+		return nil, status.Error(codes.Unauthenticated, "trusted service authentication required")
+	}
 	if s.orgService == nil {
 		return nil, status.Error(codes.Unimplemented, "org service not configured")
 	}
@@ -620,12 +626,12 @@ func (s *Server) ValidateAPIToken(ctx context.Context, req *authv1.ValidateAPITo
 
 // ListAuditEvents lists append-only audit events for an organization, gated by `audit:read`.
 func (s *Server) ListAuditEvents(ctx context.Context, req *authv1.ListAuditEventsRequest) (*authv1.ListAuditEventsResponse, error) {
-	if s.orgService == nil || s.auditService == nil {
-		return nil, status.Error(codes.Unimplemented, "audit service not configured")
-	}
 	p, err := s.parseCallerPrincipal(ctx, req.GetCaller())
 	if err != nil {
 		return nil, err
+	}
+	if s.orgService == nil || s.auditService == nil {
+		return nil, status.Error(codes.Unimplemented, "audit service not configured")
 	}
 	orgID, err := uuid.Parse(strings.TrimSpace(req.GetOrgId()))
 	if err != nil {

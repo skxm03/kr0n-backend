@@ -324,7 +324,7 @@ func TestHardening_NonDevRefusesDefaultDevKeysAndPlaintextGRPC(t *testing.T) {
 		}
 	})
 
-	t.Run("auth succeeds outside dev with real key and TLS cert/key", func(t *testing.T) {
+	t.Run("auth refuses missing client CA outside dev", func(t *testing.T) {
 		env := map[string]string{
 			"DATABASE_URL":            "postgres://u:p@localhost:5432/db",
 			"KR0N_ENV":                "production",
@@ -332,8 +332,22 @@ func TestHardening_NonDevRefusesDefaultDevKeysAndPlaintextGRPC(t *testing.T) {
 			"AUTH_GRPC_TLS_CERT_FILE": "/etc/tls/tls.crt",
 			"AUTH_GRPC_TLS_KEY_FILE":  "/etc/tls/tls.key",
 		}
+		if _, err := LoadFrom(func(k string) (string, bool) { v, ok := env[k]; return v, ok }); err == nil {
+			t.Fatal("expected error when AUTH_GRPC_CLIENT_CA_FILE unset in production")
+		}
+	})
+
+	t.Run("auth succeeds outside dev with real key, TLS cert/key, and client CA", func(t *testing.T) {
+		env := map[string]string{
+			"DATABASE_URL":             "postgres://u:p@localhost:5432/db",
+			"KR0N_ENV":                 "production",
+			"JWT_PRIVATE_KEY":          prodPrivB64,
+			"AUTH_GRPC_TLS_CERT_FILE":  "/etc/tls/tls.crt",
+			"AUTH_GRPC_TLS_KEY_FILE":   "/etc/tls/tls.key",
+			"AUTH_GRPC_CLIENT_CA_FILE": "/etc/tls/client-ca.crt",
+		}
 		cfg, err := LoadFrom(func(k string) (string, bool) { v, ok := env[k]; return v, ok })
-		if err != nil || cfg.AuthGRPCTLSCertFile == "" {
+		if err != nil || cfg.AuthGRPCTLSCertFile == "" || cfg.AuthGRPCClientCAFile == "" {
 			t.Fatalf("unexpected error: %v", err)
 		}
 	})
@@ -348,10 +362,70 @@ func TestHardening_NonDevRefusesDefaultDevKeysAndPlaintextGRPC(t *testing.T) {
 		}
 	})
 
-	t.Run("gateway disables plaintext gRPC outside dev", func(t *testing.T) {
+	t.Run("gateway refuses missing server CA outside dev", func(t *testing.T) {
 		env := map[string]string{
-			"KR0N_ENV":        "production",
-			"JWT_PUBLIC_KEYS": "k1:" + prodPubB64,
+			"KR0N_ENV":                   "production",
+			"JWT_PUBLIC_KEYS":            "k1:" + prodPubB64,
+			"GATEWAY_GRPC_TLS_CERT_FILE": "/etc/tls/gateway.crt",
+			"GATEWAY_GRPC_TLS_KEY_FILE":  "/etc/tls/gateway.key",
+		}
+		if _, err := LoadGatewayFrom(func(k string) (string, bool) { v, ok := env[k]; return v, ok }); err == nil {
+			t.Fatal("expected error when AUTH_GRPC_TLS_CA_FILE unset in production")
+		}
+	})
+
+	t.Run("gateway refuses missing client cert/key outside dev", func(t *testing.T) {
+		env := map[string]string{
+			"KR0N_ENV":              "production",
+			"JWT_PUBLIC_KEYS":       "k1:" + prodPubB64,
+			"AUTH_GRPC_TLS_CA_FILE": "/etc/tls/ca.crt",
+		}
+		if _, err := LoadGatewayFrom(func(k string) (string, bool) { v, ok := env[k]; return v, ok }); err == nil {
+			t.Fatal("expected error when client cert/key unset in production")
+		}
+	})
+
+	t.Run("gateway requires server name when target is an IP in non-dev", func(t *testing.T) {
+		env := map[string]string{
+			"KR0N_ENV":                   "production",
+			"JWT_PUBLIC_KEYS":            "k1:" + prodPubB64,
+			"AUTH_GRPC_ADDR":             "10.0.0.5:50051",
+			"AUTH_GRPC_TLS_CA_FILE":      "/etc/tls/ca.crt",
+			"GATEWAY_GRPC_TLS_CERT_FILE": "/etc/tls/gateway.crt",
+			"GATEWAY_GRPC_TLS_KEY_FILE":  "/etc/tls/gateway.key",
+		}
+		if _, err := LoadGatewayFrom(func(k string) (string, bool) { v, ok := env[k]; return v, ok }); err == nil {
+			t.Fatal("expected error when AUTH_GRPC_SERVER_NAME unset for IP target in production")
+		}
+	})
+
+	t.Run("gateway succeeds with explicit server name for IP target", func(t *testing.T) {
+		env := map[string]string{
+			"KR0N_ENV":                   "production",
+			"JWT_PUBLIC_KEYS":            "k1:" + prodPubB64,
+			"AUTH_GRPC_ADDR":             "10.0.0.5:50051",
+			"AUTH_GRPC_SERVER_NAME":      "auth.internal",
+			"AUTH_GRPC_TLS_CA_FILE":      "/etc/tls/ca.crt",
+			"GATEWAY_GRPC_TLS_CERT_FILE": "/etc/tls/gateway.crt",
+			"GATEWAY_GRPC_TLS_KEY_FILE":  "/etc/tls/gateway.key",
+		}
+		cfg, err := LoadGatewayFrom(func(k string) (string, bool) { v, ok := env[k]; return v, ok })
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if cfg.AuthGRPCServerName != "auth.internal" {
+			t.Fatalf("expected AuthGRPCServerName 'auth.internal', got %q", cfg.AuthGRPCServerName)
+		}
+	})
+
+	t.Run("gateway succeeds outside dev with full mTLS and hostname target", func(t *testing.T) {
+		env := map[string]string{
+			"KR0N_ENV":                   "production",
+			"JWT_PUBLIC_KEYS":            "k1:" + prodPubB64,
+			"AUTH_GRPC_ADDR":             "auth.internal:50051",
+			"AUTH_GRPC_TLS_CA_FILE":      "/etc/tls/ca.crt",
+			"GATEWAY_GRPC_TLS_CERT_FILE": "/etc/tls/gateway.crt",
+			"GATEWAY_GRPC_TLS_KEY_FILE":  "/etc/tls/gateway.key",
 		}
 		cfg, err := LoadGatewayFrom(func(k string) (string, bool) { v, ok := env[k]; return v, ok })
 		if err != nil {
@@ -359,6 +433,9 @@ func TestHardening_NonDevRefusesDefaultDevKeysAndPlaintextGRPC(t *testing.T) {
 		}
 		if cfg.AuthGRPCTLSPlain {
 			t.Fatal("expected AuthGRPCTLSPlain=false outside dev")
+		}
+		if cfg.AuthGRPCServerName != "auth.internal" {
+			t.Fatalf("expected default server name 'auth.internal', got %q", cfg.AuthGRPCServerName)
 		}
 	})
 }
