@@ -7,16 +7,33 @@
 
 ## Running Locally
 
-1. **Start infrastructure (PostgreSQL 18, Redis 7, Mailpit)**:
+### Option A: Full Stack via Root Docker Compose (Recommended for Dev)
+The root [`infrastructure/docker/compose.yaml`](../infrastructure/docker/compose.yaml) uses `include:` to bring up both isolated service stacks (`auth` and `gateway`) with network segmentation (`kr0n_auth_private`, `kr0n_gateway_private`, and shared `kr0n_control_plane`):
+```sh
+docker compose -f ../infrastructure/docker/compose.yaml up -d --build
+```
+
+### Option B: Per-Service Isolated Compose Stacks (CI/CD & Production)
+Each service owns its backing stores and private network in its own Compose file:
+```sh
+# Auth stack (auth-postgres + auth-mailpit + auth-migrate + auth on kr0n_auth_private)
+docker compose -f ../infrastructure/docker/auth/compose.yaml up -d --build
+
+# Gateway stack (gateway-redis + gateway on kr0n_gateway_private)
+docker compose -f ../infrastructure/docker/gateway/compose.yaml up -d --build
+```
+
+### Option C: Backing Stores in Docker + Go Binaries on Host
+1. **Start backing stores only**:
    ```sh
-   docker compose -f ../infrastructure/docker/compose.yaml up -d
+   docker compose -f ../infrastructure/docker/compose.yaml up -d auth-postgres gateway-redis auth-mailpit
    ```
 
 2. **Copy `.env.example` and run database migrations**:
    ```sh
    cp .env.example .env
    set -a && source .env && set +a
-   go run ./cmd/migrate
+   go run ./cmd/migrate up
    ```
 
 3. **Start the Auth gRPC service and API Gateway**:
@@ -58,6 +75,6 @@ The API Gateway and Auth Service communicate over internal gRPC (`:50051`). In p
 ```sh
 go build ./... && go vet ./... && go test -race ./...
 ```
-*(Destructive integration tests require `TEST_DATABASE_URL` pointing to an isolated test database and will never fall back to `DATABASE_URL`.)*
+*(Integration and E2E tests automatically provision ephemeral `postgres:18-alpine` and `redis:7-alpine` containers via [Testcontainers for Go](https://golang.testcontainers.org/) when Docker is running, and never touch `DATABASE_URL`. Set `KR0N_REQUIRE_DB_TESTS=1` in CI to fail instead of skip if the Docker daemon is unreachable.)*
 
 

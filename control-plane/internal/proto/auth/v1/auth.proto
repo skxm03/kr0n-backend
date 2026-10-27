@@ -2,8 +2,6 @@ syntax = "proto3";
 
 package auth.v1;
 
-option go_package = "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1;authv1";
-
 import "google/protobuf/timestamp.proto";
 
 // AuthService defines RPC operations for identity and credentials.
@@ -51,7 +49,7 @@ service AuthService {
   rpc StartGitHubOAuth(StartGitHubOAuthRequest) returns (StartGitHubOAuthResponse);
 
   // CompleteGitHubOAuth exchanges an OAuth code + PKCE verifier, links/creates the user, and issues a session.
-  rpc CompleteGitHubOAuth(CompleteGitHubOAuthRequest) returns (LoginResponse);
+  rpc CompleteGitHubOAuth(CompleteGitHubOAuthRequest) returns (CompleteGitHubOAuthResponse);
 
   // CheckPermission evaluates whether a caller principal holds a permission in an organization.
   rpc CheckPermission(CheckPermissionRequest) returns (CheckPermissionResponse);
@@ -60,16 +58,16 @@ service AuthService {
   rpc ListRoles(ListRolesRequest) returns (ListRolesResponse);
 
   // CreateOrganization creates an organization with the caller as owner.
-  rpc CreateOrganization(CreateOrganizationRequest) returns (OrganizationResponse);
+  rpc CreateOrganization(CreateOrganizationRequest) returns (CreateOrganizationResponse);
 
   // ListOrganizations lists all organizations the user belongs to.
   rpc ListOrganizations(ListOrganizationsRequest) returns (ListOrganizationsResponse);
 
   // GetOrganization returns an organization by ID.
-  rpc GetOrganization(GetOrganizationRequest) returns (OrganizationResponse);
+  rpc GetOrganization(GetOrganizationRequest) returns (GetOrganizationResponse);
 
   // UpdateOrganization updates an organization's name.
-  rpc UpdateOrganization(UpdateOrganizationRequest) returns (OrganizationResponse);
+  rpc UpdateOrganization(UpdateOrganizationRequest) returns (UpdateOrganizationResponse);
 
   // DeleteOrganization deletes an organization.
   rpc DeleteOrganization(DeleteOrganizationRequest) returns (DeleteOrganizationResponse);
@@ -78,7 +76,7 @@ service AuthService {
   rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);
 
   // AddMember adds an existing user by email to an organization.
-  rpc AddMember(AddMemberRequest) returns (MemberInfo);
+  rpc AddMember(AddMemberRequest) returns (AddMemberResponse);
 
   // UpdateMemberRole updates a member's role in an organization.
   rpc UpdateMemberRole(UpdateMemberRoleRequest) returns (UpdateMemberRoleResponse);
@@ -90,7 +88,7 @@ service AuthService {
   rpc CreateInvite(CreateInviteRequest) returns (CreateInviteResponse);
 
   // AcceptInvite accepts an organization invitation token.
-  rpc AcceptInvite(AcceptInviteRequest) returns (OrganizationResponse);
+  rpc AcceptInvite(AcceptInviteRequest) returns (AcceptInviteResponse);
 
   // RevokeInvite revokes a pending organization invitation.
   rpc RevokeInvite(RevokeInviteRequest) returns (RevokeInviteResponse);
@@ -276,6 +274,14 @@ message CompleteGitHubOAuthRequest {
   string client_ip = 4;
 }
 
+message CompleteGitHubOAuthResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  string token_type = 3;
+  int64 expires_in = 4;
+  LoginUser user = 5;
+}
+
 message CallerPrincipal {
   string user_id = 1;
   string kind = 2;
@@ -313,6 +319,15 @@ message CreateOrganizationRequest {
   string slug = 3;
 }
 
+message CreateOrganizationResponse {
+  string id = 1;
+  string name = 2;
+  string slug = 3;
+  string role_id = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
 message OrganizationResponse {
   string id = 1;
   string name = 2;
@@ -335,10 +350,28 @@ message GetOrganizationRequest {
   string org_id = 2;
 }
 
+message GetOrganizationResponse {
+  string id = 1;
+  string name = 2;
+  string slug = 3;
+  string role_id = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
 message UpdateOrganizationRequest {
   CallerPrincipal caller = 1;
   string org_id = 2;
   string name = 3;
+}
+
+message UpdateOrganizationResponse {
+  string id = 1;
+  string name = 2;
+  string slug = 3;
+  string role_id = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
 }
 
 message DeleteOrganizationRequest {
@@ -371,6 +404,14 @@ message AddMemberRequest {
   string org_id = 2;
   string email = 3;
   string role_id = 4;
+}
+
+message AddMemberResponse {
+  string user_id = 1;
+  string email = 2;
+  string display_name = 3;
+  string role_id = 4;
+  google.protobuf.Timestamp created_at = 5;
 }
 
 message UpdateMemberRoleRequest {
@@ -412,6 +453,15 @@ message CreateInviteResponse {
 message AcceptInviteRequest {
   string user_id = 1;
   string token = 2;
+}
+
+message AcceptInviteResponse {
+  string id = 1;
+  string name = 2;
+  string slug = 3;
+  string role_id = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
 }
 
 message RevokeInviteRequest {

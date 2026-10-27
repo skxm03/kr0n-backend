@@ -14,9 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alicebob/miniredis/v2"
 	"github.com/google/uuid"
-	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
@@ -32,12 +30,13 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/email"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/ratelimit"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/ratelimit"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/testdb"
 )
 
 // TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit exercises the complete
 // API Gateway (NewServerHandler + Redis leaky-bucket rate limiter + JWKS + PAT auth + RBAC middleware)
-// and Auth gRPC server against PostgreSQL + miniredis + mocked GitHub OAuth.
+// and Auth gRPC server against PostgreSQL + Redis Testcontainers + mocked GitHub OAuth.
 func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *testing.T) {
 	testDBURL := getTestDatabaseURL(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
@@ -133,10 +132,8 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 	defer authConn.Close()
 	authClient := authv1.NewAuthServiceClient(authConn)
 
-	// Redis leaky-bucket rate limiter via miniredis
-	mr := miniredis.RunT(t)
-	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
-	defer rdb.Close()
+	// Redis leaky-bucket rate limiter via Redis Testcontainer
+	rdb := testdb.RedisClient(t)
 
 	genLimiter, err := ratelimit.NewRedis(rdb, "e2e:gen", ratelimit.Policy{Capacity: 100, LeakPerSec: 50})
 	if err != nil {

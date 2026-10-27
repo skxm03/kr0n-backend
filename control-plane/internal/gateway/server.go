@@ -8,10 +8,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+	chimw "github.com/go-chi/chi/v5/middleware"
+
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/jwtkeys"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/middleware"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/ratelimit"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/ratelimit"
 )
 
 // NewGRPCJWKSProvider adapts an AuthServiceClient into a jwtkeys.KeySetProvider.
@@ -67,22 +70,20 @@ func (v grpcAPITokenVerifier) VerifyAPIToken(ctx context.Context, rawToken strin
 	}, nil
 }
 
-// Options configures the production middleware chain built by NewServerHandler.
+// Options configures the gateway router and middleware stack.
 type Options struct {
 	Env              string
 	Log              *slog.Logger
 	Verifier         middleware.TokenVerifier
 	APITokenVerifier middleware.APITokenVerifier
-	GeneralLimiter   ratelimit.Limiter // per-IP for all traffic, per-user for authenticated routes
-	AuthLimiter      ratelimit.Limiter // stricter, per-IP, for credential endpoints
+	GeneralLimiter   ratelimit.Limiter
+	AuthLimiter      ratelimit.Limiter
 	TrustedProxies   []*net.IPNet
 	Ready            func(ctx context.Context) error
 	MaxBodyBytes     int64
 }
 
-// NewServerHandler wires routes plus the full middleware chain:
-// request-id → recover → access log → security headers → body cap → general rate limit → route.
-// Credential endpoints add a stricter limiter that fails closed; protected routes require a JWT or PAT.
+// NewServerHandler builds the chi router and middleware stack for the API Gateway.
 func NewServerHandler(h *Handler, o Options) http.Handler {
 	if o.MaxBodyBytes == 0 {
 		o.MaxBodyBytes = 1 << 20
@@ -98,34 +99,36 @@ func NewServerHandler(h *Handler, o Options) http.Handler {
 	if o.APITokenVerifier == nil && h != nil && h.authClient != nil {
 		o.APITokenVerifier = NewGRPCAPITokenVerifier(h.authClient)
 	}
-	ip := func(r *http.Request) string { return "ip:" + middleware.ClientIP(r, o.TrustedProxies) }
-	user := func(r *http.Request) string {
+
+	ipKey := func(r *http.Request) string { return "ip:" + middleware.ClientIP(r, o.TrustedProxies) }
+	userKey := func(r *http.Request) string {
 		if p, ok := middleware.PrincipalFromContext(r.Context()); ok {
 			return "user:" + p.UserID
 		}
-		return ip(r)
+		return ipKey(r)
 	}
 
-	authLimit := middleware.RateLimit(o.AuthLimiter, ip, false, o.Log)
-	protect := func(next http.HandlerFunc) http.Handler {
-		return middleware.Chain(next,
-			middleware.Authenticate(o.Verifier, o.APITokenVerifier),
-			middleware.RateLimit(o.GeneralLimiter, user, true, o.Log))
-	}
-	// protectUser is for personal-account routes: sessions only, API tokens are rejected.
-	protectUser := func(next http.HandlerFunc) http.Handler {
-		return middleware.Chain(next,
-			middleware.Authenticate(o.Verifier, o.APITokenVerifier),
-			middleware.RejectAPIToken(),
-			middleware.RateLimit(o.GeneralLimiter, user, true, o.Log))
-	}
+	r := chi.NewRouter()
+	r.Use(
+		middleware.RequestID,
+		middleware.WithClientIP(o.TrustedProxies),
+		middleware.Recover(o.Log),
+		middleware.AccessLog(o.Log),
+		chimw.SetHeader("X-Content-Type-Options", "nosniff"),
+		chimw.SetHeader("X-Frame-Options", "DENY"),
+		chimw.SetHeader("Referrer-Policy", "no-referrer"),
+		chimw.SetHeader("Cache-Control", "no-store"),
+		chimw.SetHeader("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'"),
+		chimw.SetHeader("Strict-Transport-Security", "max-age=63072000; includeSubDomains"),
+		chimw.RequestSize(o.MaxBodyBytes),
+		middleware.RateLimit(o.GeneralLimiter, ipKey, true, o.Log),
+	)
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
+	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
-	mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+	r.Get("/readyz", func(w http.ResponseWriter, req *http.Request) {
+		ctx, cancel := context.WithTimeout(req.Context(), 2*time.Second)
 		defer cancel()
 		if o.Ready != nil && o.Ready(ctx) != nil {
 			writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "unavailable"})
@@ -134,49 +137,60 @@ func NewServerHandler(h *Handler, o Options) http.Handler {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 	})
 
-	mux.Handle("POST /api/v1/auth/register", authLimit(http.HandlerFunc(h.Register)))
-	mux.Handle("POST /api/v1/auth/login", authLimit(http.HandlerFunc(h.Login)))
-	mux.Handle("POST /api/v1/auth/refresh", authLimit(http.HandlerFunc(h.Refresh)))
-	mux.Handle("POST /api/v1/auth/logout", authLimit(http.HandlerFunc(h.Logout)))
-	mux.Handle("POST /api/v1/auth/verify-email", authLimit(http.HandlerFunc(h.VerifyEmail)))
-	mux.Handle("POST /api/v1/auth/resend-verification", authLimit(http.HandlerFunc(h.ResendVerification)))
-	mux.Handle("POST /api/v1/auth/password-reset/request", authLimit(http.HandlerFunc(h.RequestPasswordReset)))
-	mux.Handle("POST /api/v1/auth/password-reset/confirm", authLimit(http.HandlerFunc(h.ConfirmPasswordReset)))
-	mux.Handle("GET /api/v1/auth/github/start", authLimit(http.HandlerFunc(h.GitHubOAuthStart)))
-	mux.Handle("GET /api/v1/auth/github/callback", authLimit(http.HandlerFunc(h.GitHubOAuthCallback)))
+	// Public credential & OAuth routes (stricter per-IP limiter, fails closed on Redis outage)
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.RateLimit(o.AuthLimiter, ipKey, false, o.Log))
+		r.Post("/api/v1/auth/register", h.Register)
+		r.Post("/api/v1/auth/login", h.Login)
+		r.Post("/api/v1/auth/refresh", h.Refresh)
+		r.Post("/api/v1/auth/logout", h.Logout)
+		r.Post("/api/v1/auth/verify-email", h.VerifyEmail)
+		r.Post("/api/v1/auth/resend-verification", h.ResendVerification)
+		r.Post("/api/v1/auth/password-reset/request", h.RequestPasswordReset)
+		r.Post("/api/v1/auth/password-reset/confirm", h.ConfirmPasswordReset)
+		r.Get("/api/v1/auth/github/start", h.GitHubOAuthStart)
+		r.Get("/api/v1/auth/github/callback", h.GitHubOAuthCallback)
+	})
 
-	mux.Handle("POST /api/v1/auth/password/change", protectUser(h.ChangePassword))
-	mux.Handle("GET /api/v1/me", protectUser(h.GetMe))
-	mux.Handle("GET /api/v1/auth/sessions", protectUser(h.ListSessions))
-	mux.Handle("DELETE /api/v1/auth/sessions/{id}", protectUser(h.RevokeSession))
+	// Personal-account routes (session JWT only; API tokens are rejected)
+	r.Group(func(r chi.Router) {
+		r.Use(
+			middleware.Authenticate(o.Verifier, o.APITokenVerifier),
+			middleware.RejectAPIToken(),
+			middleware.RateLimit(o.GeneralLimiter, userKey, true, o.Log),
+		)
+		r.Post("/api/v1/auth/password/change", h.ChangePassword)
+		r.Get("/api/v1/me", h.GetMe)
+		r.Get("/api/v1/auth/sessions", h.ListSessions)
+		r.Delete("/api/v1/auth/sessions/{id}", h.RevokeSession)
+	})
 
-	mux.Handle("GET /api/v1/roles", protect(h.ListRoles))
-	mux.Handle("POST /api/v1/orgs", protect(h.CreateOrg))
-	mux.Handle("GET /api/v1/orgs", protect(h.ListOrgs))
-	mux.Handle("GET /api/v1/orgs/{id}", protect(h.GetOrg))
-	mux.Handle("PATCH /api/v1/orgs/{id}", protect(h.UpdateOrg))
-	mux.Handle("DELETE /api/v1/orgs/{id}", protect(h.DeleteOrg))
-	mux.Handle("GET /api/v1/orgs/{id}/members", protect(h.ListMembers))
-	mux.Handle("POST /api/v1/orgs/{id}/members", protect(h.AddMember))
-	mux.Handle("PATCH /api/v1/orgs/{id}/members/{user_id}", protect(h.UpdateMemberRole))
-	mux.Handle("DELETE /api/v1/orgs/{id}/members/{user_id}", protect(h.RemoveMember))
-	mux.Handle("POST /api/v1/orgs/{id}/invites", protect(h.CreateInvite))
-	mux.Handle("POST /api/v1/orgs/invites/accept", protect(h.AcceptInvite))
-	mux.Handle("DELETE /api/v1/orgs/{id}/invites/{invite_id}", protect(h.RevokeInvite))
-	mux.Handle("POST /api/v1/orgs/{id}/tokens", protect(h.CreateAPIToken))
-	mux.Handle("GET /api/v1/orgs/{id}/tokens", protect(h.ListAPITokens))
-	mux.Handle("DELETE /api/v1/orgs/{id}/tokens/{token_id}", protect(h.RevokeAPIToken))
-	mux.Handle("GET /api/v1/orgs/{id}/audit", protect(h.ListAuditEvents))
+	// Organization & RBAC routes (session JWT or org-scoped API token)
+	r.Group(func(r chi.Router) {
+		r.Use(
+			middleware.Authenticate(o.Verifier, o.APITokenVerifier),
+			middleware.RateLimit(o.GeneralLimiter, userKey, true, o.Log),
+		)
+		r.Get("/api/v1/roles", h.ListRoles)
+		r.Post("/api/v1/orgs", h.CreateOrg)
+		r.Get("/api/v1/orgs", h.ListOrgs)
+		r.Get("/api/v1/orgs/{id}", h.GetOrg)
+		r.Patch("/api/v1/orgs/{id}", h.UpdateOrg)
+		r.Delete("/api/v1/orgs/{id}", h.DeleteOrg)
+		r.Get("/api/v1/orgs/{id}/members", h.ListMembers)
+		r.Post("/api/v1/orgs/{id}/members", h.AddMember)
+		r.Patch("/api/v1/orgs/{id}/members/{user_id}", h.UpdateMemberRole)
+		r.Delete("/api/v1/orgs/{id}/members/{user_id}", h.RemoveMember)
+		r.Post("/api/v1/orgs/{id}/invites", h.CreateInvite)
+		r.Post("/api/v1/orgs/invites/accept", h.AcceptInvite)
+		r.Delete("/api/v1/orgs/{id}/invites/{invite_id}", h.RevokeInvite)
+		r.Post("/api/v1/orgs/{id}/tokens", h.CreateAPIToken)
+		r.Get("/api/v1/orgs/{id}/tokens", h.ListAPITokens)
+		r.Delete("/api/v1/orgs/{id}/tokens/{token_id}", h.RevokeAPIToken)
+		r.Get("/api/v1/orgs/{id}/audit", h.ListAuditEvents)
+	})
 
-	return middleware.Chain(mux,
-		middleware.RequestID(),
-		middleware.WithClientIP(o.TrustedProxies),
-		middleware.Recover(o.Log),
-		middleware.AccessLog(o.Log),
-		middleware.SecureHeaders(),
-		middleware.MaxBody(o.MaxBodyBytes),
-		middleware.RateLimit(o.GeneralLimiter, ip, true, o.Log),
-	)
+	return r
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

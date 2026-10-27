@@ -33,20 +33,20 @@ type mockAuthClient struct {
 	listSessionsFunc         func(ctx context.Context, in *authv1.ListSessionsRequest, opts ...grpc.CallOption) (*authv1.ListSessionsResponse, error)
 	revokeSessionFunc        func(ctx context.Context, in *authv1.RevokeSessionRequest, opts ...grpc.CallOption) (*authv1.RevokeSessionResponse, error)
 	startGitHubOAuthFunc     func(ctx context.Context, in *authv1.StartGitHubOAuthRequest, opts ...grpc.CallOption) (*authv1.StartGitHubOAuthResponse, error)
-	completeGitHubOAuthFunc  func(ctx context.Context, in *authv1.CompleteGitHubOAuthRequest, opts ...grpc.CallOption) (*authv1.LoginResponse, error)
+	completeGitHubOAuthFunc  func(ctx context.Context, in *authv1.CompleteGitHubOAuthRequest, opts ...grpc.CallOption) (*authv1.CompleteGitHubOAuthResponse, error)
 	checkPermissionFunc      func(ctx context.Context, in *authv1.CheckPermissionRequest, opts ...grpc.CallOption) (*authv1.CheckPermissionResponse, error)
 	listRolesFunc            func(ctx context.Context, in *authv1.ListRolesRequest, opts ...grpc.CallOption) (*authv1.ListRolesResponse, error)
-	createOrganizationFunc   func(ctx context.Context, in *authv1.CreateOrganizationRequest, opts ...grpc.CallOption) (*authv1.OrganizationResponse, error)
+	createOrganizationFunc   func(ctx context.Context, in *authv1.CreateOrganizationRequest, opts ...grpc.CallOption) (*authv1.CreateOrganizationResponse, error)
 	listOrganizationsFunc    func(ctx context.Context, in *authv1.ListOrganizationsRequest, opts ...grpc.CallOption) (*authv1.ListOrganizationsResponse, error)
-	getOrganizationFunc      func(ctx context.Context, in *authv1.GetOrganizationRequest, opts ...grpc.CallOption) (*authv1.OrganizationResponse, error)
-	updateOrganizationFunc   func(ctx context.Context, in *authv1.UpdateOrganizationRequest, opts ...grpc.CallOption) (*authv1.OrganizationResponse, error)
+	getOrganizationFunc      func(ctx context.Context, in *authv1.GetOrganizationRequest, opts ...grpc.CallOption) (*authv1.GetOrganizationResponse, error)
+	updateOrganizationFunc   func(ctx context.Context, in *authv1.UpdateOrganizationRequest, opts ...grpc.CallOption) (*authv1.UpdateOrganizationResponse, error)
 	deleteOrganizationFunc   func(ctx context.Context, in *authv1.DeleteOrganizationRequest, opts ...grpc.CallOption) (*authv1.DeleteOrganizationResponse, error)
 	listMembersFunc          func(ctx context.Context, in *authv1.ListMembersRequest, opts ...grpc.CallOption) (*authv1.ListMembersResponse, error)
-	addMemberFunc            func(ctx context.Context, in *authv1.AddMemberRequest, opts ...grpc.CallOption) (*authv1.MemberInfo, error)
+	addMemberFunc            func(ctx context.Context, in *authv1.AddMemberRequest, opts ...grpc.CallOption) (*authv1.AddMemberResponse, error)
 	updateMemberRoleFunc     func(ctx context.Context, in *authv1.UpdateMemberRoleRequest, opts ...grpc.CallOption) (*authv1.UpdateMemberRoleResponse, error)
 	removeMemberFunc         func(ctx context.Context, in *authv1.RemoveMemberRequest, opts ...grpc.CallOption) (*authv1.RemoveMemberResponse, error)
 	createInviteFunc         func(ctx context.Context, in *authv1.CreateInviteRequest, opts ...grpc.CallOption) (*authv1.CreateInviteResponse, error)
-	acceptInviteFunc         func(ctx context.Context, in *authv1.AcceptInviteRequest, opts ...grpc.CallOption) (*authv1.OrganizationResponse, error)
+	acceptInviteFunc         func(ctx context.Context, in *authv1.AcceptInviteRequest, opts ...grpc.CallOption) (*authv1.AcceptInviteResponse, error)
 	revokeInviteFunc         func(ctx context.Context, in *authv1.RevokeInviteRequest, opts ...grpc.CallOption) (*authv1.RevokeInviteResponse, error)
 	createAPITokenFunc       func(ctx context.Context, in *authv1.CreateAPITokenRequest, opts ...grpc.CallOption) (*authv1.CreateAPITokenResponse, error)
 	listAPITokensFunc        func(ctx context.Context, in *authv1.ListAPITokensRequest, opts ...grpc.CallOption) (*authv1.ListAPITokensResponse, error)
@@ -153,7 +153,7 @@ func (m *mockAuthClient) StartGitHubOAuth(ctx context.Context, in *authv1.StartG
 	return nil, status.Error(codes.FailedPrecondition, "github oauth is not configured")
 }
 
-func (m *mockAuthClient) CompleteGitHubOAuth(ctx context.Context, in *authv1.CompleteGitHubOAuthRequest, opts ...grpc.CallOption) (*authv1.LoginResponse, error) {
+func (m *mockAuthClient) CompleteGitHubOAuth(ctx context.Context, in *authv1.CompleteGitHubOAuthRequest, opts ...grpc.CallOption) (*authv1.CompleteGitHubOAuthResponse, error) {
 	if m.completeGitHubOAuthFunc != nil {
 		return m.completeGitHubOAuthFunc(ctx, in, opts...)
 	}
@@ -174,11 +174,11 @@ func (m *mockAuthClient) ListRoles(ctx context.Context, in *authv1.ListRolesRequ
 	return &authv1.ListRolesResponse{}, nil
 }
 
-func (m *mockAuthClient) CreateOrganization(ctx context.Context, in *authv1.CreateOrganizationRequest, opts ...grpc.CallOption) (*authv1.OrganizationResponse, error) {
+func (m *mockAuthClient) CreateOrganization(ctx context.Context, in *authv1.CreateOrganizationRequest, opts ...grpc.CallOption) (*authv1.CreateOrganizationResponse, error) {
 	if m.createOrganizationFunc != nil {
 		return m.createOrganizationFunc(ctx, in, opts...)
 	}
-	return &authv1.OrganizationResponse{}, nil
+	return &authv1.CreateOrganizationResponse{}, nil
 }
 
 func (m *mockAuthClient) ListOrganizations(ctx context.Context, in *authv1.ListOrganizationsRequest, opts ...grpc.CallOption) (*authv1.ListOrganizationsResponse, error) {
@@ -188,18 +188,18 @@ func (m *mockAuthClient) ListOrganizations(ctx context.Context, in *authv1.ListO
 	return &authv1.ListOrganizationsResponse{}, nil
 }
 
-func (m *mockAuthClient) GetOrganization(ctx context.Context, in *authv1.GetOrganizationRequest, opts ...grpc.CallOption) (*authv1.OrganizationResponse, error) {
+func (m *mockAuthClient) GetOrganization(ctx context.Context, in *authv1.GetOrganizationRequest, opts ...grpc.CallOption) (*authv1.GetOrganizationResponse, error) {
 	if m.getOrganizationFunc != nil {
 		return m.getOrganizationFunc(ctx, in, opts...)
 	}
-	return &authv1.OrganizationResponse{}, nil
+	return &authv1.GetOrganizationResponse{}, nil
 }
 
-func (m *mockAuthClient) UpdateOrganization(ctx context.Context, in *authv1.UpdateOrganizationRequest, opts ...grpc.CallOption) (*authv1.OrganizationResponse, error) {
+func (m *mockAuthClient) UpdateOrganization(ctx context.Context, in *authv1.UpdateOrganizationRequest, opts ...grpc.CallOption) (*authv1.UpdateOrganizationResponse, error) {
 	if m.updateOrganizationFunc != nil {
 		return m.updateOrganizationFunc(ctx, in, opts...)
 	}
-	return &authv1.OrganizationResponse{}, nil
+	return &authv1.UpdateOrganizationResponse{}, nil
 }
 
 func (m *mockAuthClient) DeleteOrganization(ctx context.Context, in *authv1.DeleteOrganizationRequest, opts ...grpc.CallOption) (*authv1.DeleteOrganizationResponse, error) {
@@ -216,11 +216,11 @@ func (m *mockAuthClient) ListMembers(ctx context.Context, in *authv1.ListMembers
 	return &authv1.ListMembersResponse{}, nil
 }
 
-func (m *mockAuthClient) AddMember(ctx context.Context, in *authv1.AddMemberRequest, opts ...grpc.CallOption) (*authv1.MemberInfo, error) {
+func (m *mockAuthClient) AddMember(ctx context.Context, in *authv1.AddMemberRequest, opts ...grpc.CallOption) (*authv1.AddMemberResponse, error) {
 	if m.addMemberFunc != nil {
 		return m.addMemberFunc(ctx, in, opts...)
 	}
-	return &authv1.MemberInfo{}, nil
+	return &authv1.AddMemberResponse{}, nil
 }
 
 func (m *mockAuthClient) UpdateMemberRole(ctx context.Context, in *authv1.UpdateMemberRoleRequest, opts ...grpc.CallOption) (*authv1.UpdateMemberRoleResponse, error) {
@@ -244,11 +244,11 @@ func (m *mockAuthClient) CreateInvite(ctx context.Context, in *authv1.CreateInvi
 	return &authv1.CreateInviteResponse{}, nil
 }
 
-func (m *mockAuthClient) AcceptInvite(ctx context.Context, in *authv1.AcceptInviteRequest, opts ...grpc.CallOption) (*authv1.OrganizationResponse, error) {
+func (m *mockAuthClient) AcceptInvite(ctx context.Context, in *authv1.AcceptInviteRequest, opts ...grpc.CallOption) (*authv1.AcceptInviteResponse, error) {
 	if m.acceptInviteFunc != nil {
 		return m.acceptInviteFunc(ctx, in, opts...)
 	}
-	return &authv1.OrganizationResponse{}, nil
+	return &authv1.AcceptInviteResponse{}, nil
 }
 
 func (m *mockAuthClient) RevokeInvite(ctx context.Context, in *authv1.RevokeInviteRequest, opts ...grpc.CallOption) (*authv1.RevokeInviteResponse, error) {
@@ -1283,11 +1283,11 @@ func TestHandler_GitHubOAuth(t *testing.T) {
 				CodeVerifier: "ver456",
 			}, nil
 		},
-		completeGitHubOAuthFunc: func(ctx context.Context, in *authv1.CompleteGitHubOAuthRequest, opts ...grpc.CallOption) (*authv1.LoginResponse, error) {
+		completeGitHubOAuthFunc: func(ctx context.Context, in *authv1.CompleteGitHubOAuthRequest, opts ...grpc.CallOption) (*authv1.CompleteGitHubOAuthResponse, error) {
 			if in.GetCode() != "gh_code" || in.GetCodeVerifier() != "ver456" {
 				return nil, status.Error(codes.Unauthenticated, "bad code or verifier")
 			}
-			return &authv1.LoginResponse{
+			return &authv1.CompleteGitHubOAuthResponse{
 				AccessToken:  "jwt_tok",
 				RefreshToken: "ref_tok",
 				TokenType:    "Bearer",
@@ -1350,8 +1350,8 @@ func TestHandler_P6_OrgsMembersInvitesAPITokens(t *testing.T) {
 				Roles: []*authv1.RoleInfo{{Id: "owner", Name: "Owner", Permissions: []string{"org:read", "org:delete"}}},
 			}, nil
 		},
-		createOrganizationFunc: func(ctx context.Context, in *authv1.CreateOrganizationRequest, opts ...grpc.CallOption) (*authv1.OrganizationResponse, error) {
-			return &authv1.OrganizationResponse{
+		createOrganizationFunc: func(ctx context.Context, in *authv1.CreateOrganizationRequest, opts ...grpc.CallOption) (*authv1.CreateOrganizationResponse, error) {
+			return &authv1.CreateOrganizationResponse{
 				Id: "org-1", Name: in.GetName(), Slug: in.GetSlug(), RoleId: "owner", CreatedAt: now, UpdatedAt: now,
 			}, nil
 		},
@@ -1362,13 +1362,13 @@ func TestHandler_P6_OrgsMembersInvitesAPITokens(t *testing.T) {
 				},
 			}, nil
 		},
-		getOrganizationFunc: func(ctx context.Context, in *authv1.GetOrganizationRequest, opts ...grpc.CallOption) (*authv1.OrganizationResponse, error) {
-			return &authv1.OrganizationResponse{
+		getOrganizationFunc: func(ctx context.Context, in *authv1.GetOrganizationRequest, opts ...grpc.CallOption) (*authv1.GetOrganizationResponse, error) {
+			return &authv1.GetOrganizationResponse{
 				Id: in.GetOrgId(), Name: "Acme", Slug: "acme", RoleId: "owner", CreatedAt: now, UpdatedAt: now,
 			}, nil
 		},
-		updateOrganizationFunc: func(ctx context.Context, in *authv1.UpdateOrganizationRequest, opts ...grpc.CallOption) (*authv1.OrganizationResponse, error) {
-			return &authv1.OrganizationResponse{
+		updateOrganizationFunc: func(ctx context.Context, in *authv1.UpdateOrganizationRequest, opts ...grpc.CallOption) (*authv1.UpdateOrganizationResponse, error) {
+			return &authv1.UpdateOrganizationResponse{
 				Id: in.GetOrgId(), Name: in.GetName(), Slug: "acme", RoleId: "owner", CreatedAt: now, UpdatedAt: now,
 			}, nil
 		},
@@ -1377,8 +1377,8 @@ func TestHandler_P6_OrgsMembersInvitesAPITokens(t *testing.T) {
 				Members: []*authv1.MemberInfo{{UserId: "u1", Email: "owner@kr0n.dev", DisplayName: "Owner", RoleId: "owner", CreatedAt: now}},
 			}, nil
 		},
-		addMemberFunc: func(ctx context.Context, in *authv1.AddMemberRequest, opts ...grpc.CallOption) (*authv1.MemberInfo, error) {
-			return &authv1.MemberInfo{UserId: "u2", Email: in.GetEmail(), DisplayName: "Dev", RoleId: in.GetRoleId(), CreatedAt: now}, nil
+		addMemberFunc: func(ctx context.Context, in *authv1.AddMemberRequest, opts ...grpc.CallOption) (*authv1.AddMemberResponse, error) {
+			return &authv1.AddMemberResponse{UserId: "u2", Email: in.GetEmail(), DisplayName: "Dev", RoleId: in.GetRoleId(), CreatedAt: now}, nil
 		},
 		removeMemberFunc: func(ctx context.Context, in *authv1.RemoveMemberRequest, opts ...grpc.CallOption) (*authv1.RemoveMemberResponse, error) {
 			if in.GetTargetUserId() == "u1" {
@@ -1391,8 +1391,8 @@ func TestHandler_P6_OrgsMembersInvitesAPITokens(t *testing.T) {
 				Id: "inv-1", OrgId: in.GetOrgId(), Email: in.GetEmail(), RoleId: in.GetRoleId(), Token: "raw_inv_tok", ExpiresAt: now, CreatedAt: now,
 			}, nil
 		},
-		acceptInviteFunc: func(ctx context.Context, in *authv1.AcceptInviteRequest, opts ...grpc.CallOption) (*authv1.OrganizationResponse, error) {
-			return &authv1.OrganizationResponse{Id: "org-1", Name: "Acme", Slug: "acme", RoleId: "developer", CreatedAt: now, UpdatedAt: now}, nil
+		acceptInviteFunc: func(ctx context.Context, in *authv1.AcceptInviteRequest, opts ...grpc.CallOption) (*authv1.AcceptInviteResponse, error) {
+			return &authv1.AcceptInviteResponse{Id: "org-1", Name: "Acme", Slug: "acme", RoleId: "developer", CreatedAt: now, UpdatedAt: now}, nil
 		},
 		createAPITokenFunc: func(ctx context.Context, in *authv1.CreateAPITokenRequest, opts ...grpc.CallOption) (*authv1.CreateAPITokenResponse, error) {
 			return &authv1.CreateAPITokenResponse{

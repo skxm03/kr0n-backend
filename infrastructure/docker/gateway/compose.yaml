@@ -1,0 +1,77 @@
+name: kr0n-gateway
+
+services:
+  gateway-redis:
+    image: redis:7-alpine
+    container_name: kr0n-gateway-redis
+    restart: unless-stopped
+    ports:
+      - "${GATEWAY_REDIS_HOST_PORT:-6379}:6379"
+    volumes:
+      - kr0n_gateway_redis_data:/data
+    networks:
+      - gateway_private
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  gateway:
+    build:
+      context: ../../../control-plane
+      dockerfile: ../infrastructure/docker/gateway/Dockerfile
+      target: gateway
+    image: kr0n/gateway:${IMAGE_TAG:-dev}
+    container_name: kr0n-gateway
+    restart: unless-stopped
+    environment:
+      KR0N_ENV: ${KR0N_ENV:-dev}
+      GATEWAY_HTTP_ADDR: ${GATEWAY_LISTEN_ADDR:-:8080}
+      AUTH_GRPC_ADDR: ${GATEWAY_AUTH_GRPC_ADDR:-auth:50051}
+      REDIS_ADDR: ${GATEWAY_REDIS_ADDR:-gateway-redis:6379}
+      JWT_KEY_ID: ${JWT_KEY_ID:-k1}
+      JWT_PUBLIC_KEYS: ${JWT_PUBLIC_KEYS:-}
+      JWT_ISSUER: ${JWT_ISSUER:-kr0n-auth}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-kr0n-api}
+      TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-}
+      RATE_LIMIT_CAPACITY: ${RATE_LIMIT_CAPACITY:-120}
+      RATE_LIMIT_PER_SEC: ${RATE_LIMIT_PER_SEC:-20}
+      AUTH_RATE_LIMIT_CAPACITY: ${AUTH_RATE_LIMIT_CAPACITY:-10}
+      AUTH_RATE_LIMIT_PER_SEC: ${AUTH_RATE_LIMIT_PER_SEC:-0.2}
+      AUTH_GRPC_TLS_ENABLED: ${AUTH_GRPC_TLS_ENABLED:-false}
+      AUTH_GRPC_TLS_CA_FILE: ${AUTH_GRPC_TLS_CA_FILE:-}
+      GATEWAY_GRPC_TLS_CERT_FILE: ${GATEWAY_GRPC_TLS_CERT_FILE:-}
+      GATEWAY_GRPC_TLS_KEY_FILE: ${GATEWAY_GRPC_TLS_KEY_FILE:-}
+      AUTH_GRPC_SERVER_NAME: ${AUTH_GRPC_SERVER_NAME:-auth.internal}
+      AUTH_SERVICE_TOKEN: ${AUTH_SERVICE_TOKEN:-}
+    ports:
+      - "${GATEWAY_HTTP_HOST_PORT:-8080}:8080"
+    depends_on:
+      gateway-redis:
+        condition: service_healthy
+    networks:
+      gateway_private:
+      control_plane:
+        aliases:
+          - gateway
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  gateway_private:
+    name: kr0n_gateway_private
+    driver: bridge
+  control_plane:
+    name: kr0n_control_plane
+    driver: bridge
+
+volumes:
+  kr0n_gateway_redis_data:
+    name: kr0n_gateway_redis_data

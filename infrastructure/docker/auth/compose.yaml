@@ -1,0 +1,123 @@
+name: kr0n-auth
+
+services:
+  auth-postgres:
+    image: postgres:18
+    container_name: kr0n-auth-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${AUTH_POSTGRES_USER:-kr0n}
+      POSTGRES_PASSWORD: ${AUTH_POSTGRES_PASSWORD:-kr0n_dev_password}
+      POSTGRES_DB: ${AUTH_POSTGRES_DB:-kr0n}
+    ports:
+      - "${AUTH_POSTGRES_HOST_PORT:-5432}:5432"
+    volumes:
+      - kr0n_auth_postgres_data:/var/lib/postgresql
+    networks:
+      - auth_private
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-kr0n} -d $${POSTGRES_DB:-kr0n}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  auth-mailpit:
+    image: axllent/mailpit:latest
+    container_name: kr0n-auth-mailpit
+    restart: unless-stopped
+    ports:
+      - "${AUTH_MAILPIT_SMTP_HOST_PORT:-1025}:1025" # SMTP
+      - "${AUTH_MAILPIT_UI_HOST_PORT:-8025}:8025"   # Web UI
+    networks:
+      - auth_private
+
+  auth-migrate:
+    build:
+      context: ../../../control-plane
+      dockerfile: ../infrastructure/docker/auth/Dockerfile
+      target: migrate
+    image: kr0n/auth-migrate:${IMAGE_TAG:-dev}
+    container_name: kr0n-auth-migrate
+    restart: "no"
+    command: ["up"]
+    environment:
+      KR0N_ENV: ${KR0N_ENV:-dev}
+      DATABASE_URL: ${AUTH_DATABASE_URL:-postgres://${AUTH_POSTGRES_USER:-kr0n}:${AUTH_POSTGRES_PASSWORD:-kr0n_dev_password}@auth-postgres:5432/${AUTH_POSTGRES_DB:-kr0n}?sslmode=disable}
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:-}
+      AUTH_GRPC_TLS_CERT_FILE: ${AUTH_GRPC_TLS_CERT_FILE:-}
+      AUTH_GRPC_TLS_KEY_FILE: ${AUTH_GRPC_TLS_KEY_FILE:-}
+      AUTH_GRPC_CLIENT_CA_FILE: ${AUTH_GRPC_CLIENT_CA_FILE:-}
+    depends_on:
+      auth-postgres:
+        condition: service_healthy
+    networks:
+      - auth_private
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+
+  auth:
+    build:
+      context: ../../../control-plane
+      dockerfile: ../infrastructure/docker/auth/Dockerfile
+      target: auth
+    image: kr0n/auth:${IMAGE_TAG:-dev}
+    container_name: kr0n-auth
+    restart: unless-stopped
+    environment:
+      KR0N_ENV: ${KR0N_ENV:-dev}
+      DATABASE_URL: ${AUTH_DATABASE_URL:-postgres://${AUTH_POSTGRES_USER:-kr0n}:${AUTH_POSTGRES_PASSWORD:-kr0n_dev_password}@auth-postgres:5432/${AUTH_POSTGRES_DB:-kr0n}?sslmode=disable}
+      AUTH_GRPC_ADDR: ${AUTH_LISTEN_ADDR:-:50051}
+      JWT_KEY_ID: ${JWT_KEY_ID:-k1}
+      JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY:-}
+      JWT_ISSUER: ${JWT_ISSUER:-kr0n-auth}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-kr0n-api}
+      ACCESS_TOKEN_LIFETIME: ${ACCESS_TOKEN_LIFETIME:-15m}
+      REFRESH_TOKEN_LIFETIME: ${REFRESH_TOKEN_LIFETIME:-720h}
+      EMAIL_VERIFICATION_TOKEN_LIFETIME: ${EMAIL_VERIFICATION_TOKEN_LIFETIME:-24h}
+      PASSWORD_RESET_TOKEN_LIFETIME: ${PASSWORD_RESET_TOKEN_LIFETIME:-1h}
+      REQUIRE_VERIFIED_EMAIL: ${REQUIRE_VERIFIED_EMAIL:-false}
+      SMTP_ADDR: ${AUTH_SMTP_ADDR:-auth-mailpit:1025}
+      SMTP_FROM: ${SMTP_FROM:-noreply@kr0n.dev}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      GITHUB_REDIRECT_URL: ${GITHUB_REDIRECT_URL:-http://localhost:8080/api/v1/auth/github/callback}
+      AUTH_GRPC_TLS_CERT_FILE: ${AUTH_GRPC_TLS_CERT_FILE:-}
+      AUTH_GRPC_TLS_KEY_FILE: ${AUTH_GRPC_TLS_KEY_FILE:-}
+      AUTH_GRPC_CLIENT_CA_FILE: ${AUTH_GRPC_CLIENT_CA_FILE:-}
+      AUTH_GRPC_ALLOWED_CLIENTS: ${AUTH_GRPC_ALLOWED_CLIENTS:-kr0n-gateway,gateway}
+      AUTH_SERVICE_TOKEN: ${AUTH_SERVICE_TOKEN:-}
+    ports:
+      - "${AUTH_GRPC_HOST_PORT:-50051}:50051"
+    depends_on:
+      auth-postgres:
+        condition: service_healthy
+      auth-migrate:
+        condition: service_completed_successfully
+    networks:
+      auth_private:
+      control_plane:
+        aliases:
+          - auth
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "50051"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  auth_private:
+    name: kr0n_auth_private
+    driver: bridge
+  control_plane:
+    name: kr0n_control_plane
+    driver: bridge
+
+volumes:
+  kr0n_auth_postgres_data:
+    name: kr0n_auth_postgres_data

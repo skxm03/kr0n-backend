@@ -19,7 +19,7 @@ import (
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/jwtkeys"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/ratelimit"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/ratelimit"
 )
 
 type fakeLimiter struct {
@@ -164,11 +164,11 @@ func TestGatewayAuthenticatesAPITokenBearer(t *testing.T) {
 			}
 			return nil, errors.New("invalid pat")
 		},
-		getOrganizationFunc: func(_ context.Context, in *authv1.GetOrganizationRequest, _ ...grpc.CallOption) (*authv1.OrganizationResponse, error) {
+		getOrganizationFunc: func(_ context.Context, in *authv1.GetOrganizationRequest, _ ...grpc.CallOption) (*authv1.GetOrganizationResponse, error) {
 			if in.GetCaller().GetKind() != "api_token" || in.GetCaller().GetTokenOrgId() != "org-1" {
 				t.Fatalf("unexpected caller principal: %+v", in.GetCaller())
 			}
-			return &authv1.OrganizationResponse{Id: in.GetOrgId(), Name: "Acme", Slug: "acme"}, nil
+			return &authv1.GetOrganizationResponse{Id: in.GetOrgId(), Name: "Acme", Slug: "acme"}, nil
 		},
 	}
 

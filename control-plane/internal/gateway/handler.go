@@ -15,7 +15,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/config"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/middleware"
 )
 
@@ -35,20 +34,20 @@ type AuthServiceClient interface {
 	ListSessions(ctx context.Context, in *authv1.ListSessionsRequest, opts ...grpc.CallOption) (*authv1.ListSessionsResponse, error)
 	RevokeSession(ctx context.Context, in *authv1.RevokeSessionRequest, opts ...grpc.CallOption) (*authv1.RevokeSessionResponse, error)
 	StartGitHubOAuth(ctx context.Context, in *authv1.StartGitHubOAuthRequest, opts ...grpc.CallOption) (*authv1.StartGitHubOAuthResponse, error)
-	CompleteGitHubOAuth(ctx context.Context, in *authv1.CompleteGitHubOAuthRequest, opts ...grpc.CallOption) (*authv1.LoginResponse, error)
+	CompleteGitHubOAuth(ctx context.Context, in *authv1.CompleteGitHubOAuthRequest, opts ...grpc.CallOption) (*authv1.CompleteGitHubOAuthResponse, error)
 	CheckPermission(ctx context.Context, in *authv1.CheckPermissionRequest, opts ...grpc.CallOption) (*authv1.CheckPermissionResponse, error)
 	ListRoles(ctx context.Context, in *authv1.ListRolesRequest, opts ...grpc.CallOption) (*authv1.ListRolesResponse, error)
-	CreateOrganization(ctx context.Context, in *authv1.CreateOrganizationRequest, opts ...grpc.CallOption) (*authv1.OrganizationResponse, error)
+	CreateOrganization(ctx context.Context, in *authv1.CreateOrganizationRequest, opts ...grpc.CallOption) (*authv1.CreateOrganizationResponse, error)
 	ListOrganizations(ctx context.Context, in *authv1.ListOrganizationsRequest, opts ...grpc.CallOption) (*authv1.ListOrganizationsResponse, error)
-	GetOrganization(ctx context.Context, in *authv1.GetOrganizationRequest, opts ...grpc.CallOption) (*authv1.OrganizationResponse, error)
-	UpdateOrganization(ctx context.Context, in *authv1.UpdateOrganizationRequest, opts ...grpc.CallOption) (*authv1.OrganizationResponse, error)
+	GetOrganization(ctx context.Context, in *authv1.GetOrganizationRequest, opts ...grpc.CallOption) (*authv1.GetOrganizationResponse, error)
+	UpdateOrganization(ctx context.Context, in *authv1.UpdateOrganizationRequest, opts ...grpc.CallOption) (*authv1.UpdateOrganizationResponse, error)
 	DeleteOrganization(ctx context.Context, in *authv1.DeleteOrganizationRequest, opts ...grpc.CallOption) (*authv1.DeleteOrganizationResponse, error)
 	ListMembers(ctx context.Context, in *authv1.ListMembersRequest, opts ...grpc.CallOption) (*authv1.ListMembersResponse, error)
-	AddMember(ctx context.Context, in *authv1.AddMemberRequest, opts ...grpc.CallOption) (*authv1.MemberInfo, error)
+	AddMember(ctx context.Context, in *authv1.AddMemberRequest, opts ...grpc.CallOption) (*authv1.AddMemberResponse, error)
 	UpdateMemberRole(ctx context.Context, in *authv1.UpdateMemberRoleRequest, opts ...grpc.CallOption) (*authv1.UpdateMemberRoleResponse, error)
 	RemoveMember(ctx context.Context, in *authv1.RemoveMemberRequest, opts ...grpc.CallOption) (*authv1.RemoveMemberResponse, error)
 	CreateInvite(ctx context.Context, in *authv1.CreateInviteRequest, opts ...grpc.CallOption) (*authv1.CreateInviteResponse, error)
-	AcceptInvite(ctx context.Context, in *authv1.AcceptInviteRequest, opts ...grpc.CallOption) (*authv1.OrganizationResponse, error)
+	AcceptInvite(ctx context.Context, in *authv1.AcceptInviteRequest, opts ...grpc.CallOption) (*authv1.AcceptInviteResponse, error)
 	RevokeInvite(ctx context.Context, in *authv1.RevokeInviteRequest, opts ...grpc.CallOption) (*authv1.RevokeInviteResponse, error)
 	CreateAPIToken(ctx context.Context, in *authv1.CreateAPITokenRequest, opts ...grpc.CallOption) (*authv1.CreateAPITokenResponse, error)
 	ListAPITokens(ctx context.Context, in *authv1.ListAPITokensRequest, opts ...grpc.CallOption) (*authv1.ListAPITokensResponse, error)
@@ -237,8 +236,12 @@ func (h *Handler) grpcContext(r *http.Request, timeout time.Duration) (context.C
 	return ctx, cancel
 }
 
+func isDevEnv(env string) bool {
+	return strings.EqualFold(env, "dev") || strings.EqualFold(env, "development")
+}
+
 func (h *Handler) isSecureRequest(r *http.Request) bool {
-	if r.TLS != nil || !config.IsDevEnv(h.env) {
+	if r.TLS != nil || !isDevEnv(h.env) {
 		return true
 	}
 	if middleware.IsTrustedProxy(r, h.trustedProxies) && strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {

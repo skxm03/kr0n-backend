@@ -1,0 +1,23 @@
+# Git & IDE
+.git
+.gitignore
+.vscode
+.idea
+
+# Local environment & secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+
+# Build & test artifacts
+bin/
+dist/
+coverage.out
+*.test
+
+# Documentation & local tests not needed for binary compilation
+README.md
+test/

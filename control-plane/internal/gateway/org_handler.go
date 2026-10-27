@@ -7,8 +7,9 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/config"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/middleware"
 )
 
@@ -160,7 +161,16 @@ func callerFromPrincipal(p *middleware.Principal) *authv1.CallerPrincipal {
 	}
 }
 
-func toOrgDTO(o *authv1.OrganizationResponse) OrganizationDTO {
+type orgProtoGetter interface {
+	GetId() string
+	GetName() string
+	GetSlug() string
+	GetRoleId() string
+	GetCreatedAt() *timestamppb.Timestamp
+	GetUpdatedAt() *timestamppb.Timestamp
+}
+
+func toOrgDTO(o orgProtoGetter) OrganizationDTO {
 	dto := OrganizationDTO{
 		ID:     o.GetId(),
 		Name:   o.GetName(),
@@ -633,7 +643,7 @@ func (h *Handler) CreateInvite(w http.ResponseWriter, r *http.Request) {
 		Email:  grpcResp.GetEmail(),
 		RoleID: grpcResp.GetRoleId(),
 	}
-	if config.IsDevEnv(h.env) {
+	if isDevEnv(h.env) {
 		resp.Token = grpcResp.GetToken()
 	}
 	if grpcResp.GetExpiresAt() != nil {

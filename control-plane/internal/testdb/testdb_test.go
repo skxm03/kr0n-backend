@@ -71,6 +71,7 @@ func runHelper(fn func(tb testing.TB) string) (*fakeTB, string) {
 func TestURL_MissingTestDatabaseURLNeverFallsBackToDatabaseURL(t *testing.T) {
 	t.Setenv(EnvURL, "")
 	t.Setenv(EnvRequire, "")
+	t.Setenv(EnvDisableTestcontainers, "1")
 	// A perfectly valid-looking DATABASE_URL must still be ignored.
 	t.Setenv("DATABASE_URL", "postgres://kr0n:pw@localhost:5432/kr0n_test?sslmode=disable")
 

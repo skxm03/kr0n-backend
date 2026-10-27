@@ -9,6 +9,8 @@ import (
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
+
+	"github.com/skxm03/kr0n-backend/control-plane/internal/testdb"
 )
 
 func newTestLimiter(t *testing.T, p Policy) (*Redis, *miniredis.Miniredis) {
@@ -86,8 +88,6 @@ func TestNewRedisValidatesPolicy(t *testing.T) {
 	}
 }
 
-// With a frozen clock nothing leaks, so exactly Capacity of N concurrent callers may pass.
-// Guards the atomicity of the Lua script (no check-then-set race across gateway replicas).
 func TestLeakyBucketConcurrentAtomicity(t *testing.T) {
 	const capacity, callers = 10, 100
 	l, _ := newTestLimiter(t, Policy{Capacity: capacity, LeakPerSec: 1})
@@ -119,7 +119,29 @@ func TestLeakyBucketRemainingAndRetryAfter(t *testing.T) {
 		l.Allow(context.Background(), "k")
 	}
 	r, _ = l.Allow(context.Background(), "k")
-	if r.Allowed || r.RetryAfter != 500*time.Millisecond { // one slot at 2/s = 500ms
+	if r.Allowed || r.RetryAfter != 500*time.Millisecond {
 		t.Fatalf("allowed=%v retry=%v", r.Allowed, r.RetryAfter)
+	}
+}
+
+func TestLeakyBucket_TestcontainersRedis(t *testing.T) {
+	client := testdb.RedisClient(t)
+	l, err := NewRedis(client, "rl:tc", Policy{Capacity: 3, LeakPerSec: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	for i := 0; i < 3; i++ {
+		res, err := l.Allow(ctx, "tc-client")
+		if err != nil || !res.Allowed {
+			t.Fatalf("request %d: allowed=%v err=%v", i, res.Allowed, err)
+		}
+	}
+	res, err := l.Allow(ctx, "tc-client")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Allowed {
+		t.Fatal("4th request should be rate limited on real Redis container")
 	}
 }

@@ -153,7 +153,7 @@ func (s *Server) ListRoles(ctx context.Context, req *authv1.ListRolesRequest) (*
 }
 
 // CreateOrganization creates an organization with the caller as owner.
-func (s *Server) CreateOrganization(ctx context.Context, req *authv1.CreateOrganizationRequest) (*authv1.OrganizationResponse, error) {
+func (s *Server) CreateOrganization(ctx context.Context, req *authv1.CreateOrganizationRequest) (*authv1.CreateOrganizationResponse, error) {
 	if s.serviceAuth.Enabled && !IsTrustedService(ctx) {
 		return nil, status.Error(codes.Unauthenticated, "trusted service authentication required")
 	}
@@ -178,7 +178,14 @@ func (s *Server) CreateOrganization(ctx context.Context, req *authv1.CreateOrgan
 		ResourceID:     o.ID.String(),
 		Metadata:       map[string]any{"slug": o.Slug, "name": o.Name},
 	})
-	return toOrgProto(o), nil
+	return &authv1.CreateOrganizationResponse{
+		Id:        o.ID.String(),
+		Name:      o.Name,
+		Slug:      o.Slug,
+		RoleId:    o.RoleID,
+		CreatedAt: timestamppb.New(o.CreatedAt),
+		UpdatedAt: timestamppb.New(o.UpdatedAt),
+	}, nil
 }
 
 // ListOrganizations lists all organizations the user belongs to.
@@ -205,7 +212,7 @@ func (s *Server) ListOrganizations(ctx context.Context, req *authv1.ListOrganiza
 }
 
 // GetOrganization returns an organization by ID.
-func (s *Server) GetOrganization(ctx context.Context, req *authv1.GetOrganizationRequest) (*authv1.OrganizationResponse, error) {
+func (s *Server) GetOrganization(ctx context.Context, req *authv1.GetOrganizationRequest) (*authv1.GetOrganizationResponse, error) {
 	p, err := s.parseCallerPrincipal(ctx, req.GetCaller())
 	if err != nil {
 		return nil, err
@@ -221,11 +228,18 @@ func (s *Server) GetOrganization(ctx context.Context, req *authv1.GetOrganizatio
 	if err != nil {
 		return nil, mapOrgError(err)
 	}
-	return toOrgProto(o), nil
+	return &authv1.GetOrganizationResponse{
+		Id:        o.ID.String(),
+		Name:      o.Name,
+		Slug:      o.Slug,
+		RoleId:    o.RoleID,
+		CreatedAt: timestamppb.New(o.CreatedAt),
+		UpdatedAt: timestamppb.New(o.UpdatedAt),
+	}, nil
 }
 
 // UpdateOrganization updates an organization's name.
-func (s *Server) UpdateOrganization(ctx context.Context, req *authv1.UpdateOrganizationRequest) (*authv1.OrganizationResponse, error) {
+func (s *Server) UpdateOrganization(ctx context.Context, req *authv1.UpdateOrganizationRequest) (*authv1.UpdateOrganizationResponse, error) {
 	p, err := s.parseCallerPrincipal(ctx, req.GetCaller())
 	if err != nil {
 		return nil, err
@@ -251,7 +265,14 @@ func (s *Server) UpdateOrganization(ctx context.Context, req *authv1.UpdateOrgan
 		ResourceID:     orgID.String(),
 		Metadata:       map[string]any{"name": o.Name},
 	})
-	return toOrgProto(o), nil
+	return &authv1.UpdateOrganizationResponse{
+		Id:        o.ID.String(),
+		Name:      o.Name,
+		Slug:      o.Slug,
+		RoleId:    o.RoleID,
+		CreatedAt: timestamppb.New(o.CreatedAt),
+		UpdatedAt: timestamppb.New(o.UpdatedAt),
+	}, nil
 }
 
 // DeleteOrganization deletes an organization.
@@ -313,7 +334,7 @@ func (s *Server) ListMembers(ctx context.Context, req *authv1.ListMembersRequest
 }
 
 // AddMember adds an existing user by email to an organization.
-func (s *Server) AddMember(ctx context.Context, req *authv1.AddMemberRequest) (*authv1.MemberInfo, error) {
+func (s *Server) AddMember(ctx context.Context, req *authv1.AddMemberRequest) (*authv1.AddMemberResponse, error) {
 	p, err := s.parseCallerPrincipal(ctx, req.GetCaller())
 	if err != nil {
 		return nil, err
@@ -339,7 +360,7 @@ func (s *Server) AddMember(ctx context.Context, req *authv1.AddMemberRequest) (*
 		ResourceID:     m.UserID.String(),
 		Metadata:       map[string]any{"email": m.Email, "role_id": m.RoleID},
 	})
-	return &authv1.MemberInfo{
+	return &authv1.AddMemberResponse{
 		UserId:      m.UserID.String(),
 		Email:       m.Email,
 		DisplayName: m.DisplayName,
@@ -452,7 +473,7 @@ func (s *Server) CreateInvite(ctx context.Context, req *authv1.CreateInviteReque
 }
 
 // AcceptInvite accepts an organization invitation token.
-func (s *Server) AcceptInvite(ctx context.Context, req *authv1.AcceptInviteRequest) (*authv1.OrganizationResponse, error) {
+func (s *Server) AcceptInvite(ctx context.Context, req *authv1.AcceptInviteRequest) (*authv1.AcceptInviteResponse, error) {
 	if s.serviceAuth.Enabled && !IsTrustedService(ctx) {
 		return nil, status.Error(codes.Unauthenticated, "trusted service authentication required")
 	}
@@ -477,7 +498,14 @@ func (s *Server) AcceptInvite(ctx context.Context, req *authv1.AcceptInviteReque
 		ResourceID:     userID.String(),
 		Metadata:       map[string]any{"role_id": o.RoleID},
 	})
-	return toOrgProto(o), nil
+	return &authv1.AcceptInviteResponse{
+		Id:        o.ID.String(),
+		Name:      o.Name,
+		Slug:      o.Slug,
+		RoleId:    o.RoleID,
+		CreatedAt: timestamppb.New(o.CreatedAt),
+		UpdatedAt: timestamppb.New(o.UpdatedAt),
+	}, nil
 }
 
 // RevokeInvite revokes a pending organization invitation.

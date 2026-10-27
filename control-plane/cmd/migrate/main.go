@@ -9,7 +9,7 @@ import (
 
 	"github.com/golang-migrate/migrate/v4"
 
-	"github.com/skxm03/kr0n-backend/control-plane/internal/config"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/config"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
 )
 
@@ -21,7 +21,7 @@ func main() {
 
 	command := os.Args[1]
 
-	cfg, err := config.Load()
+	cfg, err := config.LoadConfig()
 	if err != nil {
 		log.Fatalf("failed to load configuration: %v", err)
 	}

@@ -686,7 +686,7 @@ func (s *Server) StartGitHubOAuth(ctx context.Context, req *authv1.StartGitHubOA
 }
 
 // CompleteGitHubOAuth exchanges an OAuth code + PKCE verifier, links/creates the user, and issues a session.
-func (s *Server) CompleteGitHubOAuth(ctx context.Context, req *authv1.CompleteGitHubOAuthRequest) (*authv1.LoginResponse, error) {
+func (s *Server) CompleteGitHubOAuth(ctx context.Context, req *authv1.CompleteGitHubOAuthRequest) (*authv1.CompleteGitHubOAuthResponse, error) {
 	if s.serviceAuth.Enabled && !IsTrustedService(ctx) {
 		return nil, status.Error(codes.Unauthenticated, "trusted service authentication required")
 	}
@@ -767,7 +767,7 @@ func (s *Server) CompleteGitHubOAuth(ctx context.Context, req *authv1.CompleteGi
 		UserAgent:    userAgent,
 		Metadata:     map[string]any{"provider": profile.Provider, "provider_user_id": profile.ProviderUserID},
 	})
-	return &authv1.LoginResponse{
+	return &authv1.CompleteGitHubOAuthResponse{
 		AccessToken:  res.AccessToken,
 		RefreshToken: res.RefreshToken,
 		TokenType:    res.TokenType,
