@@ -21,10 +21,8 @@ type Config struct {
 	EmailVerificationTokenLifetime time.Duration `env:"EMAIL_VERIFICATION_TOKEN_LIFETIME"`
 	PasswordResetTokenLifetime     time.Duration `env:"PASSWORD_RESET_TOKEN_LIFETIME"`
 	RequireVerifiedEmail           bool          `env:"REQUIRE_VERIFIED_EMAIL"`
-	SMTPAddr                       string        `env:"SMTP_ADDR"`
-	SMTPFrom                       string        `env:"SMTP_FROM"`
-	SMTPUsername                   string        `env:"SMTP_USERNAME"`
-	SMTPPassword                   string        `env:"SMTP_PASSWORD"`
+	RabbitMQURL                    string        `env:"RABBITMQ_URL"`
+	EmailQueueName                 string        `env:"EMAIL_QUEUE_NAME"`
 	GitHubClientID                 string        `env:"GITHUB_CLIENT_ID"`
 	GitHubClientSecret             string        `env:"GITHUB_CLIENT_SECRET"`
 	GitHubRedirectURL              string        `env:"GITHUB_REDIRECT_URL"`

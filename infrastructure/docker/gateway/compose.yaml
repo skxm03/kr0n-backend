@@ -45,6 +45,8 @@ services:
       GATEWAY_GRPC_TLS_KEY_FILE: ${GATEWAY_GRPC_TLS_KEY_FILE:-}
       AUTH_GRPC_SERVER_NAME: ${AUTH_GRPC_SERVER_NAME:-auth.internal}
       AUTH_SERVICE_TOKEN: ${AUTH_SERVICE_TOKEN:-}
+      RABBITMQ_URL: ${GATEWAY_RABBITMQ_URL:-amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@mailer-rabbitmq:5672/}
+      EMAIL_QUEUE_NAME: ${EMAIL_QUEUE_NAME:-email.jobs}
     ports:
       - "${GATEWAY_HTTP_HOST_PORT:-8080}:8080"
     depends_on:

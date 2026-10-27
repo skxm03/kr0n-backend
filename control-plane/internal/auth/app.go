@@ -31,9 +31,10 @@ import (
 
 // App encapsulates the Auth gRPC service dependencies and lifecycle.
 type App struct {
-	cfg        *config.Config
-	dbPool     *pgxpool.Pool
-	grpcServer *grpc.Server
+	cfg         *config.Config
+	dbPool      *pgxpool.Pool
+	rmqSender   *email.RabbitMQSender
+	grpcServer  *grpc.Server
 }
 
 // NewApp wires repositories, domain services, and the gRPC server for the Auth service.
@@ -48,13 +49,14 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 		org.InviteEmailSender
 	}
 	var emailSender unifiedEmailSender = email.NewLogSender(nil)
-	if cfg.SMTPAddr != "" {
-		emailSender = email.NewSMTPSender(email.SMTPConfig{
-			Addr:     cfg.SMTPAddr,
-			From:     cfg.SMTPFrom,
-			Username: cfg.SMTPUsername,
-			Password: cfg.SMTPPassword,
-		})
+	var rmqSender *email.RabbitMQSender
+	if cfg.RabbitMQURL != "" {
+		rmqSender, err = email.NewRabbitMQSender(cfg.RabbitMQURL, cfg.EmailQueueName)
+		if err != nil {
+			dbPool.Close()
+			return nil, fmt.Errorf("connect rabbitmq email sender: %w", err)
+		}
+		emailSender = rmqSender
 	}
 
 	userRepo := user.NewPostgresRepository(dbPool)
@@ -71,18 +73,25 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 	verifRepo := verification.NewPostgresRepository(dbPool)
 	verifService := verification.NewService(verifRepo)
 
+	cleanup := func() {
+		if rmqSender != nil {
+			_ = rmqSender.Close()
+		}
+		dbPool.Close()
+	}
+
 	jwtPrivateKey := jwtkeys.DevPrivateKey()
 	if cfg.JWTPrivateKey != "" {
 		jwtPrivateKey, err = jwtkeys.ParsePrivateKey(cfg.JWTPrivateKey)
 		if err != nil {
-			dbPool.Close()
+			cleanup()
 			return nil, fmt.Errorf("invalid JWT_PRIVATE_KEY: %w", err)
 		}
 	}
 
 	jwtSigner, err := jwtkeys.NewSigner(jwtPrivateKey, cfg.JWTKeyID, cfg.JWTIssuer, cfg.JWTAudience, cfg.AccessTokenLifetime)
 	if err != nil {
-		dbPool.Close()
+		cleanup()
 		return nil, err
 	}
 	tokenIssuer := session.NewDefaultTokenIssuer(jwtSigner)
@@ -126,7 +135,7 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 	if cfg.AuthGRPCTLSCertFile != "" && cfg.AuthGRPCTLSKeyFile != "" {
 		cert, err := tls.LoadX509KeyPair(cfg.AuthGRPCTLSCertFile, cfg.AuthGRPCTLSKeyFile)
 		if err != nil {
-			dbPool.Close()
+			cleanup()
 			return nil, fmt.Errorf("load auth server cert/key: %w", err)
 		}
 		tlsConfig := &tls.Config{
@@ -136,12 +145,12 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 		if cfg.AuthGRPCClientCAFile != "" {
 			caPEM, err := os.ReadFile(cfg.AuthGRPCClientCAFile)
 			if err != nil {
-				dbPool.Close()
+				cleanup()
 				return nil, fmt.Errorf("read client ca file: %w", err)
 			}
 			pool := x509.NewCertPool()
 			if !pool.AppendCertsFromPEM(caPEM) {
-				dbPool.Close()
+				cleanup()
 				return nil, errors.New("failed to parse client ca cert: file contains no valid certificates")
 			}
 			tlsConfig.ClientCAs = pool
@@ -149,7 +158,7 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 		}
 		serverOpts = append(serverOpts, grpc.Creds(credentials.NewTLS(tlsConfig)))
 	} else if !isDev {
-		dbPool.Close()
+		cleanup()
 		return nil, errors.New("plaintext gRPC is only allowed when KR0N_ENV=dev")
 	}
 
@@ -161,6 +170,7 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 	return &App{
 		cfg:        cfg,
 		dbPool:     dbPool,
+		rmqSender:  rmqSender,
 		grpcServer: grpcServer,
 	}, nil
 }
@@ -168,6 +178,9 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 // Run starts the gRPC server and blocks until ctx is canceled or the server fails.
 func (a *App) Run(ctx context.Context) error {
 	defer a.dbPool.Close()
+	if a.rmqSender != nil {
+		defer a.rmqSender.Close()
+	}
 
 	lis, err := net.Listen("tcp", a.cfg.AuthGRPCAddr)
 	if err != nil {

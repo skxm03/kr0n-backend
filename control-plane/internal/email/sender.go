@@ -249,6 +249,11 @@ func (s *SMTPSender) SendOrgInviteEmail(ctx context.Context, recipient, orgName,
 }
 
 func (s *SMTPSender) dispatch(ctx context.Context, recipient, subject, body string) error {
+	return s.DispatchMIME(ctx, recipient, subject, body, "")
+}
+
+// DispatchMIME sends an email supporting Plain-Text only, HTML only, or both (multipart/alternative).
+func (s *SMTPSender) DispatchMIME(ctx context.Context, recipient, subject, textBody, htmlBody string) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -265,10 +270,31 @@ func (s *SMTPSender) dispatch(ctx context.Context, recipient, subject, body stri
 		auth = smtp.PlainAuth("", s.cfg.Username, s.cfg.Password, host)
 	}
 
-	raw := fmt.Sprintf(
-		"From: %s\r\nTo: %s\r\nSubject: %s\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n%s",
-		s.cfg.From, recipient, subject, body,
-	)
+	var raw string
+	switch {
+	case textBody != "" && htmlBody != "":
+		const boundary = "kr0n-mime-boundary-9f8e7d6c5b4a"
+		raw = fmt.Sprintf(
+			"From: %s\r\nTo: %s\r\nSubject: %s\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=%q\r\n\r\n"+
+				"--%s\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n%s\r\n"+
+				"--%s\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n%s\r\n"+
+				"--%s--\r\n",
+			s.cfg.From, recipient, subject, boundary,
+			boundary, textBody,
+			boundary, htmlBody,
+			boundary,
+		)
+	case htmlBody != "":
+		raw = fmt.Sprintf(
+			"From: %s\r\nTo: %s\r\nSubject: %s\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n%s",
+			s.cfg.From, recipient, subject, htmlBody,
+		)
+	default:
+		raw = fmt.Sprintf(
+			"From: %s\r\nTo: %s\r\nSubject: %s\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n%s",
+			s.cfg.From, recipient, subject, textBody,
+		)
+	}
 	return s.send(ctx, s.cfg.Addr, auth, s.cfg.From, []string{recipient}, []byte(raw))
 }
 

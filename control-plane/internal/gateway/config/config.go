@@ -27,6 +27,8 @@ type Config struct {
 	AuthGRPCTLSKeyFile  string   `env:"GATEWAY_GRPC_TLS_KEY_FILE"`
 	AuthGRPCServerName  string   `env:"AUTH_GRPC_SERVER_NAME"`
 	AuthServiceToken    string   `env:"AUTH_SERVICE_TOKEN"`
+	RabbitMQURL         string   `env:"RABBITMQ_URL"`
+	EmailQueueName      string   `env:"EMAIL_QUEUE_NAME"`
 }
 
 func LoadConfig() (*Config, error) {

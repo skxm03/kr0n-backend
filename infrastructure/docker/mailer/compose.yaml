@@ -1,0 +1,77 @@
+name: kr0n-mailer
+
+services:
+  mailer-rabbitmq:
+    image: rabbitmq:4-management-alpine
+    container_name: kr0n-mailer-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    ports:
+      - "${MAILER_RABBITMQ_AMQP_HOST_PORT:-5672}:5672"
+      - "${MAILER_RABBITMQ_UI_HOST_PORT:-15672}:15672"
+    volumes:
+      - kr0n_mailer_rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      mailer_private:
+      control_plane:
+        aliases:
+          - mailer-rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mailer-mailpit:
+    image: axllent/mailpit:latest
+    container_name: kr0n-mailer-mailpit
+    restart: unless-stopped
+    ports:
+      - "${MAILER_MAILPIT_SMTP_HOST_PORT:-1025}:1025" # SMTP
+      - "${MAILER_MAILPIT_UI_HOST_PORT:-8025}:8025"   # Web UI
+    networks:
+      - mailer_private
+
+  mailer:
+    build:
+      context: ../../../control-plane
+      dockerfile: ../infrastructure/docker/mailer/Dockerfile
+      target: mailer
+    image: kr0n/mailer:${IMAGE_TAG:-dev}
+    container_name: kr0n-mailer
+    restart: unless-stopped
+    environment:
+      KR0N_ENV: ${KR0N_ENV:-dev}
+      RABBITMQ_URL: ${MAILER_RABBITMQ_URL:-amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@mailer-rabbitmq:5672/}
+      EMAIL_QUEUE_NAME: ${EMAIL_QUEUE_NAME:-email.jobs}
+      EMAIL_BATCH_SIZE: ${EMAIL_BATCH_SIZE:-20}
+      EMAIL_BATCH_TIMEOUT: ${EMAIL_BATCH_TIMEOUT:-2s}
+      EMAIL_BATCH_WORKERS: ${EMAIL_BATCH_WORKERS:-5}
+      SMTP_ADDR: ${MAILER_SMTP_ADDR:-mailer-mailpit:1025}
+      SMTP_FROM: ${SMTP_FROM:-noreply@kr0n.dev}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+    depends_on:
+      mailer-rabbitmq:
+        condition: service_healthy
+      mailer-mailpit:
+        condition: service_started
+    networks:
+      - mailer_private
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  mailer_private:
+    name: kr0n_mailer_private
+    driver: bridge
+  control_plane:
+    name: kr0n_control_plane
+    driver: bridge
+
+volumes:
+  kr0n_mailer_rabbitmq_data:
+    name: kr0n_mailer_rabbitmq_data

@@ -21,16 +21,6 @@ services:
       timeout: 5s
       retries: 5
 
-  auth-mailpit:
-    image: axllent/mailpit:latest
-    container_name: kr0n-auth-mailpit
-    restart: unless-stopped
-    ports:
-      - "${AUTH_MAILPIT_SMTP_HOST_PORT:-1025}:1025" # SMTP
-      - "${AUTH_MAILPIT_UI_HOST_PORT:-8025}:8025"   # Web UI
-    networks:
-      - auth_private
-
   auth-migrate:
     build:
       context: ../../../control-plane
@@ -77,10 +67,8 @@ services:
       EMAIL_VERIFICATION_TOKEN_LIFETIME: ${EMAIL_VERIFICATION_TOKEN_LIFETIME:-24h}
       PASSWORD_RESET_TOKEN_LIFETIME: ${PASSWORD_RESET_TOKEN_LIFETIME:-1h}
       REQUIRE_VERIFIED_EMAIL: ${REQUIRE_VERIFIED_EMAIL:-false}
-      SMTP_ADDR: ${AUTH_SMTP_ADDR:-auth-mailpit:1025}
-      SMTP_FROM: ${SMTP_FROM:-noreply@kr0n.dev}
-      SMTP_USERNAME: ${SMTP_USERNAME:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      RABBITMQ_URL: ${AUTH_RABBITMQ_URL:-amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASSWORD:-guest}@mailer-rabbitmq:5672/}
+      EMAIL_QUEUE_NAME: ${EMAIL_QUEUE_NAME:-email.jobs}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
       GITHUB_REDIRECT_URL: ${GITHUB_REDIRECT_URL:-http://localhost:8080/api/v1/auth/github/callback}

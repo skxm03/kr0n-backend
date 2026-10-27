@@ -22,15 +22,17 @@ import (
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/jwtkeys"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/email"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/config"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/ratelimit"
 )
 
 // App encapsulates the API Gateway HTTP server and its backing connections.
 type App struct {
-	authConn *grpc.ClientConn
-	rdb      *redis.Client
-	server   *http.Server
+	authConn  *grpc.ClientConn
+	rdb       *redis.Client
+	rmqSender *email.RabbitMQSender
+	server    *http.Server
 }
 
 // NewApp wires the Auth gRPC client, JWKS verifier, Redis rate limiters, and HTTP router.
@@ -156,6 +158,16 @@ func NewApp(cfg *config.Config) (*App, error) {
 		return nil, err
 	}
 
+	var rmqSender *email.RabbitMQSender
+	if cfg.RabbitMQURL != "" {
+		rmqSender, err = email.NewRabbitMQSender(cfg.RabbitMQURL, cfg.EmailQueueName)
+		if err != nil {
+			_ = rdb.Close()
+			_ = authConn.Close()
+			return nil, fmt.Errorf("connect rabbitmq email sender: %w", err)
+		}
+	}
+
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	router := NewServerHandler(NewHandler(authClient), Options{
 		Env:            cfg.Env,
@@ -182,9 +194,10 @@ func NewApp(cfg *config.Config) (*App, error) {
 	}
 
 	return &App{
-		authConn: authConn,
-		rdb:      rdb,
-		server:   server,
+		authConn:  authConn,
+		rdb:       rdb,
+		rmqSender: rmqSender,
+		server:    server,
 	}, nil
 }
 
@@ -192,6 +205,9 @@ func NewApp(cfg *config.Config) (*App, error) {
 func (a *App) Run(ctx context.Context) error {
 	defer a.authConn.Close()
 	defer a.rdb.Close()
+	if a.rmqSender != nil {
+		defer a.rmqSender.Close()
+	}
 
 	errChan := make(chan error, 1)
 	go func() {
