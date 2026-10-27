@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/user"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
 )
 
 var (
@@ -101,7 +101,7 @@ func (p *GitHubProvider) Start() (authorizeURL, state, codeVerifier string, err 
 
 // ExchangeAndFetchProfile exchanges an OAuth code + PKCE verifier for a GitHub access token
 // and fetches the user's profile and verified primary email.
-func (p *GitHubProvider) ExchangeAndFetchProfile(ctx context.Context, code, codeVerifier string) (*user.OAuthProfile, error) {
+func (p *GitHubProvider) ExchangeAndFetchProfile(ctx context.Context, code, codeVerifier string) (*repository.OAuthProfile, error) {
 	if !p.Configured() {
 		return nil, ErrNotConfigured
 	}
@@ -147,7 +147,7 @@ func (p *GitHubProvider) ExchangeAndFetchProfile(ctx context.Context, code, code
 		}
 	}
 	if verifiedEmail == "" {
-		return nil, user.ErrOAuthEmailNotVerified
+		return nil, repository.ErrOAuthEmailNotVerified
 	}
 
 	displayName := strings.TrimSpace(ghUser.Name)
@@ -159,7 +159,7 @@ func (p *GitHubProvider) ExchangeAndFetchProfile(ctx context.Context, code, code
 		avatar = &a
 	}
 
-	return &user.OAuthProfile{
+	return &repository.OAuthProfile{
 		Provider:       "github",
 		ProviderUserID: strconv.FormatInt(ghUser.ID, 10),
 		Email:          verifiedEmail,

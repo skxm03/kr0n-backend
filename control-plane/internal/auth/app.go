@@ -16,25 +16,22 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/audit"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/config"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/handlers"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/jwtkeys"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/oauth"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/org"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/session"
-	authgrpc "github.com/skxm03/kr0n-backend/control-plane/internal/auth/transport/grpc"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/user"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/verification"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/service"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/email"
 )
 
 // App encapsulates the Auth gRPC service dependencies and lifecycle.
 type App struct {
-	cfg         *config.Config
-	dbPool      *pgxpool.Pool
-	rmqSender   *email.RabbitMQSender
-	grpcServer  *grpc.Server
+	cfg        *config.Config
+	dbPool     *pgxpool.Pool
+	rmqSender  *email.RabbitMQSender
+	grpcServer *grpc.Server
 }
 
 // NewApp wires repositories, domain services, and the gRPC server for the Auth service.
@@ -45,8 +42,8 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 	}
 
 	type unifiedEmailSender interface {
-		verification.EmailSender
-		org.InviteEmailSender
+		service.EmailSender
+		service.InviteEmailSender
 	}
 	var emailSender unifiedEmailSender = email.NewLogSender(nil)
 	var rmqSender *email.RabbitMQSender
@@ -59,19 +56,19 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 		emailSender = rmqSender
 	}
 
-	userRepo := user.NewPostgresRepository(dbPool)
-	hasher := user.NewBcryptHasher(12)
-	userService := user.NewService(
+	userRepo := repository.NewPostgresUserRepository(dbPool)
+	hasher := service.NewBcryptHasher(12)
+	userService := service.NewUserService(
 		userRepo,
 		hasher,
-		user.WithEmailSender(emailSender),
-		user.WithTokenLifetime(cfg.EmailVerificationTokenLifetime),
-		user.WithPasswordResetTokenLifetime(cfg.PasswordResetTokenLifetime),
-		user.WithRequireVerifiedEmail(cfg.RequireVerifiedEmail),
+		service.WithEmailSender(emailSender),
+		service.WithTokenLifetime(cfg.EmailVerificationTokenLifetime),
+		service.WithPasswordResetTokenLifetime(cfg.PasswordResetTokenLifetime),
+		service.WithRequireVerifiedEmail(cfg.RequireVerifiedEmail),
 	)
 
-	verifRepo := verification.NewPostgresRepository(dbPool)
-	verifService := verification.NewService(verifRepo)
+	verifRepo := repository.NewPostgresVerificationRepository(dbPool)
+	verifService := service.NewVerificationService(verifRepo)
 
 	cleanup := func() {
 		if rmqSender != nil {
@@ -94,9 +91,9 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 		cleanup()
 		return nil, err
 	}
-	tokenIssuer := session.NewDefaultTokenIssuer(jwtSigner)
-	sessionRepo := session.NewPostgresRepository(dbPool)
-	sessionService := session.NewService(userService, sessionRepo, tokenIssuer, cfg.RefreshTokenLifetime)
+	tokenIssuer := service.NewDefaultTokenIssuer(jwtSigner)
+	sessionRepo := repository.NewPostgresSessionRepository(dbPool)
+	sessionService := service.NewSessionService(userService, sessionRepo, tokenIssuer, cfg.RefreshTokenLifetime)
 
 	githubOAuth := oauth.NewGitHubProvider(oauth.GitHubConfig{
 		ClientID:     cfg.GitHubClientID,
@@ -104,14 +101,14 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 		RedirectURL:  cfg.GitHubRedirectURL,
 	})
 
-	orgRepo := org.NewPostgresRepository(dbPool)
-	orgService := org.NewService(orgRepo, org.WithInviteEmailSender(emailSender))
+	orgRepo := repository.NewPostgresOrgRepository(dbPool)
+	orgService := service.NewOrgService(orgRepo, service.WithInviteEmailSender(emailSender))
 
-	auditRepo := audit.NewPostgresRepository(dbPool)
-	auditService := audit.NewService(auditRepo)
+	auditRepo := repository.NewPostgresAuditRepository(dbPool)
+	auditService := service.NewAuditService(auditRepo)
 
 	isDev := cfg.Env == "dev" || cfg.Env == "development"
-	serviceAuthConfig := authgrpc.ServiceAuthConfig{
+	serviceAuthConfig := handlers.ServiceAuthConfig{
 		Enabled:             !isDev || cfg.AuthGRPCClientCAFile != "" || cfg.AuthServiceToken != "",
 		RequireClientCert:   !isDev || cfg.AuthGRPCClientCAFile != "",
 		RequireServiceToken: cfg.AuthServiceToken != "",
@@ -120,15 +117,15 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 		AllowInsecureDev:    isDev && cfg.AuthGRPCClientCAFile == "" && cfg.AuthServiceToken == "",
 	}
 
-	grpcHandler := authgrpc.NewServer(
+	grpcHandler := handlers.NewServer(
 		userService,
 		sessionService,
-		authgrpc.WithVerificationService(verifService),
-		authgrpc.WithJWKS(jwtSigner.PublicJWK()),
-		authgrpc.WithGitHubOAuth(githubOAuth),
-		authgrpc.WithOrgService(orgService),
-		authgrpc.WithAuditService(auditService),
-		authgrpc.WithServiceAuthConfig(serviceAuthConfig),
+		handlers.WithVerificationService(verifService),
+		handlers.WithJWKS(jwtSigner.PublicJWK()),
+		handlers.WithGitHubOAuth(githubOAuth),
+		handlers.WithOrgService(orgService),
+		handlers.WithAuditService(auditService),
+		handlers.WithServiceAuthConfig(serviceAuthConfig),
 	)
 
 	var serverOpts []grpc.ServerOption
@@ -162,7 +159,7 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, errors.New("plaintext gRPC is only allowed when KR0N_ENV=dev")
 	}
 
-	serverOpts = append(serverOpts, grpc.UnaryInterceptor(authgrpc.NewServiceAuthInterceptor(serviceAuthConfig)))
+	serverOpts = append(serverOpts, grpc.UnaryInterceptor(handlers.NewServiceAuthInterceptor(serviceAuthConfig)))
 
 	grpcServer := grpc.NewServer(serverOpts...)
 	authv1.RegisterAuthServiceServer(grpcServer, grpcHandler)

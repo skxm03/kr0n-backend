@@ -37,6 +37,7 @@ import (
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	tcredis "github.com/testcontainers/testcontainers-go/modules/redis"
 
+	authmigrations "github.com/skxm03/kr0n-backend/control-plane/internal/auth/migrations"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
 )
 
@@ -313,11 +314,11 @@ func requireReachable(t testing.TB, raw string) {
 // dirty databases and databases whose version is newer than this code. Callers must have
 // validated dbURL with Validate/URL first.
 func EnsureLatest(dbURL string) error {
-	latest, err := database.LatestMigrationVersion()
+	latest, err := database.LatestMigrationVersion(authmigrations.FS)
 	if err != nil {
 		return err
 	}
-	m, closeFn, err := database.NewMigrator(dbURL)
+	m, closeFn, err := database.NewMigrator(dbURL, authmigrations.FS)
 	if err != nil {
 		return err
 	}

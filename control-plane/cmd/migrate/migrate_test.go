@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
+	authmigrations "github.com/skxm03/kr0n-backend/control-plane/internal/auth/migrations"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/testdb"
 )
@@ -34,7 +35,7 @@ func TestMigrationsLifecycle(t *testing.T) {
 		t.Fatalf("database ping failed: %v", err)
 	}
 
-	m, closeMigrator, err := database.NewMigrator(ownedDBURL)
+	m, closeMigrator, err := database.NewMigrator(ownedDBURL, authmigrations.FS)
 	if err != nil {
 		t.Fatalf("database.NewMigrator failed: %v", err)
 	}

@@ -18,9 +18,9 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/session"
-	authgrpc "github.com/skxm03/kr0n-backend/control-plane/internal/auth/transport/grpc"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/user"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/handlers"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/service"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/testdb"
@@ -47,19 +47,19 @@ func TestE2E_UserRegistration(t *testing.T) {
 	defer dbPool.Close()
 
 	// 2. Start Auth gRPC Service on dynamic loopback port
-	userRepo := user.NewPostgresRepository(dbPool)
-	hasher := user.NewBcryptHasher(12)
-	userService := user.NewService(userRepo, hasher)
+	userRepo := repository.NewPostgresUserRepository(dbPool)
+	hasher := service.NewBcryptHasher(12)
+	userService := service.NewUserService(userRepo, hasher)
 
 	jwtSigner, err := jwtkeys.NewSigner(jwtkeys.DevPrivateKey(), "k1", "kr0n-test", "kr0n-api", 15*time.Minute)
 	if err != nil {
 		t.Fatalf("failed to create jwt signer: %v", err)
 	}
-	tokenIssuer := session.NewDefaultTokenIssuer(jwtSigner)
-	sessionRepo := session.NewPostgresRepository(dbPool)
-	sessionService := session.NewService(userService, sessionRepo, tokenIssuer, 30*24*time.Hour)
+	tokenIssuer := service.NewDefaultTokenIssuer(jwtSigner)
+	sessionRepo := repository.NewPostgresSessionRepository(dbPool)
+	sessionService := service.NewSessionService(userService, sessionRepo, tokenIssuer, 30*24*time.Hour)
 
-	grpcHandler := authgrpc.NewServer(userService, sessionService)
+	grpcHandler := handlers.NewServer(userService, sessionService)
 
 	grpcServer := grpc.NewServer()
 	authv1.RegisterAuthServiceServer(grpcServer, grpcHandler)

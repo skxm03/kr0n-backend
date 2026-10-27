@@ -10,6 +10,7 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/jackc/pgx/v5"
 
+	authmigrations "github.com/skxm03/kr0n-backend/control-plane/internal/auth/migrations"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
 )
 
@@ -113,13 +114,13 @@ func TestURL_RejectsNonTestDatabaseBeforeAnyConnection(t *testing.T) {
 }
 
 func TestEnsureLatest_FreshPartialAndDirtyDatabases(t *testing.T) {
-	latest, err := database.LatestMigrationVersion()
+	latest, err := database.LatestMigrationVersion(authmigrations.FS)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	version := func(url string) (uint, bool, error) {
-		m, closeFn, err := database.NewMigrator(url)
+		m, closeFn, err := database.NewMigrator(url, authmigrations.FS)
 		if err != nil {
 			return 0, false, err
 		}
@@ -145,7 +146,7 @@ func TestEnsureLatest_FreshPartialAndDirtyDatabases(t *testing.T) {
 
 	t.Run("partially migrated database is brought forward", func(t *testing.T) {
 		url := NewOwnedDatabase(t)
-		m, closeFn, err := database.NewMigrator(url)
+		m, closeFn, err := database.NewMigrator(url, authmigrations.FS)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -165,7 +166,7 @@ func TestEnsureLatest_FreshPartialAndDirtyDatabases(t *testing.T) {
 
 	t.Run("dirty database is refused with instructions, not repaired", func(t *testing.T) {
 		url := NewOwnedDatabase(t)
-		m, closeFn, err := database.NewMigrator(url)
+		m, closeFn, err := database.NewMigrator(url, authmigrations.FS)
 		if err != nil {
 			t.Fatal(err)
 		}

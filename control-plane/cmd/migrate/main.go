@@ -1,15 +1,13 @@
 package main
 
 import (
-	"errors"
 	"fmt"
+	"io/fs"
 	"log"
 	"os"
-	"strconv"
 
-	"github.com/golang-migrate/migrate/v4"
-
-	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/config"
+	authconfig "github.com/skxm03/kr0n-backend/control-plane/internal/auth/config"
+	authmigrations "github.com/skxm03/kr0n-backend/control-plane/internal/auth/migrations"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
 )
 
@@ -19,72 +17,52 @@ func main() {
 		os.Exit(1)
 	}
 
-	command := os.Args[1]
+	service := "auth"
+	args := os.Args[1:]
 
-	cfg, err := config.LoadConfig()
-	if err != nil {
-		log.Fatalf("failed to load configuration: %v", err)
-	}
-
-	m, closeFn, err := database.NewMigrator(cfg.DatabaseURL)
-	if err != nil {
-		log.Fatalf("failed to initialize migrator: %v", err)
-	}
-	defer closeFn()
-
-	switch command {
-	case "up":
-		if err := m.Up(); err != nil {
-			if errors.Is(err, migrate.ErrNoChange) {
-				log.Println("migrations: no change (schema is up to date)")
-				return
-			}
-			log.Fatalf("migration up failed: %v", err)
-		}
-		log.Println("migration up succeeded")
-
-	case "down":
-		if err := m.Steps(-1); err != nil {
-			if errors.Is(err, migrate.ErrNoChange) {
-				log.Println("migrations: no change (no migrations to revert)")
-				return
-			}
-			log.Fatalf("migration down failed: %v", err)
-		}
-		log.Println("migration down succeeded (reverted 1 step)")
-
-	case "version":
-		version, dirty, err := m.Version()
-		if err != nil {
-			if errors.Is(err, migrate.ErrNilVersion) {
-				log.Println("migrations: no migrations applied yet (version: nil)")
-				return
-			}
-			log.Fatalf("failed to read migration version: %v", err)
-		}
-		log.Printf("current migration version: %d (dirty: %t)", version, dirty)
-
-	case "force":
-		if len(os.Args) < 3 {
-			log.Fatal("missing version argument for force command. Usage: migrate force <version>")
-		}
-		version, err := strconv.Atoi(os.Args[2])
-		if err != nil {
-			log.Fatalf("invalid version argument %q: %v", os.Args[2], err)
-		}
-		if err := m.Force(version); err != nil {
-			log.Fatalf("migration force failed: %v", err)
-		}
-		log.Printf("migration version successfully forced to: %d", version)
-
+	switch args[0] {
+	case "auth":
+		service = args[0]
+		args = args[1:]
+	case "up", "down", "version", "force":
+		// Default to "auth" when service name is omitted for backward compatibility.
 	default:
 		printUsage()
 		os.Exit(1)
 	}
+
+	if len(args) < 1 {
+		printUsage()
+		os.Exit(1)
+	}
+
+	var (
+		dbURL        string
+		migrationsFS fs.FS
+	)
+
+	switch service {
+	case "auth":
+		cfg, err := authconfig.LoadConfig()
+		if err != nil {
+			log.Fatalf("failed to load %s configuration: %v", service, err)
+		}
+		dbURL = cfg.DatabaseURL
+		migrationsFS = authmigrations.FS
+	default:
+		log.Fatalf("unknown service %q", service)
+	}
+
+	if err := database.RunMigrationCLI(dbURL, migrationsFS, args); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func printUsage() {
-	fmt.Println(`Usage: migrate <command> [arguments]
+	fmt.Println(`Usage: migrate [service] <command> [arguments]
+
+Services:
+  auth           Run migrations for the auth service (default if omitted)
 
 Commands:
   up             Apply all pending migrations

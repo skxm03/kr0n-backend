@@ -18,10 +18,9 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/session"
-	authgrpc "github.com/skxm03/kr0n-backend/control-plane/internal/auth/transport/grpc"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/user"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/verification"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/handlers"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/service"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/email"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway"
@@ -45,30 +44,30 @@ func TestE2E_EmailVerification_Lifecycle(t *testing.T) {
 	emailSender := email.NewInMemorySender()
 
 	// 3. Start Auth gRPC Service on dynamic loopback port
-	userRepo := user.NewPostgresRepository(dbPool)
-	hasher := user.NewBcryptHasher(12)
-	userService := user.NewService(
+	userRepo := repository.NewPostgresUserRepository(dbPool)
+	hasher := service.NewBcryptHasher(12)
+	userService := service.NewUserService(
 		userRepo,
 		hasher,
-		user.WithEmailSender(emailSender),
-		user.WithTokenLifetime(24*time.Hour),
+		service.WithEmailSender(emailSender),
+		service.WithTokenLifetime(24*time.Hour),
 	)
 
-	verifRepo := verification.NewPostgresRepository(dbPool)
-	verifService := verification.NewService(verifRepo)
+	verifRepo := repository.NewPostgresVerificationRepository(dbPool)
+	verifService := service.NewVerificationService(verifRepo)
 
 	jwtSigner, err := jwtkeys.NewSigner(jwtkeys.DevPrivateKey(), "k1", "kr0n-test", "kr0n-api", 15*time.Minute)
 	if err != nil {
 		t.Fatalf("failed to create jwt signer: %v", err)
 	}
-	tokenIssuer := session.NewDefaultTokenIssuer(jwtSigner)
-	sessionRepo := session.NewPostgresRepository(dbPool)
-	sessionService := session.NewService(userService, sessionRepo, tokenIssuer, 30*24*time.Hour)
+	tokenIssuer := service.NewDefaultTokenIssuer(jwtSigner)
+	sessionRepo := repository.NewPostgresSessionRepository(dbPool)
+	sessionService := service.NewSessionService(userService, sessionRepo, tokenIssuer, 30*24*time.Hour)
 
-	grpcHandler := authgrpc.NewServer(
+	grpcHandler := handlers.NewServer(
 		userService,
 		sessionService,
-		authgrpc.WithVerificationService(verifService),
+		handlers.WithVerificationService(verifService),
 	)
 
 	grpcServer := grpc.NewServer()
@@ -179,7 +178,7 @@ func TestE2E_EmailVerification_Lifecycle(t *testing.T) {
 		}
 
 		// Confirm verification token hash exists in PostgreSQL
-		tokenHash := verification.HashToken(rawToken)
+		tokenHash := repository.HashToken(rawToken)
 		var (
 			tokenID       uuid.UUID
 			tokConsumedAt *time.Time
@@ -299,15 +298,15 @@ func TestE2E_EmailVerification_Lifecycle(t *testing.T) {
 	// -------------------------------------------------------------
 	t.Run("expired token returns 400 Bad Request", func(t *testing.T) {
 		// Create user and expired token directly in DB
-		expiredUser, err := user.NewUser("expired_"+uuid.New().String()+"@kr0n.dev", "Expired User")
+		expiredUser, err := repository.NewUser("expired_"+uuid.New().String()+"@kr0n.dev", "Expired User")
 		if err != nil {
 			t.Fatalf("NewUser failed: %v", err)
 		}
-		rawExpiredToken, _ := verification.GenerateToken()
-		expiredHash := verification.HashToken(rawExpiredToken)
+		rawExpiredToken, _ := repository.GenerateToken()
+		expiredHash := repository.HashToken(rawExpiredToken)
 		now := time.Now().UTC()
 
-		expiredTok := &verification.Token{
+		expiredTok := &repository.Token{
 			ID:        uuid.New(),
 			UserID:    expiredUser.ID,
 			TokenHash: expiredHash,
@@ -432,13 +431,13 @@ func TestE2E_EmailVerification_Manual10StepsVerification(t *testing.T) {
 	defer dbPool.Close()
 
 	emailSender := email.NewInMemorySender()
-	userRepo := user.NewPostgresRepository(dbPool)
-	hasher := user.NewBcryptHasher(12)
-	userService := user.NewService(userRepo, hasher, user.WithEmailSender(emailSender), user.WithTokenLifetime(24*time.Hour))
-	verifRepo := verification.NewPostgresRepository(dbPool)
-	verifService := verification.NewService(verifRepo)
+	userRepo := repository.NewPostgresUserRepository(dbPool)
+	hasher := service.NewBcryptHasher(12)
+	userService := service.NewUserService(userRepo, hasher, service.WithEmailSender(emailSender), service.WithTokenLifetime(24*time.Hour))
+	verifRepo := repository.NewPostgresVerificationRepository(dbPool)
+	verifService := service.NewVerificationService(verifRepo)
 
-	grpcHandler := authgrpc.NewServer(userService, nil, authgrpc.WithVerificationService(verifService))
+	grpcHandler := handlers.NewServer(userService, nil, handlers.WithVerificationService(verifService))
 	grpcServer := grpc.NewServer()
 	authv1.RegisterAuthServiceServer(grpcServer, grpcHandler)
 
@@ -509,7 +508,7 @@ func TestE2E_EmailVerification_Manual10StepsVerification(t *testing.T) {
 		t.Fatalf("Step 3 failed: email not captured")
 	}
 	rawToken := sentEmail.RawToken
-	computedHash := verification.HashToken(rawToken)
+	computedHash := repository.HashToken(rawToken)
 
 	var (
 		dbTokID       uuid.UUID
@@ -587,8 +586,8 @@ func TestE2E_EmailVerification_Manual10StepsVerification(t *testing.T) {
 
 	// 10. Test an expired token
 	t.Log("Step 10: Testing an expired token via Gateway...")
-	expiredRawToken, _ := verification.GenerateToken()
-	expHash := verification.HashToken(expiredRawToken)
+	expiredRawToken, _ := repository.GenerateToken()
+	expHash := repository.HashToken(expiredRawToken)
 	expUID := uuid.New()
 	_, _ = dbPool.Exec(ctx, "INSERT INTO users (id, email, display_name, status) VALUES ($1, $2, $3, 'active')",
 		expUID, "exp_"+expUID.String()+"@kr0n.dev", "Expired User")

@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/session"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway"
 )
 
@@ -107,7 +107,7 @@ func TestE2E_Refresh_Logout_Lifecycle(t *testing.T) {
 	if storedHash == initialRefresh {
 		t.Fatal("SECURITY VIOLATION: raw refresh token is stored in PostgreSQL!")
 	}
-	if !session.VerifyRefreshToken(initialRefresh, storedHash) {
+	if !repository.VerifyRefreshToken(initialRefresh, storedHash) {
 		t.Fatal("stored hash does not match initial refresh token")
 	}
 	if storedRevoked != nil {
@@ -172,10 +172,10 @@ func TestE2E_Refresh_Logout_Lifecycle(t *testing.T) {
 	if newStoredHash == refData.RefreshToken {
 		t.Fatal("SECURITY VIOLATION: raw refresh token is stored in PostgreSQL!")
 	}
-	if !session.VerifyRefreshToken(refData.RefreshToken, newStoredHash) {
+	if !repository.VerifyRefreshToken(refData.RefreshToken, newStoredHash) {
 		t.Fatal("stored hash does not match rotated refresh token")
 	}
-	if session.VerifyRefreshToken(initialRefresh, newStoredHash) {
+	if repository.VerifyRefreshToken(initialRefresh, newStoredHash) {
 		t.Fatal("old refresh token must no longer match database hash")
 	}
 

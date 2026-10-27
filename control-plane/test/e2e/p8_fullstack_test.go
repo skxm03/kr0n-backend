@@ -19,14 +19,11 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/audit"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/handlers"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/jwtkeys"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/oauth"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/org"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/session"
-	authgrpc "github.com/skxm03/kr0n-backend/control-plane/internal/auth/transport/grpc"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/user"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/verification"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/service"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/email"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway"
@@ -70,25 +67,25 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 	defer ghServer.Close()
 
 	emailSender := email.NewInMemorySender()
-	userRepo := user.NewPostgresRepository(dbPool)
-	hasher := user.NewBcryptHasher(4)
-	userService := user.NewService(
+	userRepo := repository.NewPostgresUserRepository(dbPool)
+	hasher := service.NewBcryptHasher(4)
+	userService := service.NewUserService(
 		userRepo,
 		hasher,
-		user.WithEmailSender(emailSender),
-		user.WithTokenLifetime(24*time.Hour),
-		user.WithPasswordResetTokenLifetime(time.Hour),
+		service.WithEmailSender(emailSender),
+		service.WithTokenLifetime(24*time.Hour),
+		service.WithPasswordResetTokenLifetime(time.Hour),
 	)
-	verifService := verification.NewService(verification.NewPostgresRepository(dbPool))
+	verifService := service.NewVerificationService(repository.NewPostgresVerificationRepository(dbPool))
 
 	jwtSigner, err := jwtkeys.NewSigner(jwtkeys.DevPrivateKey(), "k1", "kr0n-test", "kr0n-api", 15*time.Minute)
 	if err != nil {
 		t.Fatalf("new signer: %v", err)
 	}
-	sessionService := session.NewService(
+	sessionService := service.NewSessionService(
 		userService,
-		session.NewPostgresRepository(dbPool),
-		session.NewDefaultTokenIssuer(jwtSigner),
+		repository.NewPostgresSessionRepository(dbPool),
+		service.NewDefaultTokenIssuer(jwtSigner),
 		30*24*time.Hour,
 	)
 
@@ -102,17 +99,17 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 		HTTPClient:   ghServer.Client(),
 	})
 
-	orgService := org.NewService(org.NewPostgresRepository(dbPool))
-	auditService := audit.NewService(audit.NewPostgresRepository(dbPool))
+	orgService := service.NewOrgService(repository.NewPostgresOrgRepository(dbPool))
+	auditService := service.NewAuditService(repository.NewPostgresAuditRepository(dbPool))
 
-	grpcHandler := authgrpc.NewServer(
+	grpcHandler := handlers.NewServer(
 		userService,
 		sessionService,
-		authgrpc.WithVerificationService(verifService),
-		authgrpc.WithJWKS(jwtSigner.PublicJWK()),
-		authgrpc.WithGitHubOAuth(ghProvider),
-		authgrpc.WithOrgService(orgService),
-		authgrpc.WithAuditService(auditService),
+		handlers.WithVerificationService(verifService),
+		handlers.WithJWKS(jwtSigner.PublicJWK()),
+		handlers.WithGitHubOAuth(ghProvider),
+		handlers.WithOrgService(orgService),
+		handlers.WithAuditService(auditService),
 	)
 	grpcServer := grpc.NewServer()
 	authv1.RegisterAuthServiceServer(grpcServer, grpcHandler)
