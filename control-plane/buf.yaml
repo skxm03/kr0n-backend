@@ -6,6 +6,9 @@ lint:
 modules:
   - path: internal/proto
 
+deps:
+  - buf.build/googleapis/googleapis
+
 breaking:
   use:
     - FILE

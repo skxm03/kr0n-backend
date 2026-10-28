@@ -2,6 +2,9 @@ version: v2
 
 managed:
   enabled: true
+  disable:
+    - file_option: go_package_prefix
+      module: buf.build/googleapis/googleapis
   override:
     - file_option: go_package_prefix
       value: github.com/skxm03/kr0n-backend/control-plane/gen
@@ -16,3 +19,15 @@ plugins:
     out: gen
     opt:
       - paths=source_relative
+
+  - remote: buf.build/grpc-ecosystem/gateway
+    out: gen
+    opt:
+      - paths=source_relative
+      - generate_unbound_methods=false
+
+  - remote: buf.build/grpc-ecosystem/openapiv2
+    out: gen/openapiv2
+    opt:
+      - json_names_for_fields=false
+      - output_format=json

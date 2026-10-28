@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -137,19 +138,32 @@ func NewServerHandler(h *Handler, o Options) http.Handler {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 	})
 
+	// Initialize grpc-gateway ServeMux with snake_case JSON, metadata propagation, and error envelope
+	gwMux := NewGatewayServeMux(o.TrustedProxies)
+	if h != nil && h.authClient != nil {
+		if err := authv1.RegisterAuthServiceHandlerClient(context.Background(), gwMux, h.authClient); err != nil {
+			if o.Log != nil {
+				o.Log.Error("failed to register auth grpc-gateway", "err", err)
+			}
+		}
+	}
+
 	// Public credential & OAuth routes (stricter per-IP limiter, fails closed on Redis outage)
 	r.Group(func(r chi.Router) {
-		r.Use(middleware.RateLimit(o.AuthLimiter, ipKey, false, o.Log))
-		r.Post("/api/v1/auth/register", h.Register)
-		r.Post("/api/v1/auth/login", h.Login)
-		r.Post("/api/v1/auth/refresh", h.Refresh)
-		r.Post("/api/v1/auth/logout", h.Logout)
-		r.Post("/api/v1/auth/verify-email", h.VerifyEmail)
-		r.Post("/api/v1/auth/resend-verification", h.ResendVerification)
-		r.Post("/api/v1/auth/password-reset/request", h.RequestPasswordReset)
-		r.Post("/api/v1/auth/password-reset/confirm", h.ConfirmPasswordReset)
+		r.Use(
+			middleware.RateLimit(o.AuthLimiter, ipKey, false, o.Log),
+			EnforceJSONContentType,
+		)
 		r.Get("/api/v1/auth/github/start", h.GitHubOAuthStart)
 		r.Get("/api/v1/auth/github/callback", h.GitHubOAuthCallback)
+		r.Post("/api/v1/auth/register", gwMux.ServeHTTP)
+		r.Post("/api/v1/auth/login", gwMux.ServeHTTP)
+		r.Post("/api/v1/auth/refresh", gwMux.ServeHTTP)
+		r.Post("/api/v1/auth/logout", gwMux.ServeHTTP)
+		r.Post("/api/v1/auth/verify-email", gwMux.ServeHTTP)
+		r.Post("/api/v1/auth/resend-verification", gwMux.ServeHTTP)
+		r.Post("/api/v1/auth/password-reset/request", gwMux.ServeHTTP)
+		r.Post("/api/v1/auth/password-reset/confirm", gwMux.ServeHTTP)
 	})
 
 	// Personal-account routes (session JWT only; API tokens are rejected)
@@ -158,11 +172,12 @@ func NewServerHandler(h *Handler, o Options) http.Handler {
 			middleware.Authenticate(o.Verifier, o.APITokenVerifier),
 			middleware.RejectAPIToken(),
 			middleware.RateLimit(o.GeneralLimiter, userKey, true, o.Log),
+			EnforceJSONContentType,
 		)
-		r.Post("/api/v1/auth/password/change", h.ChangePassword)
-		r.Get("/api/v1/me", h.GetMe)
-		r.Get("/api/v1/auth/sessions", h.ListSessions)
-		r.Delete("/api/v1/auth/sessions/{id}", h.RevokeSession)
+		r.Post("/api/v1/auth/password/change", gwMux.ServeHTTP)
+		r.Get("/api/v1/me", gwMux.ServeHTTP)
+		r.Get("/api/v1/auth/sessions", gwMux.ServeHTTP)
+		r.Delete("/api/v1/auth/sessions/{id}", gwMux.ServeHTTP)
 	})
 
 	// Organization & RBAC routes (session JWT or org-scoped API token)
@@ -170,27 +185,29 @@ func NewServerHandler(h *Handler, o Options) http.Handler {
 		r.Use(
 			middleware.Authenticate(o.Verifier, o.APITokenVerifier),
 			middleware.RateLimit(o.GeneralLimiter, userKey, true, o.Log),
+			EnforceJSONContentType,
 		)
-		r.Get("/api/v1/roles", h.ListRoles)
-		r.Post("/api/v1/orgs", h.CreateOrg)
-		r.Get("/api/v1/orgs", h.ListOrgs)
-		r.Get("/api/v1/orgs/{id}", h.GetOrg)
-		r.Patch("/api/v1/orgs/{id}", h.UpdateOrg)
-		r.Delete("/api/v1/orgs/{id}", h.DeleteOrg)
-		r.Get("/api/v1/orgs/{id}/members", h.ListMembers)
-		r.Post("/api/v1/orgs/{id}/members", h.AddMember)
-		r.Patch("/api/v1/orgs/{id}/members/{user_id}", h.UpdateMemberRole)
-		r.Delete("/api/v1/orgs/{id}/members/{user_id}", h.RemoveMember)
-		r.Post("/api/v1/orgs/{id}/invites", h.CreateInvite)
-		r.Post("/api/v1/orgs/invites/accept", h.AcceptInvite)
-		r.Delete("/api/v1/orgs/{id}/invites/{invite_id}", h.RevokeInvite)
-		r.Post("/api/v1/orgs/{id}/tokens", h.CreateAPIToken)
-		r.Get("/api/v1/orgs/{id}/tokens", h.ListAPITokens)
-		r.Delete("/api/v1/orgs/{id}/tokens/{token_id}", h.RevokeAPIToken)
-		r.Get("/api/v1/orgs/{id}/audit", h.ListAuditEvents)
+		r.Get("/api/v1/roles", gwMux.ServeHTTP)
+		r.Post("/api/v1/orgs", gwMux.ServeHTTP)
+		r.Get("/api/v1/orgs", gwMux.ServeHTTP)
+		r.HandleFunc("/api/v1/orgs/*", gwMux.ServeHTTP)
 	})
 
 	return r
+}
+
+// EnforceJSONContentType ensures request Content-Type is application/json for POST, PUT, and PATCH methods.
+func EnforceJSONContentType(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodPatch {
+			ct := r.Header.Get("Content-Type")
+			if !strings.HasPrefix(strings.ToLower(ct), "application/json") {
+				writeErrorJSON(r.Context(), w, http.StatusUnsupportedMediaType, "content-type must be application/json", "UNSUPPORTED_MEDIA_TYPE")
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

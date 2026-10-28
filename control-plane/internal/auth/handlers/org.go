@@ -28,24 +28,56 @@ func (s *Server) ParseCallerPrincipal(ctx context.Context, c *authv1.CallerPrinc
 	if s.serviceAuth.Enabled && !IsTrustedService(ctx) {
 		return repository.Principal{}, status.Error(codes.Unauthenticated, "caller principal rejected: untrusted service boundary")
 	}
-	if c == nil {
-		return repository.Principal{}, status.Error(codes.Unauthenticated, "authentication required")
+	if c != nil && strings.TrimSpace(c.GetUserId()) != "" {
+		uid, err := uuid.Parse(strings.TrimSpace(c.GetUserId()))
+		if err != nil {
+			return repository.Principal{}, status.Error(codes.InvalidArgument, "invalid caller user_id")
+		}
+		p := repository.Principal{
+			UserID:           uid,
+			Kind:             c.GetKind(),
+			TokenPermissions: c.GetTokenPermissions(),
+		}
+		if rawOrg := strings.TrimSpace(c.GetTokenOrgId()); rawOrg != "" {
+			if oid, err := uuid.Parse(rawOrg); err == nil {
+				p.TokenOrgID = &oid
+			}
+		}
+		return p, nil
 	}
-	uid, err := uuid.Parse(strings.TrimSpace(c.GetUserId()))
-	if err != nil {
-		return repository.Principal{}, status.Error(codes.InvalidArgument, "invalid caller user_id")
-	}
-	p := repository.Principal{
-		UserID:           uid,
-		Kind:             c.GetKind(),
-		TokenPermissions: c.GetTokenPermissions(),
-	}
-	if rawOrg := strings.TrimSpace(c.GetTokenOrgId()); rawOrg != "" {
-		if oid, err := uuid.Parse(rawOrg); err == nil {
-			p.TokenOrgID = &oid
+
+	// Extract from gRPC metadata headers (propagated by API Gateway)
+	if md, ok := getMetadata(ctx); ok {
+		if uids := md.Get("x-caller-user-id"); len(uids) > 0 && strings.TrimSpace(uids[0]) != "" {
+			uid, err := uuid.Parse(strings.TrimSpace(uids[0]))
+			if err != nil {
+				return repository.Principal{}, status.Error(codes.InvalidArgument, "invalid caller user_id in metadata")
+			}
+			p := repository.Principal{
+				UserID: uid,
+			}
+			if kinds := md.Get("x-caller-kind"); len(kinds) > 0 {
+				p.Kind = kinds[0]
+			}
+			if orgs := md.Get("x-caller-token-org-id"); len(orgs) > 0 && strings.TrimSpace(orgs[0]) != "" {
+				if oid, err := uuid.Parse(strings.TrimSpace(orgs[0])); err == nil {
+					p.TokenOrgID = &oid
+				}
+			}
+			if perms := md.Get("x-caller-token-permissions"); len(perms) > 0 {
+				for _, perm := range perms {
+					for _, part := range strings.Split(perm, ",") {
+						if trimmed := strings.TrimSpace(part); trimmed != "" {
+							p.TokenPermissions = append(p.TokenPermissions, trimmed)
+						}
+					}
+				}
+			}
+			return p, nil
 		}
 	}
-	return p, nil
+
+	return repository.Principal{}, status.Error(codes.Unauthenticated, "authentication required")
 }
 
 func (s *Server) parseCallerPrincipal(ctx context.Context, c *authv1.CallerPrincipal) (repository.Principal, error) {
@@ -163,9 +195,9 @@ func (s *Server) CreateOrganization(ctx context.Context, req *authv1.CreateOrgan
 	if s.orgService == nil {
 		return nil, status.Error(codes.Unimplemented, "org service not configured")
 	}
-	userID, err := uuid.Parse(strings.TrimSpace(req.GetUserId()))
+	userID, err := s.extractUserID(ctx, req.GetUserId())
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+		return nil, err
 	}
 	o, err := s.orgService.CreateOrg(ctx, userID, req.GetName(), req.GetSlug())
 	if err != nil {
@@ -199,9 +231,9 @@ func (s *Server) ListOrganizations(ctx context.Context, req *authv1.ListOrganiza
 	if s.orgService == nil {
 		return nil, status.Error(codes.Unimplemented, "org service not configured")
 	}
-	userID, err := uuid.Parse(strings.TrimSpace(req.GetUserId()))
+	userID, err := s.extractUserID(ctx, req.GetUserId())
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+		return nil, err
 	}
 	orgs, err := s.orgService.ListUserOrgs(ctx, userID)
 	if err != nil {
@@ -303,7 +335,7 @@ func (s *Server) DeleteOrganization(ctx context.Context, req *authv1.DeleteOrgan
 		ResourceID:   orgID.String(),
 		Metadata:     map[string]any{"deleted_org_id": orgID.String()},
 	})
-	return &authv1.DeleteOrganizationResponse{}, nil
+	return &authv1.DeleteOrganizationResponse{Message: "organization deleted successfully"}, nil
 }
 
 // ListMembers lists members of an organization.
@@ -402,7 +434,7 @@ func (s *Server) UpdateMemberRole(ctx context.Context, req *authv1.UpdateMemberR
 		ResourceID:     targetID.String(),
 		Metadata:       map[string]any{"role_id": strings.ToLower(strings.TrimSpace(req.GetRoleId()))},
 	})
-	return &authv1.UpdateMemberRoleResponse{}, nil
+	return &authv1.UpdateMemberRoleResponse{Message: "member role updated successfully"}, nil
 }
 
 // RemoveMember removes a member from an organization.
@@ -434,7 +466,7 @@ func (s *Server) RemoveMember(ctx context.Context, req *authv1.RemoveMemberReque
 		ResourceType:   "member",
 		ResourceID:     targetID.String(),
 	})
-	return &authv1.RemoveMemberResponse{}, nil
+	return &authv1.RemoveMemberResponse{Message: "member removed successfully"}, nil
 }
 
 // CreateInvite creates an organization invitation token.
@@ -483,9 +515,9 @@ func (s *Server) AcceptInvite(ctx context.Context, req *authv1.AcceptInviteReque
 	if s.orgService == nil {
 		return nil, status.Error(codes.Unimplemented, "org service not configured")
 	}
-	userID, err := uuid.Parse(strings.TrimSpace(req.GetUserId()))
+	userID, err := s.extractUserID(ctx, req.GetUserId())
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+		return nil, err
 	}
 	o, err := s.orgService.AcceptInvite(ctx, userID, req.GetToken())
 	if err != nil {
@@ -540,7 +572,7 @@ func (s *Server) RevokeInvite(ctx context.Context, req *authv1.RevokeInviteReque
 		ResourceType:   "invite",
 		ResourceID:     inviteID.String(),
 	})
-	return &authv1.RevokeInviteResponse{}, nil
+	return &authv1.RevokeInviteResponse{Message: "invite revoked successfully"}, nil
 }
 
 // CreateAPIToken creates an org-scoped API token (`kr0n_pat_...`).
@@ -629,7 +661,7 @@ func (s *Server) RevokeAPIToken(ctx context.Context, req *authv1.RevokeAPITokenR
 		ResourceType:   "api_token",
 		ResourceID:     tokenID.String(),
 	})
-	return &authv1.RevokeAPITokenResponse{}, nil
+	return &authv1.RevokeAPITokenResponse{Message: "token revoked successfully"}, nil
 }
 
 // ValidateAPIToken validates a raw `kr0n_pat_...` token and returns its org scope and permissions.

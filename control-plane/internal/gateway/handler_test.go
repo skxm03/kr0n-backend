@@ -11,6 +11,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -59,6 +60,9 @@ func (m *mockAuthClient) Register(ctx context.Context, in *authv1.RegisterReques
 	if m.registerFunc != nil {
 		return m.registerFunc(ctx, in, opts...)
 	}
+	if in.GetEmail() == "" || in.GetPassword() == "" || in.GetDisplayName() == "" {
+		return nil, status.Error(codes.InvalidArgument, "email, password, and display_name are required")
+	}
 	return nil, nil
 }
 
@@ -73,6 +77,9 @@ func (m *mockAuthClient) Refresh(ctx context.Context, in *authv1.RefreshRequest,
 	if m.refreshFunc != nil {
 		return m.refreshFunc(ctx, in, opts...)
 	}
+	if in.GetRefreshToken() == "" {
+		return nil, status.Error(codes.InvalidArgument, "refresh_token is required")
+	}
 	return nil, nil
 }
 
@@ -80,14 +87,20 @@ func (m *mockAuthClient) Logout(ctx context.Context, in *authv1.LogoutRequest, o
 	if m.logoutFunc != nil {
 		return m.logoutFunc(ctx, in, opts...)
 	}
-	return nil, nil
+	if in.GetRefreshToken() == "" {
+		return nil, status.Error(codes.InvalidArgument, "refresh_token is required")
+	}
+	return &authv1.LogoutResponse{Message: "logged out successfully"}, nil
 }
 
 func (m *mockAuthClient) VerifyEmail(ctx context.Context, in *authv1.VerifyEmailRequest, opts ...grpc.CallOption) (*authv1.VerifyEmailResponse, error) {
 	if m.verifyEmailFunc != nil {
 		return m.verifyEmailFunc(ctx, in, opts...)
 	}
-	return nil, nil
+	if in.GetToken() == "" || in.GetToken() == "  " {
+		return nil, status.Error(codes.InvalidArgument, "token is required")
+	}
+	return &authv1.VerifyEmailResponse{Message: "email verified successfully"}, nil
 }
 
 func (m *mockAuthClient) GetJWKS(ctx context.Context, in *authv1.GetJWKSRequest, opts ...grpc.CallOption) (*authv1.GetJWKSResponse, error) {
@@ -101,35 +114,57 @@ func (m *mockAuthClient) ResendVerification(ctx context.Context, in *authv1.Rese
 	if m.resendVerificationFunc != nil {
 		return m.resendVerificationFunc(ctx, in, opts...)
 	}
-	return &authv1.ResendVerificationResponse{}, nil
+	return &authv1.ResendVerificationResponse{Message: "if the account exists and is unverified, a new verification link has been sent"}, nil
 }
 
 func (m *mockAuthClient) RequestPasswordReset(ctx context.Context, in *authv1.RequestPasswordResetRequest, opts ...grpc.CallOption) (*authv1.RequestPasswordResetResponse, error) {
 	if m.requestPasswordResetFunc != nil {
 		return m.requestPasswordResetFunc(ctx, in, opts...)
 	}
-	return &authv1.RequestPasswordResetResponse{}, nil
+	return &authv1.RequestPasswordResetResponse{Message: "if an account exists for that email, a password reset link has been sent"}, nil
 }
 
 func (m *mockAuthClient) ConfirmPasswordReset(ctx context.Context, in *authv1.ConfirmPasswordResetRequest, opts ...grpc.CallOption) (*authv1.ConfirmPasswordResetResponse, error) {
 	if m.confirmPasswordResetFunc != nil {
 		return m.confirmPasswordResetFunc(ctx, in, opts...)
 	}
-	return &authv1.ConfirmPasswordResetResponse{}, nil
+	return &authv1.ConfirmPasswordResetResponse{Message: "password reset successfully"}, nil
 }
 
 func (m *mockAuthClient) ChangePassword(ctx context.Context, in *authv1.ChangePasswordRequest, opts ...grpc.CallOption) (*authv1.ChangePasswordResponse, error) {
 	if m.changePasswordFunc != nil {
 		return m.changePasswordFunc(ctx, in, opts...)
 	}
-	return &authv1.ChangePasswordResponse{}, nil
+	return &authv1.ChangePasswordResponse{Message: "password changed successfully"}, nil
 }
 
 func (m *mockAuthClient) GetMe(ctx context.Context, in *authv1.GetMeRequest, opts ...grpc.CallOption) (*authv1.GetMeResponse, error) {
 	if m.getMeFunc != nil {
 		return m.getMeFunc(ctx, in, opts...)
 	}
-	return nil, nil
+	uid := in.GetUserId()
+	if uid == "" {
+		if md, ok := metadata.FromIncomingContext(ctx); ok {
+			if uids := md.Get("x-caller-user-id"); len(uids) > 0 {
+				uid = uids[0]
+			}
+		}
+		if uid == "" {
+			if md, ok := metadata.FromOutgoingContext(ctx); ok {
+				if uids := md.Get("x-caller-user-id"); len(uids) > 0 {
+					uid = uids[0]
+				}
+			}
+		}
+	}
+	return &authv1.GetMeResponse{
+		Id:          uid,
+		UserId:      uid,
+		Kind:        "session",
+		Email:       "mock@example.com",
+		DisplayName: "Mock User",
+		Status:      "active",
+	}, nil
 }
 
 func (m *mockAuthClient) ListSessions(ctx context.Context, in *authv1.ListSessionsRequest, opts ...grpc.CallOption) (*authv1.ListSessionsResponse, error) {
@@ -812,7 +847,7 @@ func TestHandler_Logout_Success(t *testing.T) {
 	mockClient := &mockAuthClient{
 		logoutFunc: func(ctx context.Context, in *authv1.LogoutRequest, opts ...grpc.CallOption) (*authv1.LogoutResponse, error) {
 			loggedOutToken = in.GetRefreshToken()
-			return &authv1.LogoutResponse{}, nil
+			return &authv1.LogoutResponse{Message: "logged out successfully"}, nil
 		},
 	}
 
@@ -954,7 +989,7 @@ func TestHandler_VerifyEmail_Success(t *testing.T) {
 			if in.GetToken() != "valid_token_123" {
 				return nil, status.Error(codes.InvalidArgument, "invalid or expired verification token")
 			}
-			return &authv1.VerifyEmailResponse{}, nil
+			return &authv1.VerifyEmailResponse{Message: "email verified successfully"}, nil
 		},
 	}
 	h := NewHandler(mockClient)
@@ -1172,6 +1207,7 @@ func TestHandler_P4Endpoints(t *testing.T) {
 						CreatedAt:  timestamppb.New(now),
 						LastSeenAt: timestamppb.New(now),
 						ExpiresAt:  timestamppb.New(now.Add(time.Hour)),
+						Current:    true,
 					},
 				},
 			}, nil

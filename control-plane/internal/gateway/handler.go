@@ -56,28 +56,6 @@ type AuthServiceClient interface {
 	ListAuditEvents(ctx context.Context, in *authv1.ListAuditEventsRequest, opts ...grpc.CallOption) (*authv1.ListAuditEventsResponse, error)
 }
 
-// RegisterRequestDTO represents the client registration request JSON schema.
-type RegisterRequestDTO struct {
-	Email       string `json:"email"`
-	Password    string `json:"password"`
-	DisplayName string `json:"display_name"`
-}
-
-// RegisterResponseDTO represents the successful client registration response JSON schema.
-type RegisterResponseDTO struct {
-	UserID      string `json:"user_id"`
-	Email       string `json:"email"`
-	DisplayName string `json:"display_name"`
-	Status      string `json:"status"`
-	CreatedAt   string `json:"created_at"`
-}
-
-// LoginRequestDTO represents the client login request JSON schema.
-type LoginRequestDTO struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
 // UserDTO represents user profile information returned upon authentication.
 type UserDTO struct {
 	ID          string `json:"id"`
@@ -91,13 +69,17 @@ type LoginResponseDTO struct {
 	AccessToken  string  `json:"access_token"`
 	RefreshToken string  `json:"refresh_token"`
 	TokenType    string  `json:"token_type"`
-	ExpiresIn    int64   `json:"expires_in"`
+	ExpiresIn    int32   `json:"expires_in"`
 	User         UserDTO `json:"user"`
 }
 
-// RefreshRequestDTO represents the client refresh request JSON schema.
-type RefreshRequestDTO struct {
-	RefreshToken string `json:"refresh_token"`
+// RegisterResponseDTO represents the successful client registration response JSON schema.
+type RegisterResponseDTO struct {
+	UserID      string `json:"user_id"`
+	Email       string `json:"email"`
+	DisplayName string `json:"display_name"`
+	Status      string `json:"status"`
+	CreatedAt   string `json:"created_at"`
 }
 
 // RefreshResponseDTO represents the successful client refresh response JSON schema.
@@ -105,12 +87,7 @@ type RefreshResponseDTO struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
 	TokenType    string `json:"token_type"`
-	ExpiresIn    int64  `json:"expires_in"`
-}
-
-// LogoutRequestDTO represents the client logout request JSON schema.
-type LogoutRequestDTO struct {
-	RefreshToken string `json:"refresh_token"`
+	ExpiresIn    int32  `json:"expires_in"`
 }
 
 // LogoutResponseDTO represents the successful client logout response JSON schema.
@@ -118,36 +95,9 @@ type LogoutResponseDTO struct {
 	Message string `json:"message"`
 }
 
-// VerifyEmailRequestDTO represents the client email verification request JSON schema.
-type VerifyEmailRequestDTO struct {
-	Token string `json:"token"`
-}
-
 // VerifyEmailResponseDTO represents the successful client email verification response JSON schema.
 type VerifyEmailResponseDTO struct {
 	Message string `json:"message"`
-}
-
-// EmailRequestDTO represents a request body carrying an email address (resend-verification, password-reset/request).
-type EmailRequestDTO struct {
-	Email string `json:"email"`
-}
-
-// MessageResponseDTO represents a generic message response JSON schema.
-type MessageResponseDTO struct {
-	Message string `json:"message"`
-}
-
-// ConfirmPasswordResetRequestDTO represents the password-reset/confirm request JSON schema.
-type ConfirmPasswordResetRequestDTO struct {
-	Token       string `json:"token"`
-	NewPassword string `json:"new_password"`
-}
-
-// ChangePasswordRequestDTO represents the password/change request JSON schema.
-type ChangePasswordRequestDTO struct {
-	CurrentPassword string `json:"current_password"`
-	NewPassword     string `json:"new_password"`
 }
 
 // MeResponseDTO represents the authenticated user profile returned by GET /api/v1/me.
@@ -181,6 +131,53 @@ type ListSessionsResponseDTO struct {
 	Sessions []SessionInfoDTO `json:"sessions"`
 }
 
+// OrganizationDTO represents an organization returned by the gateway.
+type OrganizationDTO struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Slug      string `json:"slug"`
+	RoleID    string `json:"role_id,omitempty"`
+	CreatedAt string `json:"created_at,omitempty"`
+	UpdatedAt string `json:"updated_at,omitempty"`
+}
+
+// APITokenDTO represents an API token returned by the gateway.
+type APITokenDTO struct {
+	ID              string   `json:"id"`
+	OrgID           string   `json:"org_id"`
+	CreatedByUserID string   `json:"created_by_user_id,omitempty"`
+	Name            string   `json:"name"`
+	TokenPrefix     string   `json:"token_prefix"`
+	Permissions     []string `json:"permissions"`
+	ExpiresAt       string   `json:"expires_at,omitempty"`
+	LastUsedAt      string   `json:"last_used_at,omitempty"`
+	CreatedAt       string   `json:"created_at,omitempty"`
+}
+
+// CreateAPITokenResponseDTO represents the response from POST /api/v1/orgs/{id}/tokens.
+type CreateAPITokenResponseDTO struct {
+	Token  APITokenDTO `json:"token"`
+	Secret string      `json:"secret"`
+}
+
+// AuditEventDTO represents an audit event item returned by GET /api/v1/orgs/{id}/audit.
+type AuditEventDTO struct {
+	ID           string         `json:"id"`
+	OrgID        string         `json:"org_id"`
+	ActorUserID  string         `json:"actor_user_id,omitempty"`
+	ActorType    string         `json:"actor_type"`
+	Action       string         `json:"action"`
+	ResourceType string         `json:"resource_type"`
+	ResourceID   string         `json:"resource_id"`
+	Metadata     map[string]any `json:"metadata,omitempty"`
+	CreatedAt    string         `json:"created_at,omitempty"`
+}
+
+// ListAuditEventsResponseDTO represents the response from GET /api/v1/orgs/{id}/audit.
+type ListAuditEventsResponseDTO struct {
+	Events []AuditEventDTO `json:"events"`
+}
+
 // ErrorResponseDTO represents standard error response JSON format.
 type ErrorResponseDTO struct {
 	Error string `json:"error"`
@@ -202,20 +199,6 @@ func NewHandler(authClient AuthServiceClient) *Handler {
 		authClient: authClient,
 		env:        "development",
 	}
-}
-
-func (h *Handler) decodeJSON(w http.ResponseWriter, r *http.Request, dst any) bool {
-	contentType := r.Header.Get("Content-Type")
-	if !strings.HasPrefix(strings.ToLower(contentType), "application/json") {
-		h.writeError(w, http.StatusUnsupportedMediaType, "content-type must be application/json", "UNSUPPORTED_MEDIA_TYPE")
-		return false
-	}
-	r.Body = http.MaxBytesReader(w, r.Body, 1048576)
-	if err := json.NewDecoder(r.Body).Decode(dst); err != nil {
-		h.writeError(w, http.StatusBadRequest, "invalid request body", "MALFORMED_JSON")
-		return false
-	}
-	return true
 }
 
 func (h *Handler) grpcContext(r *http.Request, timeout time.Duration) (context.Context, context.CancelFunc) {
@@ -248,458 +231,6 @@ func (h *Handler) isSecureRequest(r *http.Request) bool {
 		return true
 	}
 	return false
-}
-
-// Register handles user registration HTTP POST requests.
-func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		h.writeError(w, http.StatusMethodNotAllowed, "method not allowed", "METHOD_NOT_ALLOWED")
-		return
-	}
-	var req RegisterRequestDTO
-	if !h.decodeJSON(w, r, &req) {
-		return
-	}
-	if strings.TrimSpace(req.Email) == "" || req.Password == "" || strings.TrimSpace(req.DisplayName) == "" {
-		h.writeError(w, http.StatusBadRequest, "email, password, and display_name are required", "INVALID_ARGUMENT")
-		return
-	}
-
-	ctx, cancel := h.grpcContext(r, 5*time.Second)
-	defer cancel()
-
-	grpcResp, err := h.authClient.Register(ctx, &authv1.RegisterRequest{
-		Email:       req.Email,
-		Password:    req.Password,
-		DisplayName: req.DisplayName,
-	})
-	if err != nil {
-		if st, ok := status.FromError(err); ok && st.Code() == codes.AlreadyExists {
-			h.writeError(w, http.StatusConflict, st.Message(), "EMAIL_ALREADY_EXISTS")
-			return
-		}
-		h.writeGRPCError(w, err)
-		return
-	}
-
-	writeJSON(w, http.StatusCreated, RegisterResponseDTO{
-		UserID:      grpcResp.GetUserId(),
-		Email:       grpcResp.GetEmail(),
-		DisplayName: grpcResp.GetDisplayName(),
-		Status:      grpcResp.GetStatus(),
-		CreatedAt:   grpcResp.GetCreatedAt().AsTime().Format(time.RFC3339),
-	})
-}
-
-// Login handles user login HTTP POST requests.
-func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		h.writeError(w, http.StatusMethodNotAllowed, "method not allowed", "METHOD_NOT_ALLOWED")
-		return
-	}
-	var req LoginRequestDTO
-	if !h.decodeJSON(w, r, &req) {
-		return
-	}
-	if strings.TrimSpace(req.Email) == "" || req.Password == "" {
-		h.writeError(w, http.StatusBadRequest, "email and password are required", "INVALID_ARGUMENT")
-		return
-	}
-
-	ctx, cancel := h.grpcContext(r, 5*time.Second)
-	defer cancel()
-
-	grpcResp, err := h.authClient.Login(ctx, &authv1.LoginRequest{
-		Email:     req.Email,
-		Password:  req.Password,
-		UserAgent: r.UserAgent(),
-		ClientIp:  extractClientIP(r),
-	})
-	if err != nil {
-		if st, ok := status.FromError(err); ok {
-			switch st.Code() {
-			case codes.Unauthenticated:
-				h.writeError(w, http.StatusUnauthorized, "invalid email or password", "UNAUTHORIZED")
-				return
-			case codes.PermissionDenied:
-				msg := st.Message()
-				if msg == "" {
-					msg = "user account is not active"
-				}
-				h.writeError(w, http.StatusForbidden, msg, "FORBIDDEN")
-				return
-			}
-		}
-		h.writeGRPCError(w, err)
-		return
-	}
-
-	writeJSON(w, http.StatusOK, LoginResponseDTO{
-		AccessToken:  grpcResp.GetAccessToken(),
-		RefreshToken: grpcResp.GetRefreshToken(),
-		TokenType:    grpcResp.GetTokenType(),
-		ExpiresIn:    grpcResp.GetExpiresIn(),
-		User: UserDTO{
-			ID:          grpcResp.GetUser().GetId(),
-			Email:       grpcResp.GetUser().GetEmail(),
-			DisplayName: grpcResp.GetUser().GetDisplayName(),
-			Status:      grpcResp.GetUser().GetStatus(),
-		},
-	})
-}
-
-// Refresh handles token rotation HTTP POST requests.
-func (h *Handler) Refresh(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		h.writeError(w, http.StatusMethodNotAllowed, "method not allowed", "METHOD_NOT_ALLOWED")
-		return
-	}
-	var req RefreshRequestDTO
-	if !h.decodeJSON(w, r, &req) {
-		return
-	}
-	if strings.TrimSpace(req.RefreshToken) == "" {
-		h.writeError(w, http.StatusBadRequest, "refresh_token is required", "INVALID_ARGUMENT")
-		return
-	}
-
-	ctx, cancel := h.grpcContext(r, 5*time.Second)
-	defer cancel()
-
-	grpcResp, err := h.authClient.Refresh(ctx, &authv1.RefreshRequest{
-		RefreshToken: req.RefreshToken,
-	})
-	if err != nil {
-		if st, ok := status.FromError(err); ok {
-			switch st.Code() {
-			case codes.Unauthenticated:
-				h.writeError(w, http.StatusUnauthorized, "invalid refresh token", "UNAUTHORIZED")
-				return
-			case codes.PermissionDenied:
-				h.writeError(w, http.StatusForbidden, "user account is not active", "FORBIDDEN")
-				return
-			}
-		}
-		h.writeGRPCError(w, err)
-		return
-	}
-
-	writeJSON(w, http.StatusOK, RefreshResponseDTO{
-		AccessToken:  grpcResp.GetAccessToken(),
-		RefreshToken: grpcResp.GetRefreshToken(),
-		TokenType:    grpcResp.GetTokenType(),
-		ExpiresIn:    grpcResp.GetExpiresIn(),
-	})
-}
-
-// Logout handles session revocation HTTP POST requests.
-func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		h.writeError(w, http.StatusMethodNotAllowed, "method not allowed", "METHOD_NOT_ALLOWED")
-		return
-	}
-	var req LogoutRequestDTO
-	if !h.decodeJSON(w, r, &req) {
-		return
-	}
-	if strings.TrimSpace(req.RefreshToken) == "" {
-		h.writeError(w, http.StatusBadRequest, "refresh_token is required", "INVALID_ARGUMENT")
-		return
-	}
-
-	ctx, cancel := h.grpcContext(r, 5*time.Second)
-	defer cancel()
-
-	if _, err := h.authClient.Logout(ctx, &authv1.LogoutRequest{
-		RefreshToken: req.RefreshToken,
-	}); err != nil {
-		h.writeGRPCError(w, err)
-		return
-	}
-
-	writeJSON(w, http.StatusOK, LogoutResponseDTO{
-		Message: "logged out successfully",
-	})
-}
-
-// VerifyEmail handles email verification HTTP POST requests.
-func (h *Handler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		h.writeError(w, http.StatusMethodNotAllowed, "method not allowed", "METHOD_NOT_ALLOWED")
-		return
-	}
-	var req VerifyEmailRequestDTO
-	if !h.decodeJSON(w, r, &req) {
-		return
-	}
-	if strings.TrimSpace(req.Token) == "" {
-		h.writeError(w, http.StatusBadRequest, "token is required", "INVALID_ARGUMENT")
-		return
-	}
-
-	ctx, cancel := h.grpcContext(r, 5*time.Second)
-	defer cancel()
-
-	if _, err := h.authClient.VerifyEmail(ctx, &authv1.VerifyEmailRequest{
-		Token: req.Token,
-	}); err != nil {
-		h.writeGRPCError(w, err)
-		return
-	}
-
-	writeJSON(w, http.StatusOK, VerifyEmailResponseDTO{
-		Message: "email verified successfully",
-	})
-}
-
-// ResendVerification handles POST /api/v1/auth/resend-verification.
-func (h *Handler) ResendVerification(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		h.writeError(w, http.StatusMethodNotAllowed, "method not allowed", "METHOD_NOT_ALLOWED")
-		return
-	}
-	var req EmailRequestDTO
-	if !h.decodeJSON(w, r, &req) {
-		return
-	}
-	if strings.TrimSpace(req.Email) == "" {
-		h.writeError(w, http.StatusBadRequest, "email is required", "INVALID_ARGUMENT")
-		return
-	}
-
-	ctx, cancel := h.grpcContext(r, 5*time.Second)
-	defer cancel()
-
-	if _, err := h.authClient.ResendVerification(ctx, &authv1.ResendVerificationRequest{Email: req.Email}); err != nil {
-		h.writeGRPCError(w, err)
-		return
-	}
-
-	writeJSON(w, http.StatusOK, MessageResponseDTO{
-		Message: "if an unverified account exists for that email, a verification link has been sent",
-	})
-}
-
-// RequestPasswordReset handles POST /api/v1/auth/password-reset/request.
-func (h *Handler) RequestPasswordReset(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		h.writeError(w, http.StatusMethodNotAllowed, "method not allowed", "METHOD_NOT_ALLOWED")
-		return
-	}
-	var req EmailRequestDTO
-	if !h.decodeJSON(w, r, &req) {
-		return
-	}
-	if strings.TrimSpace(req.Email) == "" {
-		h.writeError(w, http.StatusBadRequest, "email is required", "INVALID_ARGUMENT")
-		return
-	}
-
-	ctx, cancel := h.grpcContext(r, 5*time.Second)
-	defer cancel()
-
-	if _, err := h.authClient.RequestPasswordReset(ctx, &authv1.RequestPasswordResetRequest{Email: req.Email}); err != nil {
-		h.writeGRPCError(w, err)
-		return
-	}
-
-	writeJSON(w, http.StatusOK, MessageResponseDTO{
-		Message: "if an account exists for that email, a password reset link has been sent",
-	})
-}
-
-// ConfirmPasswordReset handles POST /api/v1/auth/password-reset/confirm.
-func (h *Handler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		h.writeError(w, http.StatusMethodNotAllowed, "method not allowed", "METHOD_NOT_ALLOWED")
-		return
-	}
-	var req ConfirmPasswordResetRequestDTO
-	if !h.decodeJSON(w, r, &req) {
-		return
-	}
-	if strings.TrimSpace(req.Token) == "" || req.NewPassword == "" {
-		h.writeError(w, http.StatusBadRequest, "token and new_password are required", "INVALID_ARGUMENT")
-		return
-	}
-
-	ctx, cancel := h.grpcContext(r, 5*time.Second)
-	defer cancel()
-
-	if _, err := h.authClient.ConfirmPasswordReset(ctx, &authv1.ConfirmPasswordResetRequest{
-		Token:       req.Token,
-		NewPassword: req.NewPassword,
-	}); err != nil {
-		h.writeGRPCError(w, err)
-		return
-	}
-
-	writeJSON(w, http.StatusOK, MessageResponseDTO{
-		Message: "password reset successfully",
-	})
-}
-
-// ChangePassword handles POST /api/v1/auth/password/change for authenticated users.
-func (h *Handler) ChangePassword(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		h.writeError(w, http.StatusMethodNotAllowed, "method not allowed", "METHOD_NOT_ALLOWED")
-		return
-	}
-	p, ok := middleware.PrincipalFromContext(r.Context())
-	if !ok || p.UserID == "" {
-		h.writeError(w, http.StatusUnauthorized, "authentication required", "UNAUTHORIZED")
-		return
-	}
-	var req ChangePasswordRequestDTO
-	if !h.decodeJSON(w, r, &req) {
-		return
-	}
-	if req.CurrentPassword == "" || req.NewPassword == "" {
-		h.writeError(w, http.StatusBadRequest, "current_password and new_password are required", "INVALID_ARGUMENT")
-		return
-	}
-
-	ctx, cancel := h.grpcContext(r, 5*time.Second)
-	defer cancel()
-
-	if _, err := h.authClient.ChangePassword(ctx, &authv1.ChangePasswordRequest{
-		UserId:          p.UserID,
-		SessionId:       p.SessionID,
-		CurrentPassword: req.CurrentPassword,
-		NewPassword:     req.NewPassword,
-	}); err != nil {
-		h.writeGRPCError(w, err)
-		return
-	}
-
-	writeJSON(w, http.StatusOK, MessageResponseDTO{
-		Message: "password changed successfully",
-	})
-}
-
-// GetMe handles GET /api/v1/me for authenticated users.
-func (h *Handler) GetMe(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		h.writeError(w, http.StatusMethodNotAllowed, "method not allowed", "METHOD_NOT_ALLOWED")
-		return
-	}
-	p, ok := middleware.PrincipalFromContext(r.Context())
-	if !ok || p.UserID == "" {
-		h.writeError(w, http.StatusUnauthorized, "authentication required", "UNAUTHORIZED")
-		return
-	}
-
-	resp := MeResponseDTO{
-		ID:        p.UserID,
-		UserID:    p.UserID,
-		SessionID: p.SessionID,
-		Kind:      p.Kind,
-	}
-
-	if h.authClient != nil {
-		ctx, cancel := h.grpcContext(r, 5*time.Second)
-		defer cancel()
-
-		grpcResp, err := h.authClient.GetMe(ctx, &authv1.GetMeRequest{UserId: p.UserID})
-		if err != nil {
-			h.writeGRPCError(w, err)
-			return
-		}
-		if grpcResp != nil {
-			resp.ID = grpcResp.GetId()
-			resp.Email = grpcResp.GetEmail()
-			resp.DisplayName = grpcResp.GetDisplayName()
-			resp.AvatarURL = grpcResp.GetAvatarUrl()
-			resp.Status = grpcResp.GetStatus()
-			resp.EmailVerified = grpcResp.GetEmailVerified()
-			if grpcResp.GetEmailVerifiedAt() != nil {
-				resp.EmailVerifiedAt = grpcResp.GetEmailVerifiedAt().AsTime().Format(time.RFC3339)
-			}
-			if grpcResp.GetCreatedAt() != nil {
-				resp.CreatedAt = grpcResp.GetCreatedAt().AsTime().Format(time.RFC3339)
-			}
-		}
-	}
-
-	writeJSON(w, http.StatusOK, resp)
-}
-
-// ListSessions handles GET /api/v1/auth/sessions for authenticated users.
-func (h *Handler) ListSessions(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		h.writeError(w, http.StatusMethodNotAllowed, "method not allowed", "METHOD_NOT_ALLOWED")
-		return
-	}
-	p, ok := middleware.PrincipalFromContext(r.Context())
-	if !ok || p.UserID == "" {
-		h.writeError(w, http.StatusUnauthorized, "authentication required", "UNAUTHORIZED")
-		return
-	}
-
-	ctx, cancel := h.grpcContext(r, 5*time.Second)
-	defer cancel()
-
-	grpcResp, err := h.authClient.ListSessions(ctx, &authv1.ListSessionsRequest{UserId: p.UserID})
-	if err != nil {
-		h.writeGRPCError(w, err)
-		return
-	}
-
-	sessions := make([]SessionInfoDTO, 0, len(grpcResp.GetSessions()))
-	for _, s := range grpcResp.GetSessions() {
-		dto := SessionInfoDTO{
-			ID:        s.GetId(),
-			UserAgent: s.GetUserAgent(),
-			IPAddress: s.GetIpAddress(),
-			Current:   s.GetId() == p.SessionID,
-		}
-		if s.GetCreatedAt() != nil {
-			dto.CreatedAt = s.GetCreatedAt().AsTime().Format(time.RFC3339)
-		}
-		if s.GetLastSeenAt() != nil {
-			dto.LastSeenAt = s.GetLastSeenAt().AsTime().Format(time.RFC3339)
-		}
-		if s.GetExpiresAt() != nil {
-			dto.ExpiresAt = s.GetExpiresAt().AsTime().Format(time.RFC3339)
-		}
-		sessions = append(sessions, dto)
-	}
-
-	writeJSON(w, http.StatusOK, ListSessionsResponseDTO{Sessions: sessions})
-}
-
-// RevokeSession handles DELETE /api/v1/auth/sessions/{id} for authenticated users.
-func (h *Handler) RevokeSession(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		h.writeError(w, http.StatusMethodNotAllowed, "method not allowed", "METHOD_NOT_ALLOWED")
-		return
-	}
-	p, ok := middleware.PrincipalFromContext(r.Context())
-	if !ok || p.UserID == "" {
-		h.writeError(w, http.StatusUnauthorized, "authentication required", "UNAUTHORIZED")
-		return
-	}
-
-	sessionID := strings.TrimSpace(r.PathValue("id"))
-	if sessionID == "" {
-		h.writeError(w, http.StatusBadRequest, "session id is required", "INVALID_ARGUMENT")
-		return
-	}
-
-	ctx, cancel := h.grpcContext(r, 5*time.Second)
-	defer cancel()
-
-	if _, err := h.authClient.RevokeSession(ctx, &authv1.RevokeSessionRequest{
-		UserId:    p.UserID,
-		SessionId: sessionID,
-	}); err != nil {
-		h.writeGRPCError(w, err)
-		return
-	}
-
-	writeJSON(w, http.StatusOK, MessageResponseDTO{
-		Message: "session revoked successfully",
-	})
 }
 
 const githubOAuthCookieName = "kr0n_gh_oauth"

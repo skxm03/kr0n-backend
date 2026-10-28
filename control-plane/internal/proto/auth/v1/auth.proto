@@ -2,111 +2,256 @@ syntax = "proto3";
 
 package auth.v1;
 
+import "google/api/annotations.proto";
 import "google/protobuf/timestamp.proto";
 
 // AuthService defines RPC operations for identity and credentials.
 service AuthService {
   // Register creates a new user and password credential.
-  rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc Register(RegisterRequest) returns (RegisterResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/auth/register"
+      body: "*"
+    };
+  }
 
   // Login authenticates credentials and issues tokens with an active session.
-  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc Login(LoginRequest) returns (LoginResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/auth/login"
+      body: "*"
+    };
+  }
 
   // Refresh rotates the refresh token and issues a fresh access token.
-  rpc Refresh(RefreshRequest) returns (RefreshResponse);
+  rpc Refresh(RefreshRequest) returns (RefreshResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/auth/refresh"
+      body: "*"
+    };
+  }
 
   // Logout revokes the session associated with the refresh token.
-  rpc Logout(LogoutRequest) returns (LogoutResponse);
+  rpc Logout(LogoutRequest) returns (LogoutResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/auth/logout"
+      body: "*"
+    };
+  }
 
   // VerifyEmail validates a verification token and marks the user's email verified.
-  rpc VerifyEmail(VerifyEmailRequest) returns (VerifyEmailResponse);
+  rpc VerifyEmail(VerifyEmailRequest) returns (VerifyEmailResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/auth/verify-email"
+      body: "*"
+    };
+  }
 
   // GetJWKS returns the active public signing keys in JSON Web Key Set format.
-  rpc GetJWKS(GetJWKSRequest) returns (GetJWKSResponse);
+  rpc GetJWKS(GetJWKSRequest) returns (GetJWKSResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/auth/jwks"
+    };
+  }
 
   // ResendVerification issues a new email verification token and sends it if the account is unverified.
-  rpc ResendVerification(ResendVerificationRequest) returns (ResendVerificationResponse);
+  rpc ResendVerification(ResendVerificationRequest) returns (ResendVerificationResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/auth/resend-verification"
+      body: "*"
+    };
+  }
 
   // RequestPasswordReset issues a password reset token and sends it if the account exists.
-  rpc RequestPasswordReset(RequestPasswordResetRequest) returns (RequestPasswordResetResponse);
+  rpc RequestPasswordReset(RequestPasswordResetRequest) returns (RequestPasswordResetResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/auth/password-reset/request"
+      body: "*"
+    };
+  }
 
   // ConfirmPasswordReset consumes a password reset token and updates the user's password.
-  rpc ConfirmPasswordReset(ConfirmPasswordResetRequest) returns (ConfirmPasswordResetResponse);
+  rpc ConfirmPasswordReset(ConfirmPasswordResetRequest) returns (ConfirmPasswordResetResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/auth/password-reset/confirm"
+      body: "*"
+    };
+  }
 
   // ChangePassword verifies current_password, updates password, and revokes other sessions.
-  rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse);
+  rpc ChangePassword(ChangePasswordRequest) returns (ChangePasswordResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/auth/password/change"
+      body: "*"
+    };
+  }
 
   // GetMe retrieves the authenticated user's profile.
-  rpc GetMe(GetMeRequest) returns (GetMeResponse);
+  rpc GetMe(GetMeRequest) returns (GetMeResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/me"
+    };
+  }
 
   // ListSessions returns active sessions for the authenticated user.
-  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse);
+  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/auth/sessions"
+    };
+  }
 
   // RevokeSession revokes a specific session belonging to the authenticated user.
-  rpc RevokeSession(RevokeSessionRequest) returns (RevokeSessionResponse);
+  rpc RevokeSession(RevokeSessionRequest) returns (RevokeSessionResponse) {
+    option (google.api.http) = {
+      delete: "/api/v1/auth/sessions/{session_id}"
+    };
+  }
 
   // StartGitHubOAuth generates a PKCE challenge, state, and GitHub authorize URL.
-  rpc StartGitHubOAuth(StartGitHubOAuthRequest) returns (StartGitHubOAuthResponse);
+  rpc StartGitHubOAuth(StartGitHubOAuthRequest) returns (StartGitHubOAuthResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/auth/github/start"
+    };
+  }
 
   // CompleteGitHubOAuth exchanges an OAuth code + PKCE verifier, links/creates the user, and issues a session.
-  rpc CompleteGitHubOAuth(CompleteGitHubOAuthRequest) returns (CompleteGitHubOAuthResponse);
+  rpc CompleteGitHubOAuth(CompleteGitHubOAuthRequest) returns (CompleteGitHubOAuthResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/auth/github/callback"
+    };
+  }
 
   // CheckPermission evaluates whether a caller principal holds a permission in an organization.
   rpc CheckPermission(CheckPermissionRequest) returns (CheckPermissionResponse);
 
   // ListRoles returns all RBAC roles and their granted permissions.
-  rpc ListRoles(ListRolesRequest) returns (ListRolesResponse);
+  rpc ListRoles(ListRolesRequest) returns (ListRolesResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/roles"
+    };
+  }
 
   // CreateOrganization creates an organization with the caller as owner.
-  rpc CreateOrganization(CreateOrganizationRequest) returns (CreateOrganizationResponse);
+  rpc CreateOrganization(CreateOrganizationRequest) returns (CreateOrganizationResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/orgs"
+      body: "*"
+    };
+  }
 
   // ListOrganizations lists all organizations the user belongs to.
-  rpc ListOrganizations(ListOrganizationsRequest) returns (ListOrganizationsResponse);
+  rpc ListOrganizations(ListOrganizationsRequest) returns (ListOrganizationsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/orgs"
+    };
+  }
 
   // GetOrganization returns an organization by ID.
-  rpc GetOrganization(GetOrganizationRequest) returns (GetOrganizationResponse);
+  rpc GetOrganization(GetOrganizationRequest) returns (GetOrganizationResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/orgs/{org_id}"
+    };
+  }
 
   // UpdateOrganization updates an organization's name.
-  rpc UpdateOrganization(UpdateOrganizationRequest) returns (UpdateOrganizationResponse);
+  rpc UpdateOrganization(UpdateOrganizationRequest) returns (UpdateOrganizationResponse) {
+    option (google.api.http) = {
+      patch: "/api/v1/orgs/{org_id}"
+      body: "*"
+    };
+  }
 
   // DeleteOrganization deletes an organization.
-  rpc DeleteOrganization(DeleteOrganizationRequest) returns (DeleteOrganizationResponse);
+  rpc DeleteOrganization(DeleteOrganizationRequest) returns (DeleteOrganizationResponse) {
+    option (google.api.http) = {
+      delete: "/api/v1/orgs/{org_id}"
+    };
+  }
 
   // ListMembers lists members of an organization.
-  rpc ListMembers(ListMembersRequest) returns (ListMembersResponse);
+  rpc ListMembers(ListMembersRequest) returns (ListMembersResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/orgs/{org_id}/members"
+    };
+  }
 
   // AddMember adds an existing user by email to an organization.
-  rpc AddMember(AddMemberRequest) returns (AddMemberResponse);
+  rpc AddMember(AddMemberRequest) returns (AddMemberResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/orgs/{org_id}/members"
+      body: "*"
+    };
+  }
 
   // UpdateMemberRole updates a member's role in an organization.
-  rpc UpdateMemberRole(UpdateMemberRoleRequest) returns (UpdateMemberRoleResponse);
+  rpc UpdateMemberRole(UpdateMemberRoleRequest) returns (UpdateMemberRoleResponse) {
+    option (google.api.http) = {
+      patch: "/api/v1/orgs/{org_id}/members/{target_user_id}"
+      body: "*"
+    };
+  }
 
   // RemoveMember removes a member from an organization.
-  rpc RemoveMember(RemoveMemberRequest) returns (RemoveMemberResponse);
+  rpc RemoveMember(RemoveMemberRequest) returns (RemoveMemberResponse) {
+    option (google.api.http) = {
+      delete: "/api/v1/orgs/{org_id}/members/{target_user_id}"
+    };
+  }
 
   // CreateInvite creates an organization invitation token.
-  rpc CreateInvite(CreateInviteRequest) returns (CreateInviteResponse);
+  rpc CreateInvite(CreateInviteRequest) returns (CreateInviteResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/orgs/{org_id}/invites"
+      body: "*"
+    };
+  }
 
   // AcceptInvite accepts an organization invitation token.
-  rpc AcceptInvite(AcceptInviteRequest) returns (AcceptInviteResponse);
+  rpc AcceptInvite(AcceptInviteRequest) returns (AcceptInviteResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/orgs/invites/accept"
+      body: "*"
+    };
+  }
 
   // RevokeInvite revokes a pending organization invitation.
-  rpc RevokeInvite(RevokeInviteRequest) returns (RevokeInviteResponse);
+  rpc RevokeInvite(RevokeInviteRequest) returns (RevokeInviteResponse) {
+    option (google.api.http) = {
+      delete: "/api/v1/orgs/{org_id}/invites/{invite_id}"
+    };
+  }
 
   // CreateAPIToken creates an org-scoped API token (`kr0n_pat_...`).
-  rpc CreateAPIToken(CreateAPITokenRequest) returns (CreateAPITokenResponse);
+  rpc CreateAPIToken(CreateAPITokenRequest) returns (CreateAPITokenResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/orgs/{org_id}/tokens"
+      body: "*"
+    };
+  }
 
   // ListAPITokens lists active API tokens for an organization.
-  rpc ListAPITokens(ListAPITokensRequest) returns (ListAPITokensResponse);
+  rpc ListAPITokens(ListAPITokensRequest) returns (ListAPITokensResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/orgs/{org_id}/tokens"
+    };
+  }
 
   // RevokeAPIToken revokes an organization API token.
-  rpc RevokeAPIToken(RevokeAPITokenRequest) returns (RevokeAPITokenResponse);
+  rpc RevokeAPIToken(RevokeAPITokenRequest) returns (RevokeAPITokenResponse) {
+    option (google.api.http) = {
+      delete: "/api/v1/orgs/{org_id}/tokens/{token_id}"
+    };
+  }
 
   // ValidateAPIToken validates a raw `kr0n_pat_...` token and returns its org scope and permissions.
   rpc ValidateAPIToken(ValidateAPITokenRequest) returns (ValidateAPITokenResponse);
 
   // ListAuditEvents lists append-only audit events for an organization, gated by `audit:read`.
-  rpc ListAuditEvents(ListAuditEventsRequest) returns (ListAuditEventsResponse);
+  rpc ListAuditEvents(ListAuditEventsRequest) returns (ListAuditEventsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/orgs/{org_id}/audit"
+    };
+  }
 }
 
 message RegisterRequest {
@@ -141,7 +286,7 @@ message LoginResponse {
   string access_token = 1;
   string refresh_token = 2;
   string token_type = 3;
-  int64 expires_in = 4;
+  int32 expires_in = 4;
   LoginUser user = 5;
 }
 
@@ -153,7 +298,7 @@ message RefreshResponse {
   string access_token = 1;
   string refresh_token = 2;
   string token_type = 3;
-  int64 expires_in = 4;
+  int32 expires_in = 4;
 }
 
 message LogoutRequest {
@@ -161,6 +306,7 @@ message LogoutRequest {
 }
 
 message LogoutResponse {
+  string message = 1;
 }
 
 message VerifyEmailRequest {
@@ -168,6 +314,7 @@ message VerifyEmailRequest {
 }
 
 message VerifyEmailResponse {
+  string message = 1;
 }
 
 message GetJWKSRequest {
@@ -191,6 +338,7 @@ message ResendVerificationRequest {
 }
 
 message ResendVerificationResponse {
+  string message = 1;
 }
 
 message RequestPasswordResetRequest {
@@ -198,6 +346,7 @@ message RequestPasswordResetRequest {
 }
 
 message RequestPasswordResetResponse {
+  string message = 1;
 }
 
 message ConfirmPasswordResetRequest {
@@ -206,6 +355,7 @@ message ConfirmPasswordResetRequest {
 }
 
 message ConfirmPasswordResetResponse {
+  string message = 1;
 }
 
 message ChangePasswordRequest {
@@ -216,6 +366,7 @@ message ChangePasswordRequest {
 }
 
 message ChangePasswordResponse {
+  string message = 1;
 }
 
 message GetMeRequest {
@@ -231,6 +382,9 @@ message GetMeResponse {
   bool email_verified = 6;
   google.protobuf.Timestamp email_verified_at = 7;
   google.protobuf.Timestamp created_at = 8;
+  string user_id = 9;
+  string session_id = 10;
+  string kind = 11;
 }
 
 message ListSessionsRequest {
@@ -244,6 +398,7 @@ message SessionInfo {
   google.protobuf.Timestamp created_at = 4;
   google.protobuf.Timestamp last_seen_at = 5;
   google.protobuf.Timestamp expires_at = 6;
+  bool current = 7;
 }
 
 message ListSessionsResponse {
@@ -256,6 +411,7 @@ message RevokeSessionRequest {
 }
 
 message RevokeSessionResponse {
+  string message = 1;
 }
 
 message StartGitHubOAuthRequest {
@@ -278,7 +434,7 @@ message CompleteGitHubOAuthResponse {
   string access_token = 1;
   string refresh_token = 2;
   string token_type = 3;
-  int64 expires_in = 4;
+  int32 expires_in = 4;
   LoginUser user = 5;
 }
 
@@ -380,6 +536,7 @@ message DeleteOrganizationRequest {
 }
 
 message DeleteOrganizationResponse {
+  string message = 1;
 }
 
 message ListMembersRequest {
@@ -422,6 +579,7 @@ message UpdateMemberRoleRequest {
 }
 
 message UpdateMemberRoleResponse {
+  string message = 1;
 }
 
 message RemoveMemberRequest {
@@ -431,6 +589,7 @@ message RemoveMemberRequest {
 }
 
 message RemoveMemberResponse {
+  string message = 1;
 }
 
 message CreateInviteRequest {
@@ -471,6 +630,7 @@ message RevokeInviteRequest {
 }
 
 message RevokeInviteResponse {
+  string message = 1;
 }
 
 message CreateAPITokenRequest {
@@ -514,6 +674,7 @@ message RevokeAPITokenRequest {
 }
 
 message RevokeAPITokenResponse {
+  string message = 1;
 }
 
 message ValidateAPITokenRequest {

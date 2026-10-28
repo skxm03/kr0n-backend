@@ -7,6 +7,7 @@
 package authv1
 
 import (
+	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
@@ -299,7 +300,7 @@ type LoginResponse struct {
 	AccessToken   string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
 	RefreshToken  string                 `protobuf:"bytes,2,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
 	TokenType     string                 `protobuf:"bytes,3,opt,name=token_type,json=tokenType,proto3" json:"token_type,omitempty"`
-	ExpiresIn     int64                  `protobuf:"varint,4,opt,name=expires_in,json=expiresIn,proto3" json:"expires_in,omitempty"`
+	ExpiresIn     int32                  `protobuf:"varint,4,opt,name=expires_in,json=expiresIn,proto3" json:"expires_in,omitempty"`
 	User          *LoginUser             `protobuf:"bytes,5,opt,name=user,proto3" json:"user,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -356,7 +357,7 @@ func (x *LoginResponse) GetTokenType() string {
 	return ""
 }
 
-func (x *LoginResponse) GetExpiresIn() int64 {
+func (x *LoginResponse) GetExpiresIn() int32 {
 	if x != nil {
 		return x.ExpiresIn
 	}
@@ -419,7 +420,7 @@ type RefreshResponse struct {
 	AccessToken   string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
 	RefreshToken  string                 `protobuf:"bytes,2,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
 	TokenType     string                 `protobuf:"bytes,3,opt,name=token_type,json=tokenType,proto3" json:"token_type,omitempty"`
-	ExpiresIn     int64                  `protobuf:"varint,4,opt,name=expires_in,json=expiresIn,proto3" json:"expires_in,omitempty"`
+	ExpiresIn     int32                  `protobuf:"varint,4,opt,name=expires_in,json=expiresIn,proto3" json:"expires_in,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -475,7 +476,7 @@ func (x *RefreshResponse) GetTokenType() string {
 	return ""
 }
 
-func (x *RefreshResponse) GetExpiresIn() int64 {
+func (x *RefreshResponse) GetExpiresIn() int32 {
 	if x != nil {
 		return x.ExpiresIn
 	}
@@ -528,6 +529,7 @@ func (x *LogoutRequest) GetRefreshToken() string {
 
 type LogoutResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -560,6 +562,13 @@ func (x *LogoutResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use LogoutResponse.ProtoReflect.Descriptor instead.
 func (*LogoutResponse) Descriptor() ([]byte, []int) {
 	return file_auth_v1_auth_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *LogoutResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
 }
 
 type VerifyEmailRequest struct {
@@ -608,6 +617,7 @@ func (x *VerifyEmailRequest) GetToken() string {
 
 type VerifyEmailResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -640,6 +650,13 @@ func (x *VerifyEmailResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use VerifyEmailResponse.ProtoReflect.Descriptor instead.
 func (*VerifyEmailResponse) Descriptor() ([]byte, []int) {
 	return file_auth_v1_auth_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *VerifyEmailResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
 }
 
 type GetJWKSRequest struct {
@@ -852,6 +869,7 @@ func (x *ResendVerificationRequest) GetEmail() string {
 
 type ResendVerificationResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -884,6 +902,13 @@ func (x *ResendVerificationResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use ResendVerificationResponse.ProtoReflect.Descriptor instead.
 func (*ResendVerificationResponse) Descriptor() ([]byte, []int) {
 	return file_auth_v1_auth_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *ResendVerificationResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
 }
 
 type RequestPasswordResetRequest struct {
@@ -932,6 +957,7 @@ func (x *RequestPasswordResetRequest) GetEmail() string {
 
 type RequestPasswordResetResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -964,6 +990,13 @@ func (x *RequestPasswordResetResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use RequestPasswordResetResponse.ProtoReflect.Descriptor instead.
 func (*RequestPasswordResetResponse) Descriptor() ([]byte, []int) {
 	return file_auth_v1_auth_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *RequestPasswordResetResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
 }
 
 type ConfirmPasswordResetRequest struct {
@@ -1020,6 +1053,7 @@ func (x *ConfirmPasswordResetRequest) GetNewPassword() string {
 
 type ConfirmPasswordResetResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1052,6 +1086,13 @@ func (x *ConfirmPasswordResetResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use ConfirmPasswordResetResponse.ProtoReflect.Descriptor instead.
 func (*ConfirmPasswordResetResponse) Descriptor() ([]byte, []int) {
 	return file_auth_v1_auth_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *ConfirmPasswordResetResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
 }
 
 type ChangePasswordRequest struct {
@@ -1124,6 +1165,7 @@ func (x *ChangePasswordRequest) GetNewPassword() string {
 
 type ChangePasswordResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1156,6 +1198,13 @@ func (x *ChangePasswordResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use ChangePasswordResponse.ProtoReflect.Descriptor instead.
 func (*ChangePasswordResponse) Descriptor() ([]byte, []int) {
 	return file_auth_v1_auth_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *ChangePasswordResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
 }
 
 type GetMeRequest struct {
@@ -1212,6 +1261,9 @@ type GetMeResponse struct {
 	EmailVerified   bool                   `protobuf:"varint,6,opt,name=email_verified,json=emailVerified,proto3" json:"email_verified,omitempty"`
 	EmailVerifiedAt *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=email_verified_at,json=emailVerifiedAt,proto3" json:"email_verified_at,omitempty"`
 	CreatedAt       *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UserId          string                 `protobuf:"bytes,9,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	SessionId       string                 `protobuf:"bytes,10,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	Kind            string                 `protobuf:"bytes,11,opt,name=kind,proto3" json:"kind,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -1302,6 +1354,27 @@ func (x *GetMeResponse) GetCreatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *GetMeResponse) GetUserId() string {
+	if x != nil {
+		return x.UserId
+	}
+	return ""
+}
+
+func (x *GetMeResponse) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
+}
+
+func (x *GetMeResponse) GetKind() string {
+	if x != nil {
+		return x.Kind
+	}
+	return ""
+}
+
 type ListSessionsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
@@ -1354,6 +1427,7 @@ type SessionInfo struct {
 	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	LastSeenAt    *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=last_seen_at,json=lastSeenAt,proto3" json:"last_seen_at,omitempty"`
 	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	Current       bool                   `protobuf:"varint,7,opt,name=current,proto3" json:"current,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1428,6 +1502,13 @@ func (x *SessionInfo) GetExpiresAt() *timestamppb.Timestamp {
 		return x.ExpiresAt
 	}
 	return nil
+}
+
+func (x *SessionInfo) GetCurrent() bool {
+	if x != nil {
+		return x.Current
+	}
+	return false
 }
 
 type ListSessionsResponse struct {
@@ -1528,6 +1609,7 @@ func (x *RevokeSessionRequest) GetSessionId() string {
 
 type RevokeSessionResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1560,6 +1642,13 @@ func (x *RevokeSessionResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use RevokeSessionResponse.ProtoReflect.Descriptor instead.
 func (*RevokeSessionResponse) Descriptor() ([]byte, []int) {
 	return file_auth_v1_auth_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *RevokeSessionResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
 }
 
 type StartGitHubOAuthRequest struct {
@@ -1731,7 +1820,7 @@ type CompleteGitHubOAuthResponse struct {
 	AccessToken   string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
 	RefreshToken  string                 `protobuf:"bytes,2,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
 	TokenType     string                 `protobuf:"bytes,3,opt,name=token_type,json=tokenType,proto3" json:"token_type,omitempty"`
-	ExpiresIn     int64                  `protobuf:"varint,4,opt,name=expires_in,json=expiresIn,proto3" json:"expires_in,omitempty"`
+	ExpiresIn     int32                  `protobuf:"varint,4,opt,name=expires_in,json=expiresIn,proto3" json:"expires_in,omitempty"`
 	User          *LoginUser             `protobuf:"bytes,5,opt,name=user,proto3" json:"user,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1788,7 +1877,7 @@ func (x *CompleteGitHubOAuthResponse) GetTokenType() string {
 	return ""
 }
 
-func (x *CompleteGitHubOAuthResponse) GetExpiresIn() int64 {
+func (x *CompleteGitHubOAuthResponse) GetExpiresIn() int32 {
 	if x != nil {
 		return x.ExpiresIn
 	}
@@ -2772,6 +2861,7 @@ func (x *DeleteOrganizationRequest) GetOrgId() string {
 
 type DeleteOrganizationResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2804,6 +2894,13 @@ func (x *DeleteOrganizationResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use DeleteOrganizationResponse.ProtoReflect.Descriptor instead.
 func (*DeleteOrganizationResponse) Descriptor() ([]byte, []int) {
 	return file_auth_v1_auth_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *DeleteOrganizationResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
 }
 
 type ListMembersRequest struct {
@@ -3192,6 +3289,7 @@ func (x *UpdateMemberRoleRequest) GetRoleId() string {
 
 type UpdateMemberRoleResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3224,6 +3322,13 @@ func (x *UpdateMemberRoleResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use UpdateMemberRoleResponse.ProtoReflect.Descriptor instead.
 func (*UpdateMemberRoleResponse) Descriptor() ([]byte, []int) {
 	return file_auth_v1_auth_proto_rawDescGZIP(), []int{56}
+}
+
+func (x *UpdateMemberRoleResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
 }
 
 type RemoveMemberRequest struct {
@@ -3288,6 +3393,7 @@ func (x *RemoveMemberRequest) GetTargetUserId() string {
 
 type RemoveMemberResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3320,6 +3426,13 @@ func (x *RemoveMemberResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use RemoveMemberResponse.ProtoReflect.Descriptor instead.
 func (*RemoveMemberResponse) Descriptor() ([]byte, []int) {
 	return file_auth_v1_auth_proto_rawDescGZIP(), []int{58}
+}
+
+func (x *RemoveMemberResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
 }
 
 type CreateInviteRequest struct {
@@ -3680,6 +3793,7 @@ func (x *RevokeInviteRequest) GetInviteId() string {
 
 type RevokeInviteResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3712,6 +3826,13 @@ func (x *RevokeInviteResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use RevokeInviteResponse.ProtoReflect.Descriptor instead.
 func (*RevokeInviteResponse) Descriptor() ([]byte, []int) {
 	return file_auth_v1_auth_proto_rawDescGZIP(), []int{64}
+}
+
+func (x *RevokeInviteResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
 }
 
 type CreateAPITokenRequest struct {
@@ -4108,6 +4229,7 @@ func (x *RevokeAPITokenRequest) GetTokenId() string {
 
 type RevokeAPITokenResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4140,6 +4262,13 @@ func (x *RevokeAPITokenResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use RevokeAPITokenResponse.ProtoReflect.Descriptor instead.
 func (*RevokeAPITokenResponse) Descriptor() ([]byte, []int) {
 	return file_auth_v1_auth_proto_rawDescGZIP(), []int{71}
+}
+
+func (x *RevokeAPITokenResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
 }
 
 type ValidateAPITokenRequest struct {
@@ -4494,7 +4623,7 @@ var File_auth_v1_auth_proto protoreflect.FileDescriptor
 
 const file_auth_v1_auth_proto_rawDesc = "" +
 	"\n" +
-	"\x12auth/v1/auth.proto\x12\aauth.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"f\n" +
+	"\x12auth/v1/auth.proto\x12\aauth.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"f\n" +
 	"\x0fRegisterRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x1a\n" +
 	"\bpassword\x18\x02 \x01(\tR\bpassword\x12!\n" +
@@ -4523,7 +4652,7 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\n" +
 	"token_type\x18\x03 \x01(\tR\ttokenType\x12\x1d\n" +
 	"\n" +
-	"expires_in\x18\x04 \x01(\x03R\texpiresIn\x12&\n" +
+	"expires_in\x18\x04 \x01(\x05R\texpiresIn\x12&\n" +
 	"\x04user\x18\x05 \x01(\v2\x12.auth.v1.LoginUserR\x04user\"5\n" +
 	"\x0eRefreshRequest\x12#\n" +
 	"\rrefresh_token\x18\x01 \x01(\tR\frefreshToken\"\x97\x01\n" +
@@ -4533,13 +4662,15 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\n" +
 	"token_type\x18\x03 \x01(\tR\ttokenType\x12\x1d\n" +
 	"\n" +
-	"expires_in\x18\x04 \x01(\x03R\texpiresIn\"4\n" +
+	"expires_in\x18\x04 \x01(\x05R\texpiresIn\"4\n" +
 	"\rLogoutRequest\x12#\n" +
-	"\rrefresh_token\x18\x01 \x01(\tR\frefreshToken\"\x10\n" +
-	"\x0eLogoutResponse\"*\n" +
+	"\rrefresh_token\x18\x01 \x01(\tR\frefreshToken\"*\n" +
+	"\x0eLogoutResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"*\n" +
 	"\x12VerifyEmailRequest\x12\x14\n" +
-	"\x05token\x18\x01 \x01(\tR\x05token\"\x15\n" +
-	"\x13VerifyEmailResponse\"\x10\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\"/\n" +
+	"\x13VerifyEmailResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"\x10\n" +
 	"\x0eGetJWKSRequest\"m\n" +
 	"\x03JWK\x12\x10\n" +
 	"\x03kty\x18\x01 \x01(\tR\x03kty\x12\x10\n" +
@@ -4551,24 +4682,28 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\x0fGetJWKSResponse\x12 \n" +
 	"\x04keys\x18\x01 \x03(\v2\f.auth.v1.JWKR\x04keys\"1\n" +
 	"\x19ResendVerificationRequest\x12\x14\n" +
-	"\x05email\x18\x01 \x01(\tR\x05email\"\x1c\n" +
-	"\x1aResendVerificationResponse\"3\n" +
+	"\x05email\x18\x01 \x01(\tR\x05email\"6\n" +
+	"\x1aResendVerificationResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"3\n" +
 	"\x1bRequestPasswordResetRequest\x12\x14\n" +
-	"\x05email\x18\x01 \x01(\tR\x05email\"\x1e\n" +
-	"\x1cRequestPasswordResetResponse\"V\n" +
+	"\x05email\x18\x01 \x01(\tR\x05email\"8\n" +
+	"\x1cRequestPasswordResetResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"V\n" +
 	"\x1bConfirmPasswordResetRequest\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12!\n" +
-	"\fnew_password\x18\x02 \x01(\tR\vnewPassword\"\x1e\n" +
-	"\x1cConfirmPasswordResetResponse\"\x9d\x01\n" +
+	"\fnew_password\x18\x02 \x01(\tR\vnewPassword\"8\n" +
+	"\x1cConfirmPasswordResetResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"\x9d\x01\n" +
 	"\x15ChangePasswordRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x02 \x01(\tR\tsessionId\x12)\n" +
 	"\x10current_password\x18\x03 \x01(\tR\x0fcurrentPassword\x12!\n" +
-	"\fnew_password\x18\x04 \x01(\tR\vnewPassword\"\x18\n" +
-	"\x16ChangePasswordResponse\"'\n" +
+	"\fnew_password\x18\x04 \x01(\tR\vnewPassword\"2\n" +
+	"\x16ChangePasswordResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"'\n" +
 	"\fGetMeRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\"\xb9\x02\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"\x85\x03\n" +
 	"\rGetMeResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12!\n" +
@@ -4579,9 +4714,14 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\x0eemail_verified\x18\x06 \x01(\bR\remailVerified\x12F\n" +
 	"\x11email_verified_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\x0femailVerifiedAt\x129\n" +
 	"\n" +
-	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\".\n" +
+	"created_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12\x17\n" +
+	"\auser_id\x18\t \x01(\tR\x06userId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\n" +
+	" \x01(\tR\tsessionId\x12\x12\n" +
+	"\x04kind\x18\v \x01(\tR\x04kind\".\n" +
 	"\x13ListSessionsRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\"\x8f\x02\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\"\xa9\x02\n" +
 	"\vSessionInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -4593,14 +4733,16 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\flast_seen_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"lastSeenAt\x129\n" +
 	"\n" +
-	"expires_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\"H\n" +
+	"expires_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12\x18\n" +
+	"\acurrent\x18\a \x01(\bR\acurrent\"H\n" +
 	"\x14ListSessionsResponse\x120\n" +
 	"\bsessions\x18\x01 \x03(\v2\x14.auth.v1.SessionInfoR\bsessions\"N\n" +
 	"\x14RevokeSessionRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1d\n" +
 	"\n" +
-	"session_id\x18\x02 \x01(\tR\tsessionId\"\x17\n" +
-	"\x15RevokeSessionResponse\"\x19\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\"1\n" +
+	"\x15RevokeSessionResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"\x19\n" +
 	"\x17StartGitHubOAuthRequest\"z\n" +
 	"\x18StartGitHubOAuthResponse\x12#\n" +
 	"\rauthorize_url\x18\x01 \x01(\tR\fauthorizeUrl\x12\x14\n" +
@@ -4618,7 +4760,7 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\n" +
 	"token_type\x18\x03 \x01(\tR\ttokenType\x12\x1d\n" +
 	"\n" +
-	"expires_in\x18\x04 \x01(\x03R\texpiresIn\x12&\n" +
+	"expires_in\x18\x04 \x01(\x05R\texpiresIn\x12&\n" +
 	"\x04user\x18\x05 \x01(\v2\x12.auth.v1.LoginUserR\x04user\"\x8d\x01\n" +
 	"\x0fCallerPrincipal\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x12\n" +
@@ -4695,8 +4837,9 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"d\n" +
 	"\x19DeleteOrganizationRequest\x120\n" +
 	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
-	"\x06org_id\x18\x02 \x01(\tR\x05orgId\"\x1c\n" +
-	"\x1aDeleteOrganizationResponse\"]\n" +
+	"\x06org_id\x18\x02 \x01(\tR\x05orgId\"6\n" +
+	"\x1aDeleteOrganizationResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"]\n" +
 	"\x12ListMembersRequest\x120\n" +
 	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\"\xb2\x01\n" +
@@ -4726,13 +4869,15 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12$\n" +
 	"\x0etarget_user_id\x18\x03 \x01(\tR\ftargetUserId\x12\x17\n" +
-	"\arole_id\x18\x04 \x01(\tR\x06roleId\"\x1a\n" +
-	"\x18UpdateMemberRoleResponse\"\x84\x01\n" +
+	"\arole_id\x18\x04 \x01(\tR\x06roleId\"4\n" +
+	"\x18UpdateMemberRoleResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"\x84\x01\n" +
 	"\x13RemoveMemberRequest\x120\n" +
 	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12$\n" +
-	"\x0etarget_user_id\x18\x03 \x01(\tR\ftargetUserId\"\x16\n" +
-	"\x14RemoveMemberResponse\"\x8d\x01\n" +
+	"\x0etarget_user_id\x18\x03 \x01(\tR\ftargetUserId\"0\n" +
+	"\x14RemoveMemberResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"\x8d\x01\n" +
 	"\x13CreateInviteRequest\x120\n" +
 	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12\x14\n" +
@@ -4763,8 +4908,9 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\x13RevokeInviteRequest\x120\n" +
 	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12\x1b\n" +
-	"\tinvite_id\x18\x03 \x01(\tR\binviteId\"\x16\n" +
-	"\x14RevokeInviteResponse\"\xc4\x01\n" +
+	"\tinvite_id\x18\x03 \x01(\tR\binviteId\"0\n" +
+	"\x14RevokeInviteResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"\xc4\x01\n" +
 	"\x15CreateAPITokenRequest\x120\n" +
 	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12\x12\n" +
@@ -4795,8 +4941,9 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\x15RevokeAPITokenRequest\x120\n" +
 	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12\x19\n" +
-	"\btoken_id\x18\x03 \x01(\tR\atokenId\"\x18\n" +
-	"\x16RevokeAPITokenResponse\"/\n" +
+	"\btoken_id\x18\x03 \x01(\tR\atokenId\"2\n" +
+	"\x16RevokeAPITokenResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"/\n" +
 	"\x17ValidateAPITokenRequest\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\"\x87\x01\n" +
 	"\x18ValidateAPITokenResponse\x12\x19\n" +
@@ -4828,42 +4975,43 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"J\n" +
 	"\x17ListAuditEventsResponse\x12/\n" +
-	"\x06events\x18\x01 \x03(\v2\x17.auth.v1.AuditEventInfoR\x06events2\xbc\x15\n" +
-	"\vAuthService\x12?\n" +
-	"\bRegister\x12\x18.auth.v1.RegisterRequest\x1a\x19.auth.v1.RegisterResponse\x126\n" +
-	"\x05Login\x12\x15.auth.v1.LoginRequest\x1a\x16.auth.v1.LoginResponse\x12<\n" +
-	"\aRefresh\x12\x17.auth.v1.RefreshRequest\x1a\x18.auth.v1.RefreshResponse\x129\n" +
-	"\x06Logout\x12\x16.auth.v1.LogoutRequest\x1a\x17.auth.v1.LogoutResponse\x12H\n" +
-	"\vVerifyEmail\x12\x1b.auth.v1.VerifyEmailRequest\x1a\x1c.auth.v1.VerifyEmailResponse\x12<\n" +
-	"\aGetJWKS\x12\x17.auth.v1.GetJWKSRequest\x1a\x18.auth.v1.GetJWKSResponse\x12]\n" +
-	"\x12ResendVerification\x12\".auth.v1.ResendVerificationRequest\x1a#.auth.v1.ResendVerificationResponse\x12c\n" +
-	"\x14RequestPasswordReset\x12$.auth.v1.RequestPasswordResetRequest\x1a%.auth.v1.RequestPasswordResetResponse\x12c\n" +
-	"\x14ConfirmPasswordReset\x12$.auth.v1.ConfirmPasswordResetRequest\x1a%.auth.v1.ConfirmPasswordResetResponse\x12Q\n" +
-	"\x0eChangePassword\x12\x1e.auth.v1.ChangePasswordRequest\x1a\x1f.auth.v1.ChangePasswordResponse\x126\n" +
-	"\x05GetMe\x12\x15.auth.v1.GetMeRequest\x1a\x16.auth.v1.GetMeResponse\x12K\n" +
-	"\fListSessions\x12\x1c.auth.v1.ListSessionsRequest\x1a\x1d.auth.v1.ListSessionsResponse\x12N\n" +
-	"\rRevokeSession\x12\x1d.auth.v1.RevokeSessionRequest\x1a\x1e.auth.v1.RevokeSessionResponse\x12W\n" +
-	"\x10StartGitHubOAuth\x12 .auth.v1.StartGitHubOAuthRequest\x1a!.auth.v1.StartGitHubOAuthResponse\x12`\n" +
-	"\x13CompleteGitHubOAuth\x12#.auth.v1.CompleteGitHubOAuthRequest\x1a$.auth.v1.CompleteGitHubOAuthResponse\x12T\n" +
-	"\x0fCheckPermission\x12\x1f.auth.v1.CheckPermissionRequest\x1a .auth.v1.CheckPermissionResponse\x12B\n" +
-	"\tListRoles\x12\x19.auth.v1.ListRolesRequest\x1a\x1a.auth.v1.ListRolesResponse\x12]\n" +
-	"\x12CreateOrganization\x12\".auth.v1.CreateOrganizationRequest\x1a#.auth.v1.CreateOrganizationResponse\x12Z\n" +
-	"\x11ListOrganizations\x12!.auth.v1.ListOrganizationsRequest\x1a\".auth.v1.ListOrganizationsResponse\x12T\n" +
-	"\x0fGetOrganization\x12\x1f.auth.v1.GetOrganizationRequest\x1a .auth.v1.GetOrganizationResponse\x12]\n" +
-	"\x12UpdateOrganization\x12\".auth.v1.UpdateOrganizationRequest\x1a#.auth.v1.UpdateOrganizationResponse\x12]\n" +
-	"\x12DeleteOrganization\x12\".auth.v1.DeleteOrganizationRequest\x1a#.auth.v1.DeleteOrganizationResponse\x12H\n" +
-	"\vListMembers\x12\x1b.auth.v1.ListMembersRequest\x1a\x1c.auth.v1.ListMembersResponse\x12B\n" +
-	"\tAddMember\x12\x19.auth.v1.AddMemberRequest\x1a\x1a.auth.v1.AddMemberResponse\x12W\n" +
-	"\x10UpdateMemberRole\x12 .auth.v1.UpdateMemberRoleRequest\x1a!.auth.v1.UpdateMemberRoleResponse\x12K\n" +
-	"\fRemoveMember\x12\x1c.auth.v1.RemoveMemberRequest\x1a\x1d.auth.v1.RemoveMemberResponse\x12K\n" +
-	"\fCreateInvite\x12\x1c.auth.v1.CreateInviteRequest\x1a\x1d.auth.v1.CreateInviteResponse\x12K\n" +
-	"\fAcceptInvite\x12\x1c.auth.v1.AcceptInviteRequest\x1a\x1d.auth.v1.AcceptInviteResponse\x12K\n" +
-	"\fRevokeInvite\x12\x1c.auth.v1.RevokeInviteRequest\x1a\x1d.auth.v1.RevokeInviteResponse\x12Q\n" +
-	"\x0eCreateAPIToken\x12\x1e.auth.v1.CreateAPITokenRequest\x1a\x1f.auth.v1.CreateAPITokenResponse\x12N\n" +
-	"\rListAPITokens\x12\x1d.auth.v1.ListAPITokensRequest\x1a\x1e.auth.v1.ListAPITokensResponse\x12Q\n" +
-	"\x0eRevokeAPIToken\x12\x1e.auth.v1.RevokeAPITokenRequest\x1a\x1f.auth.v1.RevokeAPITokenResponse\x12W\n" +
-	"\x10ValidateAPIToken\x12 .auth.v1.ValidateAPITokenRequest\x1a!.auth.v1.ValidateAPITokenResponse\x12T\n" +
-	"\x0fListAuditEvents\x12\x1f.auth.v1.ListAuditEventsRequest\x1a .auth.v1.ListAuditEventsResponseB\x96\x01\n" +
+	"\x06events\x18\x01 \x03(\v2\x17.auth.v1.AuditEventInfoR\x06events2\xf8\x1e\n" +
+	"\vAuthService\x12a\n" +
+	"\bRegister\x12\x18.auth.v1.RegisterRequest\x1a\x19.auth.v1.RegisterResponse\" \x82\xd3\xe4\x93\x02\x1a:\x01*\"\x15/api/v1/auth/register\x12U\n" +
+	"\x05Login\x12\x15.auth.v1.LoginRequest\x1a\x16.auth.v1.LoginResponse\"\x1d\x82\xd3\xe4\x93\x02\x17:\x01*\"\x12/api/v1/auth/login\x12]\n" +
+	"\aRefresh\x12\x17.auth.v1.RefreshRequest\x1a\x18.auth.v1.RefreshResponse\"\x1f\x82\xd3\xe4\x93\x02\x19:\x01*\"\x14/api/v1/auth/refresh\x12Y\n" +
+	"\x06Logout\x12\x16.auth.v1.LogoutRequest\x1a\x17.auth.v1.LogoutResponse\"\x1e\x82\xd3\xe4\x93\x02\x18:\x01*\"\x13/api/v1/auth/logout\x12n\n" +
+	"\vVerifyEmail\x12\x1b.auth.v1.VerifyEmailRequest\x1a\x1c.auth.v1.VerifyEmailResponse\"$\x82\xd3\xe4\x93\x02\x1e:\x01*\"\x19/api/v1/auth/verify-email\x12W\n" +
+	"\aGetJWKS\x12\x17.auth.v1.GetJWKSRequest\x1a\x18.auth.v1.GetJWKSResponse\"\x19\x82\xd3\xe4\x93\x02\x13\x12\x11/api/v1/auth/jwks\x12\x8a\x01\n" +
+	"\x12ResendVerification\x12\".auth.v1.ResendVerificationRequest\x1a#.auth.v1.ResendVerificationResponse\"+\x82\xd3\xe4\x93\x02%:\x01*\" /api/v1/auth/resend-verification\x12\x93\x01\n" +
+	"\x14RequestPasswordReset\x12$.auth.v1.RequestPasswordResetRequest\x1a%.auth.v1.RequestPasswordResetResponse\".\x82\xd3\xe4\x93\x02(:\x01*\"#/api/v1/auth/password-reset/request\x12\x93\x01\n" +
+	"\x14ConfirmPasswordReset\x12$.auth.v1.ConfirmPasswordResetRequest\x1a%.auth.v1.ConfirmPasswordResetResponse\".\x82\xd3\xe4\x93\x02(:\x01*\"#/api/v1/auth/password-reset/confirm\x12z\n" +
+	"\x0eChangePassword\x12\x1e.auth.v1.ChangePasswordRequest\x1a\x1f.auth.v1.ChangePasswordResponse\"'\x82\xd3\xe4\x93\x02!:\x01*\"\x1c/api/v1/auth/password/change\x12J\n" +
+	"\x05GetMe\x12\x15.auth.v1.GetMeRequest\x1a\x16.auth.v1.GetMeResponse\"\x12\x82\xd3\xe4\x93\x02\f\x12\n" +
+	"/api/v1/me\x12j\n" +
+	"\fListSessions\x12\x1c.auth.v1.ListSessionsRequest\x1a\x1d.auth.v1.ListSessionsResponse\"\x1d\x82\xd3\xe4\x93\x02\x17\x12\x15/api/v1/auth/sessions\x12z\n" +
+	"\rRevokeSession\x12\x1d.auth.v1.RevokeSessionRequest\x1a\x1e.auth.v1.RevokeSessionResponse\"*\x82\xd3\xe4\x93\x02$*\"/api/v1/auth/sessions/{session_id}\x12z\n" +
+	"\x10StartGitHubOAuth\x12 .auth.v1.StartGitHubOAuthRequest\x1a!.auth.v1.StartGitHubOAuthResponse\"!\x82\xd3\xe4\x93\x02\x1b\x12\x19/api/v1/auth/github/start\x12\x86\x01\n" +
+	"\x13CompleteGitHubOAuth\x12#.auth.v1.CompleteGitHubOAuthRequest\x1a$.auth.v1.CompleteGitHubOAuthResponse\"$\x82\xd3\xe4\x93\x02\x1e\x12\x1c/api/v1/auth/github/callback\x12T\n" +
+	"\x0fCheckPermission\x12\x1f.auth.v1.CheckPermissionRequest\x1a .auth.v1.CheckPermissionResponse\x12Y\n" +
+	"\tListRoles\x12\x19.auth.v1.ListRolesRequest\x1a\x1a.auth.v1.ListRolesResponse\"\x15\x82\xd3\xe4\x93\x02\x0f\x12\r/api/v1/roles\x12v\n" +
+	"\x12CreateOrganization\x12\".auth.v1.CreateOrganizationRequest\x1a#.auth.v1.CreateOrganizationResponse\"\x17\x82\xd3\xe4\x93\x02\x11:\x01*\"\f/api/v1/orgs\x12p\n" +
+	"\x11ListOrganizations\x12!.auth.v1.ListOrganizationsRequest\x1a\".auth.v1.ListOrganizationsResponse\"\x14\x82\xd3\xe4\x93\x02\x0e\x12\f/api/v1/orgs\x12s\n" +
+	"\x0fGetOrganization\x12\x1f.auth.v1.GetOrganizationRequest\x1a .auth.v1.GetOrganizationResponse\"\x1d\x82\xd3\xe4\x93\x02\x17\x12\x15/api/v1/orgs/{org_id}\x12\x7f\n" +
+	"\x12UpdateOrganization\x12\".auth.v1.UpdateOrganizationRequest\x1a#.auth.v1.UpdateOrganizationResponse\" \x82\xd3\xe4\x93\x02\x1a:\x01*2\x15/api/v1/orgs/{org_id}\x12|\n" +
+	"\x12DeleteOrganization\x12\".auth.v1.DeleteOrganizationRequest\x1a#.auth.v1.DeleteOrganizationResponse\"\x1d\x82\xd3\xe4\x93\x02\x17*\x15/api/v1/orgs/{org_id}\x12o\n" +
+	"\vListMembers\x12\x1b.auth.v1.ListMembersRequest\x1a\x1c.auth.v1.ListMembersResponse\"%\x82\xd3\xe4\x93\x02\x1f\x12\x1d/api/v1/orgs/{org_id}/members\x12l\n" +
+	"\tAddMember\x12\x19.auth.v1.AddMemberRequest\x1a\x1a.auth.v1.AddMemberResponse\"(\x82\xd3\xe4\x93\x02\":\x01*\"\x1d/api/v1/orgs/{org_id}/members\x12\x92\x01\n" +
+	"\x10UpdateMemberRole\x12 .auth.v1.UpdateMemberRoleRequest\x1a!.auth.v1.UpdateMemberRoleResponse\"9\x82\xd3\xe4\x93\x023:\x01*2./api/v1/orgs/{org_id}/members/{target_user_id}\x12\x83\x01\n" +
+	"\fRemoveMember\x12\x1c.auth.v1.RemoveMemberRequest\x1a\x1d.auth.v1.RemoveMemberResponse\"6\x82\xd3\xe4\x93\x020*./api/v1/orgs/{org_id}/members/{target_user_id}\x12u\n" +
+	"\fCreateInvite\x12\x1c.auth.v1.CreateInviteRequest\x1a\x1d.auth.v1.CreateInviteResponse\"(\x82\xd3\xe4\x93\x02\":\x01*\"\x1d/api/v1/orgs/{org_id}/invites\x12s\n" +
+	"\fAcceptInvite\x12\x1c.auth.v1.AcceptInviteRequest\x1a\x1d.auth.v1.AcceptInviteResponse\"&\x82\xd3\xe4\x93\x02 :\x01*\"\x1b/api/v1/orgs/invites/accept\x12~\n" +
+	"\fRevokeInvite\x12\x1c.auth.v1.RevokeInviteRequest\x1a\x1d.auth.v1.RevokeInviteResponse\"1\x82\xd3\xe4\x93\x02+*)/api/v1/orgs/{org_id}/invites/{invite_id}\x12z\n" +
+	"\x0eCreateAPIToken\x12\x1e.auth.v1.CreateAPITokenRequest\x1a\x1f.auth.v1.CreateAPITokenResponse\"'\x82\xd3\xe4\x93\x02!:\x01*\"\x1c/api/v1/orgs/{org_id}/tokens\x12t\n" +
+	"\rListAPITokens\x12\x1d.auth.v1.ListAPITokensRequest\x1a\x1e.auth.v1.ListAPITokensResponse\"$\x82\xd3\xe4\x93\x02\x1e\x12\x1c/api/v1/orgs/{org_id}/tokens\x12\x82\x01\n" +
+	"\x0eRevokeAPIToken\x12\x1e.auth.v1.RevokeAPITokenRequest\x1a\x1f.auth.v1.RevokeAPITokenResponse\"/\x82\xd3\xe4\x93\x02)*'/api/v1/orgs/{org_id}/tokens/{token_id}\x12W\n" +
+	"\x10ValidateAPIToken\x12 .auth.v1.ValidateAPITokenRequest\x1a!.auth.v1.ValidateAPITokenResponse\x12y\n" +
+	"\x0fListAuditEvents\x12\x1f.auth.v1.ListAuditEventsRequest\x1a .auth.v1.ListAuditEventsResponse\"#\x82\xd3\xe4\x93\x02\x1d\x12\x1b/api/v1/orgs/{org_id}/auditB\x96\x01\n" +
 	"\vcom.auth.v1B\tAuthProtoP\x01Z?github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1;authv1\xa2\x02\x03AXX\xaa\x02\aAuth.V1\xca\x02\aAuth\\V1\xe2\x02\x13Auth\\V1\\GPBMetadata\xea\x02\bAuth::V1b\x06proto3"
 
 var (

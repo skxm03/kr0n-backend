@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
@@ -164,9 +165,27 @@ func TestGatewayAuthenticatesAPITokenBearer(t *testing.T) {
 			}
 			return nil, errors.New("invalid pat")
 		},
-		getOrganizationFunc: func(_ context.Context, in *authv1.GetOrganizationRequest, _ ...grpc.CallOption) (*authv1.GetOrganizationResponse, error) {
-			if in.GetCaller().GetKind() != "api_token" || in.GetCaller().GetTokenOrgId() != "org-1" {
-				t.Fatalf("unexpected caller principal: %+v", in.GetCaller())
+		getOrganizationFunc: func(ctx context.Context, in *authv1.GetOrganizationRequest, _ ...grpc.CallOption) (*authv1.GetOrganizationResponse, error) {
+			kind := ""
+			orgID := ""
+			if md, ok := metadata.FromOutgoingContext(ctx); ok {
+				if kinds := md.Get("x-caller-kind"); len(kinds) > 0 {
+					kind = kinds[0]
+				}
+				if orgs := md.Get("x-caller-token-org-id"); len(orgs) > 0 {
+					orgID = orgs[0]
+				}
+			}
+			if in.GetCaller() != nil {
+				if in.GetCaller().GetKind() != "" {
+					kind = in.GetCaller().GetKind()
+				}
+				if in.GetCaller().GetTokenOrgId() != "" {
+					orgID = in.GetCaller().GetTokenOrgId()
+				}
+			}
+			if kind != "api_token" || orgID != "org-1" {
+				t.Fatalf("unexpected caller principal: kind=%q orgID=%q caller=%+v", kind, orgID, in.GetCaller())
 			}
 			return &authv1.GetOrganizationResponse{Id: in.GetOrgId(), Name: "Acme", Slug: "acme"}, nil
 		},

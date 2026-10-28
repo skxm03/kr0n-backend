@@ -144,6 +144,51 @@ func (s *Server) recordAudit(ctx context.Context, ev repository.AuditEvent) {
 	}
 }
 
+func getMetadata(ctx context.Context) (metadata.MD, bool) {
+	if md, ok := metadata.FromIncomingContext(ctx); ok {
+		return md, true
+	}
+	return metadata.FromOutgoingContext(ctx)
+}
+
+func (s *Server) extractUserID(ctx context.Context, explicit string) (uuid.UUID, error) {
+	if raw := strings.TrimSpace(explicit); raw != "" {
+		uid, err := uuid.Parse(raw)
+		if err != nil {
+			return uuid.Nil, status.Error(codes.InvalidArgument, "invalid user_id")
+		}
+		return uid, nil
+	}
+	if md, ok := getMetadata(ctx); ok {
+		if vals := md.Get("x-caller-user-id"); len(vals) > 0 && strings.TrimSpace(vals[0]) != "" {
+			uid, err := uuid.Parse(strings.TrimSpace(vals[0]))
+			if err != nil {
+				return uuid.Nil, status.Error(codes.InvalidArgument, "invalid user_id in metadata")
+			}
+			return uid, nil
+		}
+	}
+	return uuid.Nil, status.Error(codes.Unauthenticated, "authentication required: user_id missing")
+}
+
+func (s *Server) extractSessionID(ctx context.Context, explicit string) (*uuid.UUID, error) {
+	if raw := strings.TrimSpace(explicit); raw != "" {
+		parsed, err := uuid.Parse(raw)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, "invalid session_id")
+		}
+		return &parsed, nil
+	}
+	if md, ok := getMetadata(ctx); ok {
+		if vals := md.Get("x-caller-session-id"); len(vals) > 0 && strings.TrimSpace(vals[0]) != "" {
+			if parsed, err := uuid.Parse(strings.TrimSpace(vals[0])); err == nil {
+				return &parsed, nil
+			}
+		}
+	}
+	return nil, nil
+}
+
 // NewServer creates a new gRPC Server instance.
 func NewServer(regService RegistrationService, sessionService SessionService, opts ...Option) *Server {
 	s := &Server{
@@ -220,12 +265,22 @@ func (s *Server) Login(ctx context.Context, req *authv1.LoginRequest) (*authv1.L
 	var userAgent *string
 	if ua := req.GetUserAgent(); ua != "" {
 		userAgent = &ua
+	} else if md, ok := getMetadata(ctx); ok {
+		if uas := md.Get("x-user-agent"); len(uas) > 0 && uas[0] != "" {
+			userAgent = &uas[0]
+		}
 	}
 
 	var clientIP *net.IP
 	if rawIP := req.GetClientIp(); rawIP != "" {
 		if parsed := net.ParseIP(rawIP); parsed != nil {
 			clientIP = &parsed
+		}
+	} else if md, ok := getMetadata(ctx); ok {
+		if ips := md.Get("x-client-ip"); len(ips) > 0 && ips[0] != "" {
+			if parsed := net.ParseIP(ips[0]); parsed != nil {
+				clientIP = &parsed
+			}
 		}
 	}
 
@@ -276,7 +331,7 @@ func (s *Server) Login(ctx context.Context, req *authv1.LoginRequest) (*authv1.L
 		AccessToken:  res.AccessToken,
 		RefreshToken: res.RefreshToken,
 		TokenType:    res.TokenType,
-		ExpiresIn:    int64(res.ExpiresIn.Seconds()),
+		ExpiresIn:    int32(res.ExpiresIn.Seconds()),
 		User: &authv1.LoginUser{
 			Id:          res.User.ID.String(),
 			Email:       res.User.Email,
@@ -324,7 +379,7 @@ func (s *Server) Refresh(ctx context.Context, req *authv1.RefreshRequest) (*auth
 		AccessToken:  res.AccessToken,
 		RefreshToken: res.RefreshToken,
 		TokenType:    res.TokenType,
-		ExpiresIn:    int64(res.ExpiresIn.Seconds()),
+		ExpiresIn:    int32(res.ExpiresIn.Seconds()),
 	}, nil
 }
 
@@ -369,7 +424,7 @@ func (s *Server) Logout(ctx context.Context, req *authv1.LogoutRequest) (*authv1
 		ResourceType: "session",
 		ResourceID:   resourceID,
 	})
-	return &authv1.LogoutResponse{}, nil
+	return &authv1.LogoutResponse{Message: "logged out successfully"}, nil
 }
 
 // VerifyEmail processes email verification token validation over gRPC.
@@ -406,7 +461,7 @@ func (s *Server) VerifyEmail(ctx context.Context, req *authv1.VerifyEmailRequest
 		}
 	}
 
-	return &authv1.VerifyEmailResponse{}, nil
+	return &authv1.VerifyEmailResponse{Message: "email verified successfully"}, nil
 }
 
 // GetJWKS returns the active public signing keys in JSON Web Key Set format.
@@ -443,7 +498,7 @@ func (s *Server) ResendVerification(ctx context.Context, req *authv1.ResendVerif
 		log.Printf("internal resend verification error: %v", err)
 		return nil, status.Error(codes.Internal, "internal server error")
 	}
-	return &authv1.ResendVerificationResponse{}, nil
+	return &authv1.ResendVerificationResponse{Message: "if the account exists and is unverified, a new verification link has been sent"}, nil
 }
 
 // RequestPasswordReset issues a password reset token and dispatches an email if the account exists.
@@ -461,7 +516,7 @@ func (s *Server) RequestPasswordReset(ctx context.Context, req *authv1.RequestPa
 		log.Printf("internal request password reset error: %v", err)
 		return nil, status.Error(codes.Internal, "internal server error")
 	}
-	return &authv1.RequestPasswordResetResponse{}, nil
+	return &authv1.RequestPasswordResetResponse{Message: "if an account exists for that email, a password reset link has been sent"}, nil
 }
 
 // ConfirmPasswordReset consumes a password reset token and sets the new password.
@@ -497,7 +552,7 @@ func (s *Server) ConfirmPasswordReset(ctx context.Context, req *authv1.ConfirmPa
 		ResourceType: "user",
 		ResourceID:   userID.String(),
 	})
-	return &authv1.ConfirmPasswordResetResponse{}, nil
+	return &authv1.ConfirmPasswordResetResponse{Message: "password reset successfully"}, nil
 }
 
 // ChangePassword verifies current_password, updates the password, and revokes other sessions.
@@ -508,19 +563,14 @@ func (s *Server) ChangePassword(ctx context.Context, req *authv1.ChangePasswordR
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request body cannot be empty")
 	}
-	userID, err := uuid.Parse(strings.TrimSpace(req.GetUserId()))
+	userID, err := s.extractUserID(ctx, req.GetUserId())
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+		return nil, err
 	}
 	if req.GetCurrentPassword() == "" || req.GetNewPassword() == "" {
 		return nil, status.Error(codes.InvalidArgument, "current_password and new_password are required")
 	}
-	var currentSessID *uuid.UUID
-	if rawSess := strings.TrimSpace(req.GetSessionId()); rawSess != "" {
-		if parsed, err := uuid.Parse(rawSess); err == nil {
-			currentSessID = &parsed
-		}
-	}
+	currentSessID, _ := s.extractSessionID(ctx, req.GetSessionId())
 
 	if s.regService == nil {
 		return nil, status.Error(codes.Unimplemented, "registration service not configured")
@@ -547,7 +597,7 @@ func (s *Server) ChangePassword(ctx context.Context, req *authv1.ChangePasswordR
 		ResourceType: "user",
 		ResourceID:   userID.String(),
 	})
-	return &authv1.ChangePasswordResponse{}, nil
+	return &authv1.ChangePasswordResponse{Message: "password changed successfully"}, nil
 }
 
 // GetMe retrieves the authenticated user's profile.
@@ -558,9 +608,9 @@ func (s *Server) GetMe(ctx context.Context, req *authv1.GetMeRequest) (*authv1.G
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request body cannot be empty")
 	}
-	userID, err := uuid.Parse(strings.TrimSpace(req.GetUserId()))
+	userID, err := s.extractUserID(ctx, req.GetUserId())
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+		return nil, err
 	}
 	if s.regService == nil {
 		return nil, status.Error(codes.Unimplemented, "registration service not configured")
@@ -576,11 +626,21 @@ func (s *Server) GetMe(ctx context.Context, req *authv1.GetMeRequest) (*authv1.G
 
 	resp := &authv1.GetMeResponse{
 		Id:            u.ID.String(),
+		UserId:        u.ID.String(),
 		Email:         u.Email,
 		DisplayName:   u.DisplayName,
 		Status:        string(u.Status),
 		EmailVerified: u.EmailVerifiedAt != nil,
 		CreatedAt:     timestamppb.New(u.CreatedAt),
+		Kind:          "session",
+	}
+	if md, ok := metadata.FromIncomingContext(ctx); ok {
+		if kinds := md.Get("x-caller-kind"); len(kinds) > 0 && kinds[0] != "" {
+			resp.Kind = kinds[0]
+		}
+		if sess := md.Get("x-caller-session-id"); len(sess) > 0 {
+			resp.SessionId = sess[0]
+		}
 	}
 	if u.AvatarURL != nil {
 		resp.AvatarUrl = *u.AvatarURL
@@ -599,9 +659,9 @@ func (s *Server) ListSessions(ctx context.Context, req *authv1.ListSessionsReque
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request body cannot be empty")
 	}
-	userID, err := uuid.Parse(strings.TrimSpace(req.GetUserId()))
+	userID, err := s.extractUserID(ctx, req.GetUserId())
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+		return nil, err
 	}
 	if s.sessionService == nil {
 		return nil, status.Error(codes.Unimplemented, "session service not configured")
@@ -611,6 +671,7 @@ func (s *Server) ListSessions(ctx context.Context, req *authv1.ListSessionsReque
 		log.Printf("internal list sessions error: %v", err)
 		return nil, status.Error(codes.Internal, "internal server error")
 	}
+	currentSessID, _ := s.extractSessionID(ctx, "")
 	out := make([]*authv1.SessionInfo, 0, len(sessions))
 	for _, sess := range sessions {
 		info := &authv1.SessionInfo{
@@ -618,6 +679,7 @@ func (s *Server) ListSessions(ctx context.Context, req *authv1.ListSessionsReque
 			CreatedAt:  timestamppb.New(sess.CreatedAt),
 			LastSeenAt: timestamppb.New(sess.LastSeenAt),
 			ExpiresAt:  timestamppb.New(sess.ExpiresAt),
+			Current:    currentSessID != nil && *currentSessID == sess.ID,
 		}
 		if sess.UserAgent != nil {
 			info.UserAgent = *sess.UserAgent
@@ -638,9 +700,9 @@ func (s *Server) RevokeSession(ctx context.Context, req *authv1.RevokeSessionReq
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request body cannot be empty")
 	}
-	userID, err := uuid.Parse(strings.TrimSpace(req.GetUserId()))
+	userID, err := s.extractUserID(ctx, req.GetUserId())
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid user_id")
+		return nil, err
 	}
 	sessionID, err := uuid.Parse(strings.TrimSpace(req.GetSessionId()))
 	if err != nil {
@@ -656,7 +718,7 @@ func (s *Server) RevokeSession(ctx context.Context, req *authv1.RevokeSessionReq
 		log.Printf("internal revoke session error: %v", err)
 		return nil, status.Error(codes.Internal, "internal server error")
 	}
-	return &authv1.RevokeSessionResponse{}, nil
+	return &authv1.RevokeSessionResponse{Message: "session revoked successfully"}, nil
 }
 
 // StartGitHubOAuth generates a PKCE challenge, state, and GitHub authorize URL.
@@ -739,11 +801,21 @@ func (s *Server) CompleteGitHubOAuth(ctx context.Context, req *authv1.CompleteGi
 	var userAgent *string
 	if ua := req.GetUserAgent(); ua != "" {
 		userAgent = &ua
+	} else if md, ok := getMetadata(ctx); ok {
+		if uas := md.Get("x-user-agent"); len(uas) > 0 && uas[0] != "" {
+			userAgent = &uas[0]
+		}
 	}
 	var clientIP *net.IP
 	if rawIP := req.GetClientIp(); rawIP != "" {
 		if parsed := net.ParseIP(rawIP); parsed != nil {
 			clientIP = &parsed
+		}
+	} else if md, ok := getMetadata(ctx); ok {
+		if ips := md.Get("x-client-ip"); len(ips) > 0 && ips[0] != "" {
+			if parsed := net.ParseIP(ips[0]); parsed != nil {
+				clientIP = &parsed
+			}
 		}
 	}
 
@@ -768,7 +840,7 @@ func (s *Server) CompleteGitHubOAuth(ctx context.Context, req *authv1.CompleteGi
 		AccessToken:  res.AccessToken,
 		RefreshToken: res.RefreshToken,
 		TokenType:    res.TokenType,
-		ExpiresIn:    int64(res.ExpiresIn.Seconds()),
+		ExpiresIn:    int32(res.ExpiresIn.Seconds()),
 		User: &authv1.LoginUser{
 			Id:          res.User.ID.String(),
 			Email:       res.User.Email,
