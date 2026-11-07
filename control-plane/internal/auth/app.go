@@ -101,8 +101,23 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 		RedirectURL:  cfg.GitHubRedirectURL,
 	})
 
+	githubApp, err := oauth.NewGitHubAppProvider(oauth.GitHubAppConfig{
+		AppID:         cfg.GitHubAppID,
+		AppSlug:       cfg.GitHubAppSlug,
+		PrivateKeyPEM: cfg.GitHubAppPrivateKey,
+		StateSecret:   cfg.GitHubAppStateSecret,
+	})
+	if err != nil {
+		cleanup()
+		return nil, fmt.Errorf("configure github app provider: %w", err)
+	}
+
 	orgRepo := repository.NewPostgresOrgRepository(dbPool)
-	orgService := service.NewOrgService(orgRepo, service.WithInviteEmailSender(emailSender))
+	orgService := service.NewOrgService(
+		orgRepo,
+		service.WithInviteEmailSender(emailSender),
+		service.WithGitHubApp(githubApp),
+	)
 
 	auditRepo := repository.NewPostgresAuditRepository(dbPool)
 	auditService := service.NewAuditService(auditRepo)

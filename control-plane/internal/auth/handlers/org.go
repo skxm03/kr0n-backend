@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -13,6 +14,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/oauth"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
 )
 
@@ -92,19 +94,25 @@ func mapOrgError(err error) error {
 		errors.Is(err, repository.ErrMemberNotFound),
 		errors.Is(err, repository.ErrInviteNotFound),
 		errors.Is(err, repository.ErrTokenNotFound),
-		errors.Is(err, repository.ErrUserNotFound):
+		errors.Is(err, repository.ErrUserNotFound),
+		errors.Is(err, repository.ErrInstallationNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, repository.ErrSlugAlreadyExists),
-		errors.Is(err, repository.ErrMemberAlreadyExists):
+		errors.Is(err, repository.ErrMemberAlreadyExists),
+		errors.Is(err, repository.ErrInstallationAlreadyLinked):
 		return status.Error(codes.AlreadyExists, err.Error())
-	case errors.Is(err, repository.ErrLastOwner):
+	case errors.Is(err, repository.ErrLastOwner),
+		errors.Is(err, oauth.ErrGitHubAppNotConfigured):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, repository.ErrInvalidOrg),
 		errors.Is(err, repository.ErrInvalidRole),
 		errors.Is(err, repository.ErrInvalidInviteToken),
 		errors.Is(err, repository.ErrInvalidAPIToken),
-		errors.Is(err, repository.ErrInvalidEmail):
+		errors.Is(err, repository.ErrInvalidEmail),
+		errors.Is(err, oauth.ErrInvalidInstallationState):
 		return status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, oauth.ErrGitHubAppAPI):
+		return status.Error(codes.Unavailable, err.Error())
 	case errors.Is(err, repository.ErrUserNotActive):
 		return status.Error(codes.PermissionDenied, err.Error())
 	default:
@@ -742,4 +750,182 @@ func (s *Server) ListAuditEvents(ctx context.Context, req *authv1.ListAuditEvent
 		out = append(out, info)
 	}
 	return &authv1.ListAuditEventsResponse{Events: out}, nil
+}
+
+func toGitHubInstallationProto(inst *repository.GitHubInstallation) *authv1.GitHubInstallationInfo {
+	return &authv1.GitHubInstallationInfo{
+		Id:                  inst.ID.String(),
+		OrgId:               inst.OrganizationID.String(),
+		InstallationId:      inst.InstallationID,
+		AccountLogin:        inst.AccountLogin,
+		AccountType:         inst.AccountType,
+		RepositorySelection: inst.RepositorySelection,
+		Status:              inst.Status,
+		CreatedByUserId:     inst.CreatedByUserID.String(),
+		CreatedAt:           timestamppb.New(inst.CreatedAt),
+		UpdatedAt:           timestamppb.New(inst.UpdatedAt),
+	}
+}
+
+func (s *Server) parseOrgCall(ctx context.Context, c *authv1.CallerPrincipal, rawOrgID string) (repository.Principal, uuid.UUID, error) {
+	p, err := s.ParseCallerPrincipal(ctx, c)
+	if err != nil {
+		return repository.Principal{}, uuid.Nil, err
+	}
+	if s.orgService == nil {
+		return repository.Principal{}, uuid.Nil, status.Error(codes.Unimplemented, "org service not configured")
+	}
+	orgID, err := uuid.Parse(strings.TrimSpace(rawOrgID))
+	if err != nil {
+		return repository.Principal{}, uuid.Nil, status.Error(codes.InvalidArgument, "invalid org_id")
+	}
+	return p, orgID, nil
+}
+
+// StartGitHubInstallation generates a signed installation state token and GitHub App installation URL.
+func (s *Server) StartGitHubInstallation(ctx context.Context, req *authv1.StartGitHubInstallationRequest) (*authv1.StartGitHubInstallationResponse, error) {
+	p, orgID, err := s.parseOrgCall(ctx, req.GetCaller(), req.GetOrgId())
+	if err != nil {
+		return nil, err
+	}
+	installURL, state, err := s.orgService.StartGitHubInstallation(ctx, p, orgID)
+	if err != nil {
+		return nil, mapOrgError(err)
+	}
+	return &authv1.StartGitHubInstallationResponse{
+		InstallUrl: installURL,
+		State:      state,
+	}, nil
+}
+
+// CompleteGitHubInstallation verifies the installation state and links the GitHub App installation to the organization.
+func (s *Server) CompleteGitHubInstallation(ctx context.Context, req *authv1.CompleteGitHubInstallationRequest) (*authv1.CompleteGitHubInstallationResponse, error) {
+	p, orgID, err := s.parseOrgCall(ctx, req.GetCaller(), req.GetOrgId())
+	if err != nil {
+		return nil, err
+	}
+	inst, err := s.orgService.CompleteGitHubInstallation(ctx, p, orgID, req.GetInstallationId(), req.GetState())
+	if err != nil {
+		return nil, mapOrgError(err)
+	}
+	actorID := p.UserID
+	s.recordAudit(ctx, repository.AuditEvent{
+		OrganizationID: &orgID,
+		ActorUserID:    &actorID,
+		ActorType:      actorTypeFromPrincipal(p),
+		Action:         "github.installation_connected",
+		ResourceType:   "github_installation",
+		ResourceID:     strconv.FormatInt(inst.InstallationID, 10),
+		Metadata: map[string]any{
+			"installation_id": inst.InstallationID,
+			"account_login":   inst.AccountLogin,
+			"account_type":    inst.AccountType,
+		},
+	})
+	return &authv1.CompleteGitHubInstallationResponse{
+		Installation: toGitHubInstallationProto(inst),
+	}, nil
+}
+
+// ListGitHubInstallations lists GitHub App installations linked to the organization.
+func (s *Server) ListGitHubInstallations(ctx context.Context, req *authv1.ListGitHubInstallationsRequest) (*authv1.ListGitHubInstallationsResponse, error) {
+	p, orgID, err := s.parseOrgCall(ctx, req.GetCaller(), req.GetOrgId())
+	if err != nil {
+		return nil, err
+	}
+	installations, err := s.orgService.ListGitHubInstallations(ctx, p, orgID)
+	if err != nil {
+		return nil, mapOrgError(err)
+	}
+	out := make([]*authv1.GitHubInstallationInfo, 0, len(installations))
+	for i := range installations {
+		out = append(out, toGitHubInstallationProto(&installations[i]))
+	}
+	return &authv1.ListGitHubInstallationsResponse{Installations: out}, nil
+}
+
+// DisconnectGitHubInstallation unlinks a GitHub App installation from the organization.
+func (s *Server) DisconnectGitHubInstallation(ctx context.Context, req *authv1.DisconnectGitHubInstallationRequest) (*authv1.DisconnectGitHubInstallationResponse, error) {
+	p, orgID, err := s.parseOrgCall(ctx, req.GetCaller(), req.GetOrgId())
+	if err != nil {
+		return nil, err
+	}
+	if err := s.orgService.DisconnectGitHubInstallation(ctx, p, orgID, req.GetInstallationId()); err != nil {
+		return nil, mapOrgError(err)
+	}
+	actorID := p.UserID
+	s.recordAudit(ctx, repository.AuditEvent{
+		OrganizationID: &orgID,
+		ActorUserID:    &actorID,
+		ActorType:      actorTypeFromPrincipal(p),
+		Action:         "github.installation_disconnected",
+		ResourceType:   "github_installation",
+		ResourceID:     strconv.FormatInt(req.GetInstallationId(), 10),
+		Metadata: map[string]any{
+			"installation_id": req.GetInstallationId(),
+		},
+	})
+	return &authv1.DisconnectGitHubInstallationResponse{
+		Message: "github installation disconnected successfully",
+	}, nil
+}
+
+// ListGitHubRepositories lists GitHub repositories accessible to an organization installation.
+func (s *Server) ListGitHubRepositories(ctx context.Context, req *authv1.ListGitHubRepositoriesRequest) (*authv1.ListGitHubRepositoriesResponse, error) {
+	p, orgID, err := s.parseOrgCall(ctx, req.GetCaller(), req.GetOrgId())
+	if err != nil {
+		return nil, err
+	}
+	repos, err := s.orgService.ListGitHubRepositories(ctx, p, orgID, req.GetInstallationId())
+	if err != nil {
+		return nil, mapOrgError(err)
+	}
+	out := make([]*authv1.GitHubRepositoryInfo, 0, len(repos))
+	for _, r := range repos {
+		owner, _, _ := strings.Cut(r.FullName, "/")
+		out = append(out, &authv1.GitHubRepositoryInfo{
+			Id:            r.ID,
+			Owner:         owner,
+			Name:          r.Name,
+			FullName:      r.FullName,
+			Private:       r.Private,
+			DefaultBranch: r.DefaultBranch,
+			HtmlUrl:       r.HTMLURL,
+		})
+	}
+	return &authv1.ListGitHubRepositoriesResponse{Repositories: out}, nil
+}
+
+// ListGitHubBranches lists branches in a GitHub repository accessible to an organization installation.
+func (s *Server) ListGitHubBranches(ctx context.Context, req *authv1.ListGitHubBranchesRequest) (*authv1.ListGitHubBranchesResponse, error) {
+	p, orgID, err := s.parseOrgCall(ctx, req.GetCaller(), req.GetOrgId())
+	if err != nil {
+		return nil, err
+	}
+	branches, err := s.orgService.ListGitHubBranches(ctx, p, orgID, req.GetInstallationId(), req.GetOwner(), req.GetRepo())
+	if err != nil {
+		return nil, mapOrgError(err)
+	}
+	out := make([]*authv1.GitHubBranchInfo, 0, len(branches))
+	for _, b := range branches {
+		out = append(out, &authv1.GitHubBranchInfo{
+			Name:      b.Name,
+			CommitSha: b.CommitSHA,
+			Protected: b.Protected,
+		})
+	}
+	return &authv1.ListGitHubBranchesResponse{Branches: out}, nil
+}
+
+// ListGitHubDirectories lists canonical root directory paths in a GitHub repository ref.
+func (s *Server) ListGitHubDirectories(ctx context.Context, req *authv1.ListGitHubDirectoriesRequest) (*authv1.ListGitHubDirectoriesResponse, error) {
+	p, orgID, err := s.parseOrgCall(ctx, req.GetCaller(), req.GetOrgId())
+	if err != nil {
+		return nil, err
+	}
+	dirs, err := s.orgService.ListGitHubDirectories(ctx, p, orgID, req.GetInstallationId(), req.GetOwner(), req.GetRepo(), req.GetRef())
+	if err != nil {
+		return nil, mapOrgError(err)
+	}
+	return &authv1.ListGitHubDirectoriesResponse{Directories: dirs}, nil
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/oauth"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
 )
 
@@ -18,6 +19,17 @@ var slugRegex = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 // InviteEmailSender dispatches organization invitation emails.
 type InviteEmailSender interface {
 	SendOrgInviteEmail(ctx context.Context, recipient, orgName, roleID, rawToken string) error
+}
+
+// GitHubAppClient defines the GitHub App installation and repository explorer operations required by OrgService.
+type GitHubAppClient interface {
+	Configured() bool
+	StartInstallation(orgID, userID uuid.UUID) (installURL, state string, err error)
+	VerifyState(state string, expectedOrgID, expectedUserID uuid.UUID) error
+	GetInstallation(ctx context.Context, installationID int64) (*oauth.GitHubAppInstallation, error)
+	ListRepositories(ctx context.Context, installationID int64) ([]oauth.GitHubRepository, error)
+	ListBranches(ctx context.Context, installationID int64, owner, repo string) ([]oauth.GitHubBranch, error)
+	ListDirectories(ctx context.Context, installationID int64, owner, repo, ref string) ([]string, error)
 }
 
 // OrgOption configures OrgService.
@@ -30,10 +42,18 @@ func WithInviteEmailSender(sender InviteEmailSender) OrgOption {
 	}
 }
 
+// WithGitHubApp configures an optional GitHub App client for organization GitHub installations and repository browsing.
+func WithGitHubApp(gh GitHubAppClient) OrgOption {
+	return func(s *OrgService) {
+		s.githubApp = gh
+	}
+}
+
 // OrgService orchestrates organizations, memberships, invites, RBAC checks, and API tokens.
 type OrgService struct {
 	repo        repository.OrgRepository
 	emailSender InviteEmailSender
+	githubApp   GitHubAppClient
 }
 
 // NewOrgService constructs an OrgService.
@@ -373,4 +393,113 @@ func (s *OrgService) ValidateAPIToken(ctx context.Context, rawToken string) (*re
 	}
 
 	return tok, nil
+}
+
+// StartGitHubInstallation generates a signed installation state token and GitHub App installation URL if the principal holds org:update.
+func (s *OrgService) StartGitHubInstallation(ctx context.Context, p repository.Principal, orgID uuid.UUID) (installURL, state string, err error) {
+	if err := s.require(ctx, p, orgID, "org:update"); err != nil {
+		return "", "", err
+	}
+	if s.githubApp == nil || !s.githubApp.Configured() {
+		return "", "", oauth.ErrGitHubAppNotConfigured
+	}
+	return s.githubApp.StartInstallation(orgID, p.UserID)
+}
+
+// CompleteGitHubInstallation verifies the state token, fetches installation metadata from GitHub, and links it to the organization.
+func (s *OrgService) CompleteGitHubInstallation(ctx context.Context, p repository.Principal, orgID uuid.UUID, installationID int64, state string) (*repository.GitHubInstallation, error) {
+	if err := s.require(ctx, p, orgID, "org:update"); err != nil {
+		return nil, err
+	}
+	if s.githubApp == nil || !s.githubApp.Configured() {
+		return nil, oauth.ErrGitHubAppNotConfigured
+	}
+	if installationID <= 0 {
+		return nil, oauth.ErrInvalidInstallationState
+	}
+	if err := s.githubApp.VerifyState(state, orgID, p.UserID); err != nil {
+		return nil, err
+	}
+	meta, err := s.githubApp.GetInstallation(ctx, installationID)
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now().UTC()
+	inst := &repository.GitHubInstallation{
+		ID:                  uuid.New(),
+		OrganizationID:      orgID,
+		InstallationID:      meta.InstallationID,
+		AccountLogin:        meta.AccountLogin,
+		AccountType:         meta.AccountType,
+		RepositorySelection: meta.RepositorySelection,
+		Status:              meta.Status,
+		CreatedByUserID:     p.UserID,
+		CreatedAt:           now,
+		UpdatedAt:           now,
+	}
+	return s.repo.UpsertGitHubInstallation(ctx, inst)
+}
+
+// ListGitHubInstallations lists GitHub App installations linked to the organization if the principal holds service:read or org:read.
+func (s *OrgService) ListGitHubInstallations(ctx context.Context, p repository.Principal, orgID uuid.UUID) ([]repository.GitHubInstallation, error) {
+	if err := s.require(ctx, p, orgID, "service:read"); err != nil {
+		if err2 := s.require(ctx, p, orgID, "org:read"); err2 != nil {
+			return nil, err
+		}
+	}
+	return s.repo.ListGitHubInstallations(ctx, orgID)
+}
+
+// DisconnectGitHubInstallation unlinks a GitHub App installation from the organization if the principal holds org:update.
+func (s *OrgService) DisconnectGitHubInstallation(ctx context.Context, p repository.Principal, orgID uuid.UUID, installationID int64) error {
+	if err := s.require(ctx, p, orgID, "org:update"); err != nil {
+		return err
+	}
+	return s.repo.DeleteGitHubInstallation(ctx, orgID, installationID)
+}
+
+func (s *OrgService) requireOrgGitHubInstallation(ctx context.Context, p repository.Principal, orgID uuid.UUID, installationID int64) error {
+	if err := s.require(ctx, p, orgID, "service:read"); err != nil {
+		return err
+	}
+	if s.githubApp == nil || !s.githubApp.Configured() {
+		return oauth.ErrGitHubAppNotConfigured
+	}
+	if installationID <= 0 {
+		return repository.ErrInstallationNotFound
+	}
+	installations, err := s.repo.ListGitHubInstallations(ctx, orgID)
+	if err != nil {
+		return err
+	}
+	for _, inst := range installations {
+		if inst.InstallationID == installationID && (inst.Status == "" || inst.Status == "active") {
+			return nil
+		}
+	}
+	return repository.ErrInstallationNotFound
+}
+
+// ListGitHubRepositories lists GitHub repositories accessible to an organization installation if the principal holds service:read.
+func (s *OrgService) ListGitHubRepositories(ctx context.Context, p repository.Principal, orgID uuid.UUID, installationID int64) ([]oauth.GitHubRepository, error) {
+	if err := s.requireOrgGitHubInstallation(ctx, p, orgID, installationID); err != nil {
+		return nil, err
+	}
+	return s.githubApp.ListRepositories(ctx, installationID)
+}
+
+// ListGitHubBranches lists branches in a GitHub repository accessible to an organization installation if the principal holds service:read.
+func (s *OrgService) ListGitHubBranches(ctx context.Context, p repository.Principal, orgID uuid.UUID, installationID int64, owner, repo string) ([]oauth.GitHubBranch, error) {
+	if err := s.requireOrgGitHubInstallation(ctx, p, orgID, installationID); err != nil {
+		return nil, err
+	}
+	return s.githubApp.ListBranches(ctx, installationID, owner, repo)
+}
+
+// ListGitHubDirectories lists canonical root directory paths in a GitHub repository ref if the principal holds service:read.
+func (s *OrgService) ListGitHubDirectories(ctx context.Context, p repository.Principal, orgID uuid.UUID, installationID int64, owner, repo, ref string) ([]string, error) {
+	if err := s.requireOrgGitHubInstallation(ctx, p, orgID, installationID); err != nil {
+		return nil, err
+	}
+	return s.githubApp.ListDirectories(ctx, installationID, owner, repo, ref)
 }

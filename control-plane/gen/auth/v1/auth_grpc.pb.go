@@ -19,40 +19,47 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AuthService_Register_FullMethodName             = "/auth.v1.AuthService/Register"
-	AuthService_Login_FullMethodName                = "/auth.v1.AuthService/Login"
-	AuthService_Refresh_FullMethodName              = "/auth.v1.AuthService/Refresh"
-	AuthService_Logout_FullMethodName               = "/auth.v1.AuthService/Logout"
-	AuthService_VerifyEmail_FullMethodName          = "/auth.v1.AuthService/VerifyEmail"
-	AuthService_GetJWKS_FullMethodName              = "/auth.v1.AuthService/GetJWKS"
-	AuthService_ResendVerification_FullMethodName   = "/auth.v1.AuthService/ResendVerification"
-	AuthService_RequestPasswordReset_FullMethodName = "/auth.v1.AuthService/RequestPasswordReset"
-	AuthService_ConfirmPasswordReset_FullMethodName = "/auth.v1.AuthService/ConfirmPasswordReset"
-	AuthService_ChangePassword_FullMethodName       = "/auth.v1.AuthService/ChangePassword"
-	AuthService_GetMe_FullMethodName                = "/auth.v1.AuthService/GetMe"
-	AuthService_ListSessions_FullMethodName         = "/auth.v1.AuthService/ListSessions"
-	AuthService_RevokeSession_FullMethodName        = "/auth.v1.AuthService/RevokeSession"
-	AuthService_StartGitHubOAuth_FullMethodName     = "/auth.v1.AuthService/StartGitHubOAuth"
-	AuthService_CompleteGitHubOAuth_FullMethodName  = "/auth.v1.AuthService/CompleteGitHubOAuth"
-	AuthService_CheckPermission_FullMethodName      = "/auth.v1.AuthService/CheckPermission"
-	AuthService_ListRoles_FullMethodName            = "/auth.v1.AuthService/ListRoles"
-	AuthService_CreateOrganization_FullMethodName   = "/auth.v1.AuthService/CreateOrganization"
-	AuthService_ListOrganizations_FullMethodName    = "/auth.v1.AuthService/ListOrganizations"
-	AuthService_GetOrganization_FullMethodName      = "/auth.v1.AuthService/GetOrganization"
-	AuthService_UpdateOrganization_FullMethodName   = "/auth.v1.AuthService/UpdateOrganization"
-	AuthService_DeleteOrganization_FullMethodName   = "/auth.v1.AuthService/DeleteOrganization"
-	AuthService_ListMembers_FullMethodName          = "/auth.v1.AuthService/ListMembers"
-	AuthService_AddMember_FullMethodName            = "/auth.v1.AuthService/AddMember"
-	AuthService_UpdateMemberRole_FullMethodName     = "/auth.v1.AuthService/UpdateMemberRole"
-	AuthService_RemoveMember_FullMethodName         = "/auth.v1.AuthService/RemoveMember"
-	AuthService_CreateInvite_FullMethodName         = "/auth.v1.AuthService/CreateInvite"
-	AuthService_AcceptInvite_FullMethodName         = "/auth.v1.AuthService/AcceptInvite"
-	AuthService_RevokeInvite_FullMethodName         = "/auth.v1.AuthService/RevokeInvite"
-	AuthService_CreateAPIToken_FullMethodName       = "/auth.v1.AuthService/CreateAPIToken"
-	AuthService_ListAPITokens_FullMethodName        = "/auth.v1.AuthService/ListAPITokens"
-	AuthService_RevokeAPIToken_FullMethodName       = "/auth.v1.AuthService/RevokeAPIToken"
-	AuthService_ValidateAPIToken_FullMethodName     = "/auth.v1.AuthService/ValidateAPIToken"
-	AuthService_ListAuditEvents_FullMethodName      = "/auth.v1.AuthService/ListAuditEvents"
+	AuthService_Register_FullMethodName                     = "/auth.v1.AuthService/Register"
+	AuthService_Login_FullMethodName                        = "/auth.v1.AuthService/Login"
+	AuthService_Refresh_FullMethodName                      = "/auth.v1.AuthService/Refresh"
+	AuthService_Logout_FullMethodName                       = "/auth.v1.AuthService/Logout"
+	AuthService_VerifyEmail_FullMethodName                  = "/auth.v1.AuthService/VerifyEmail"
+	AuthService_GetJWKS_FullMethodName                      = "/auth.v1.AuthService/GetJWKS"
+	AuthService_ResendVerification_FullMethodName           = "/auth.v1.AuthService/ResendVerification"
+	AuthService_RequestPasswordReset_FullMethodName         = "/auth.v1.AuthService/RequestPasswordReset"
+	AuthService_ConfirmPasswordReset_FullMethodName         = "/auth.v1.AuthService/ConfirmPasswordReset"
+	AuthService_ChangePassword_FullMethodName               = "/auth.v1.AuthService/ChangePassword"
+	AuthService_GetMe_FullMethodName                        = "/auth.v1.AuthService/GetMe"
+	AuthService_ListSessions_FullMethodName                 = "/auth.v1.AuthService/ListSessions"
+	AuthService_RevokeSession_FullMethodName                = "/auth.v1.AuthService/RevokeSession"
+	AuthService_StartGitHubOAuth_FullMethodName             = "/auth.v1.AuthService/StartGitHubOAuth"
+	AuthService_CompleteGitHubOAuth_FullMethodName          = "/auth.v1.AuthService/CompleteGitHubOAuth"
+	AuthService_CheckPermission_FullMethodName              = "/auth.v1.AuthService/CheckPermission"
+	AuthService_ListRoles_FullMethodName                    = "/auth.v1.AuthService/ListRoles"
+	AuthService_CreateOrganization_FullMethodName           = "/auth.v1.AuthService/CreateOrganization"
+	AuthService_ListOrganizations_FullMethodName            = "/auth.v1.AuthService/ListOrganizations"
+	AuthService_GetOrganization_FullMethodName              = "/auth.v1.AuthService/GetOrganization"
+	AuthService_UpdateOrganization_FullMethodName           = "/auth.v1.AuthService/UpdateOrganization"
+	AuthService_DeleteOrganization_FullMethodName           = "/auth.v1.AuthService/DeleteOrganization"
+	AuthService_ListMembers_FullMethodName                  = "/auth.v1.AuthService/ListMembers"
+	AuthService_AddMember_FullMethodName                    = "/auth.v1.AuthService/AddMember"
+	AuthService_UpdateMemberRole_FullMethodName             = "/auth.v1.AuthService/UpdateMemberRole"
+	AuthService_RemoveMember_FullMethodName                 = "/auth.v1.AuthService/RemoveMember"
+	AuthService_CreateInvite_FullMethodName                 = "/auth.v1.AuthService/CreateInvite"
+	AuthService_AcceptInvite_FullMethodName                 = "/auth.v1.AuthService/AcceptInvite"
+	AuthService_RevokeInvite_FullMethodName                 = "/auth.v1.AuthService/RevokeInvite"
+	AuthService_CreateAPIToken_FullMethodName               = "/auth.v1.AuthService/CreateAPIToken"
+	AuthService_ListAPITokens_FullMethodName                = "/auth.v1.AuthService/ListAPITokens"
+	AuthService_RevokeAPIToken_FullMethodName               = "/auth.v1.AuthService/RevokeAPIToken"
+	AuthService_ValidateAPIToken_FullMethodName             = "/auth.v1.AuthService/ValidateAPIToken"
+	AuthService_ListAuditEvents_FullMethodName              = "/auth.v1.AuthService/ListAuditEvents"
+	AuthService_StartGitHubInstallation_FullMethodName      = "/auth.v1.AuthService/StartGitHubInstallation"
+	AuthService_CompleteGitHubInstallation_FullMethodName   = "/auth.v1.AuthService/CompleteGitHubInstallation"
+	AuthService_ListGitHubInstallations_FullMethodName      = "/auth.v1.AuthService/ListGitHubInstallations"
+	AuthService_DisconnectGitHubInstallation_FullMethodName = "/auth.v1.AuthService/DisconnectGitHubInstallation"
+	AuthService_ListGitHubRepositories_FullMethodName       = "/auth.v1.AuthService/ListGitHubRepositories"
+	AuthService_ListGitHubBranches_FullMethodName           = "/auth.v1.AuthService/ListGitHubBranches"
+	AuthService_ListGitHubDirectories_FullMethodName        = "/auth.v1.AuthService/ListGitHubDirectories"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -129,6 +136,20 @@ type AuthServiceClient interface {
 	ValidateAPIToken(ctx context.Context, in *ValidateAPITokenRequest, opts ...grpc.CallOption) (*ValidateAPITokenResponse, error)
 	// ListAuditEvents lists append-only audit events for an organization, gated by `audit:read`.
 	ListAuditEvents(ctx context.Context, in *ListAuditEventsRequest, opts ...grpc.CallOption) (*ListAuditEventsResponse, error)
+	// StartGitHubInstallation generates a signed installation state token and GitHub App installation URL.
+	StartGitHubInstallation(ctx context.Context, in *StartGitHubInstallationRequest, opts ...grpc.CallOption) (*StartGitHubInstallationResponse, error)
+	// CompleteGitHubInstallation verifies the installation state and links the GitHub App installation to the organization.
+	CompleteGitHubInstallation(ctx context.Context, in *CompleteGitHubInstallationRequest, opts ...grpc.CallOption) (*CompleteGitHubInstallationResponse, error)
+	// ListGitHubInstallations lists GitHub App installations linked to the organization.
+	ListGitHubInstallations(ctx context.Context, in *ListGitHubInstallationsRequest, opts ...grpc.CallOption) (*ListGitHubInstallationsResponse, error)
+	// DisconnectGitHubInstallation unlinks a GitHub App installation from the organization.
+	DisconnectGitHubInstallation(ctx context.Context, in *DisconnectGitHubInstallationRequest, opts ...grpc.CallOption) (*DisconnectGitHubInstallationResponse, error)
+	// ListGitHubRepositories lists GitHub repositories accessible to an organization installation.
+	ListGitHubRepositories(ctx context.Context, in *ListGitHubRepositoriesRequest, opts ...grpc.CallOption) (*ListGitHubRepositoriesResponse, error)
+	// ListGitHubBranches lists branches in a GitHub repository accessible to an organization installation.
+	ListGitHubBranches(ctx context.Context, in *ListGitHubBranchesRequest, opts ...grpc.CallOption) (*ListGitHubBranchesResponse, error)
+	// ListGitHubDirectories lists canonical root directory paths (e.g. "/", "/apps/api") in a GitHub repository ref.
+	ListGitHubDirectories(ctx context.Context, in *ListGitHubDirectoriesRequest, opts ...grpc.CallOption) (*ListGitHubDirectoriesResponse, error)
 }
 
 type authServiceClient struct {
@@ -479,6 +500,76 @@ func (c *authServiceClient) ListAuditEvents(ctx context.Context, in *ListAuditEv
 	return out, nil
 }
 
+func (c *authServiceClient) StartGitHubInstallation(ctx context.Context, in *StartGitHubInstallationRequest, opts ...grpc.CallOption) (*StartGitHubInstallationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StartGitHubInstallationResponse)
+	err := c.cc.Invoke(ctx, AuthService_StartGitHubInstallation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) CompleteGitHubInstallation(ctx context.Context, in *CompleteGitHubInstallationRequest, opts ...grpc.CallOption) (*CompleteGitHubInstallationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CompleteGitHubInstallationResponse)
+	err := c.cc.Invoke(ctx, AuthService_CompleteGitHubInstallation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) ListGitHubInstallations(ctx context.Context, in *ListGitHubInstallationsRequest, opts ...grpc.CallOption) (*ListGitHubInstallationsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListGitHubInstallationsResponse)
+	err := c.cc.Invoke(ctx, AuthService_ListGitHubInstallations_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) DisconnectGitHubInstallation(ctx context.Context, in *DisconnectGitHubInstallationRequest, opts ...grpc.CallOption) (*DisconnectGitHubInstallationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DisconnectGitHubInstallationResponse)
+	err := c.cc.Invoke(ctx, AuthService_DisconnectGitHubInstallation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) ListGitHubRepositories(ctx context.Context, in *ListGitHubRepositoriesRequest, opts ...grpc.CallOption) (*ListGitHubRepositoriesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListGitHubRepositoriesResponse)
+	err := c.cc.Invoke(ctx, AuthService_ListGitHubRepositories_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) ListGitHubBranches(ctx context.Context, in *ListGitHubBranchesRequest, opts ...grpc.CallOption) (*ListGitHubBranchesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListGitHubBranchesResponse)
+	err := c.cc.Invoke(ctx, AuthService_ListGitHubBranches_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) ListGitHubDirectories(ctx context.Context, in *ListGitHubDirectoriesRequest, opts ...grpc.CallOption) (*ListGitHubDirectoriesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListGitHubDirectoriesResponse)
+	err := c.cc.Invoke(ctx, AuthService_ListGitHubDirectories_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AuthServiceServer is the server API for AuthService service.
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility.
@@ -553,6 +644,20 @@ type AuthServiceServer interface {
 	ValidateAPIToken(context.Context, *ValidateAPITokenRequest) (*ValidateAPITokenResponse, error)
 	// ListAuditEvents lists append-only audit events for an organization, gated by `audit:read`.
 	ListAuditEvents(context.Context, *ListAuditEventsRequest) (*ListAuditEventsResponse, error)
+	// StartGitHubInstallation generates a signed installation state token and GitHub App installation URL.
+	StartGitHubInstallation(context.Context, *StartGitHubInstallationRequest) (*StartGitHubInstallationResponse, error)
+	// CompleteGitHubInstallation verifies the installation state and links the GitHub App installation to the organization.
+	CompleteGitHubInstallation(context.Context, *CompleteGitHubInstallationRequest) (*CompleteGitHubInstallationResponse, error)
+	// ListGitHubInstallations lists GitHub App installations linked to the organization.
+	ListGitHubInstallations(context.Context, *ListGitHubInstallationsRequest) (*ListGitHubInstallationsResponse, error)
+	// DisconnectGitHubInstallation unlinks a GitHub App installation from the organization.
+	DisconnectGitHubInstallation(context.Context, *DisconnectGitHubInstallationRequest) (*DisconnectGitHubInstallationResponse, error)
+	// ListGitHubRepositories lists GitHub repositories accessible to an organization installation.
+	ListGitHubRepositories(context.Context, *ListGitHubRepositoriesRequest) (*ListGitHubRepositoriesResponse, error)
+	// ListGitHubBranches lists branches in a GitHub repository accessible to an organization installation.
+	ListGitHubBranches(context.Context, *ListGitHubBranchesRequest) (*ListGitHubBranchesResponse, error)
+	// ListGitHubDirectories lists canonical root directory paths (e.g. "/", "/apps/api") in a GitHub repository ref.
+	ListGitHubDirectories(context.Context, *ListGitHubDirectoriesRequest) (*ListGitHubDirectoriesResponse, error)
 	mustEmbedUnimplementedAuthServiceServer()
 }
 
@@ -664,6 +769,27 @@ func (UnimplementedAuthServiceServer) ValidateAPIToken(context.Context, *Validat
 }
 func (UnimplementedAuthServiceServer) ListAuditEvents(context.Context, *ListAuditEventsRequest) (*ListAuditEventsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListAuditEvents not implemented")
+}
+func (UnimplementedAuthServiceServer) StartGitHubInstallation(context.Context, *StartGitHubInstallationRequest) (*StartGitHubInstallationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method StartGitHubInstallation not implemented")
+}
+func (UnimplementedAuthServiceServer) CompleteGitHubInstallation(context.Context, *CompleteGitHubInstallationRequest) (*CompleteGitHubInstallationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CompleteGitHubInstallation not implemented")
+}
+func (UnimplementedAuthServiceServer) ListGitHubInstallations(context.Context, *ListGitHubInstallationsRequest) (*ListGitHubInstallationsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListGitHubInstallations not implemented")
+}
+func (UnimplementedAuthServiceServer) DisconnectGitHubInstallation(context.Context, *DisconnectGitHubInstallationRequest) (*DisconnectGitHubInstallationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DisconnectGitHubInstallation not implemented")
+}
+func (UnimplementedAuthServiceServer) ListGitHubRepositories(context.Context, *ListGitHubRepositoriesRequest) (*ListGitHubRepositoriesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListGitHubRepositories not implemented")
+}
+func (UnimplementedAuthServiceServer) ListGitHubBranches(context.Context, *ListGitHubBranchesRequest) (*ListGitHubBranchesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListGitHubBranches not implemented")
+}
+func (UnimplementedAuthServiceServer) ListGitHubDirectories(context.Context, *ListGitHubDirectoriesRequest) (*ListGitHubDirectoriesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListGitHubDirectories not implemented")
 }
 func (UnimplementedAuthServiceServer) mustEmbedUnimplementedAuthServiceServer() {}
 func (UnimplementedAuthServiceServer) testEmbeddedByValue()                     {}
@@ -1298,6 +1424,132 @@ func _AuthService_ListAuditEvents_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthService_StartGitHubInstallation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StartGitHubInstallationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).StartGitHubInstallation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_StartGitHubInstallation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).StartGitHubInstallation(ctx, req.(*StartGitHubInstallationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_CompleteGitHubInstallation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CompleteGitHubInstallationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).CompleteGitHubInstallation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_CompleteGitHubInstallation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).CompleteGitHubInstallation(ctx, req.(*CompleteGitHubInstallationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_ListGitHubInstallations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListGitHubInstallationsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).ListGitHubInstallations(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_ListGitHubInstallations_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).ListGitHubInstallations(ctx, req.(*ListGitHubInstallationsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_DisconnectGitHubInstallation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DisconnectGitHubInstallationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).DisconnectGitHubInstallation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_DisconnectGitHubInstallation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).DisconnectGitHubInstallation(ctx, req.(*DisconnectGitHubInstallationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_ListGitHubRepositories_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListGitHubRepositoriesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).ListGitHubRepositories(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_ListGitHubRepositories_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).ListGitHubRepositories(ctx, req.(*ListGitHubRepositoriesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_ListGitHubBranches_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListGitHubBranchesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).ListGitHubBranches(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_ListGitHubBranches_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).ListGitHubBranches(ctx, req.(*ListGitHubBranchesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_ListGitHubDirectories_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListGitHubDirectoriesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).ListGitHubDirectories(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_ListGitHubDirectories_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).ListGitHubDirectories(ctx, req.(*ListGitHubDirectoriesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AuthService_ServiceDesc is the grpc.ServiceDesc for AuthService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1440,6 +1692,34 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListAuditEvents",
 			Handler:    _AuthService_ListAuditEvents_Handler,
+		},
+		{
+			MethodName: "StartGitHubInstallation",
+			Handler:    _AuthService_StartGitHubInstallation_Handler,
+		},
+		{
+			MethodName: "CompleteGitHubInstallation",
+			Handler:    _AuthService_CompleteGitHubInstallation_Handler,
+		},
+		{
+			MethodName: "ListGitHubInstallations",
+			Handler:    _AuthService_ListGitHubInstallations_Handler,
+		},
+		{
+			MethodName: "DisconnectGitHubInstallation",
+			Handler:    _AuthService_DisconnectGitHubInstallation_Handler,
+		},
+		{
+			MethodName: "ListGitHubRepositories",
+			Handler:    _AuthService_ListGitHubRepositories_Handler,
+		},
+		{
+			MethodName: "ListGitHubBranches",
+			Handler:    _AuthService_ListGitHubBranches_Handler,
+		},
+		{
+			MethodName: "ListGitHubDirectories",
+			Handler:    _AuthService_ListGitHubDirectories_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

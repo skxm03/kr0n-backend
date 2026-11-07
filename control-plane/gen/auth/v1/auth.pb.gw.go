@@ -1301,6 +1301,449 @@ func local_request_AuthService_ListAuditEvents_0(ctx context.Context, marshaler 
 	return msg, metadata, err
 }
 
+var filter_AuthService_StartGitHubInstallation_0 = &utilities.DoubleArray{Encoding: map[string]int{"org_id": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
+
+func request_AuthService_StartGitHubInstallation_0(ctx context.Context, marshaler runtime.Marshaler, client AuthServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq StartGitHubInstallationRequest
+		metadata runtime.ServerMetadata
+		err      error
+	)
+	val, ok := pathParams["org_id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "org_id")
+	}
+	protoReq.OrgId, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "org_id", err)
+	}
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_AuthService_StartGitHubInstallation_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if req.Body != nil {
+		_, _ = io.Copy(io.Discard, req.Body)
+	}
+	msg, err := client.StartGitHubInstallation(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+}
+
+func local_request_AuthService_StartGitHubInstallation_0(ctx context.Context, marshaler runtime.Marshaler, server AuthServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq StartGitHubInstallationRequest
+		metadata runtime.ServerMetadata
+		err      error
+	)
+	val, ok := pathParams["org_id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "org_id")
+	}
+	protoReq.OrgId, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "org_id", err)
+	}
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_AuthService_StartGitHubInstallation_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	msg, err := server.StartGitHubInstallation(ctx, &protoReq)
+	return msg, metadata, err
+}
+
+func request_AuthService_CompleteGitHubInstallation_0(ctx context.Context, marshaler runtime.Marshaler, client AuthServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq CompleteGitHubInstallationRequest
+		metadata runtime.ServerMetadata
+		err      error
+	)
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	val, ok := pathParams["org_id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "org_id")
+	}
+	protoReq.OrgId, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "org_id", err)
+	}
+	if req.Body != nil {
+		_, _ = io.Copy(io.Discard, req.Body)
+	}
+	msg, err := client.CompleteGitHubInstallation(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+}
+
+func local_request_AuthService_CompleteGitHubInstallation_0(ctx context.Context, marshaler runtime.Marshaler, server AuthServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq CompleteGitHubInstallationRequest
+		metadata runtime.ServerMetadata
+		err      error
+	)
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && !errors.Is(err, io.EOF) {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	val, ok := pathParams["org_id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "org_id")
+	}
+	protoReq.OrgId, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "org_id", err)
+	}
+	msg, err := server.CompleteGitHubInstallation(ctx, &protoReq)
+	return msg, metadata, err
+}
+
+var filter_AuthService_ListGitHubInstallations_0 = &utilities.DoubleArray{Encoding: map[string]int{"org_id": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
+
+func request_AuthService_ListGitHubInstallations_0(ctx context.Context, marshaler runtime.Marshaler, client AuthServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq ListGitHubInstallationsRequest
+		metadata runtime.ServerMetadata
+		err      error
+	)
+	val, ok := pathParams["org_id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "org_id")
+	}
+	protoReq.OrgId, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "org_id", err)
+	}
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_AuthService_ListGitHubInstallations_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if req.Body != nil {
+		_, _ = io.Copy(io.Discard, req.Body)
+	}
+	msg, err := client.ListGitHubInstallations(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+}
+
+func local_request_AuthService_ListGitHubInstallations_0(ctx context.Context, marshaler runtime.Marshaler, server AuthServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq ListGitHubInstallationsRequest
+		metadata runtime.ServerMetadata
+		err      error
+	)
+	val, ok := pathParams["org_id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "org_id")
+	}
+	protoReq.OrgId, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "org_id", err)
+	}
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_AuthService_ListGitHubInstallations_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	msg, err := server.ListGitHubInstallations(ctx, &protoReq)
+	return msg, metadata, err
+}
+
+var filter_AuthService_DisconnectGitHubInstallation_0 = &utilities.DoubleArray{Encoding: map[string]int{"org_id": 0, "installation_id": 1}, Base: []int{1, 1, 2, 0, 0}, Check: []int{0, 1, 1, 2, 3}}
+
+func request_AuthService_DisconnectGitHubInstallation_0(ctx context.Context, marshaler runtime.Marshaler, client AuthServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq DisconnectGitHubInstallationRequest
+		metadata runtime.ServerMetadata
+		err      error
+	)
+	val, ok := pathParams["org_id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "org_id")
+	}
+	protoReq.OrgId, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "org_id", err)
+	}
+	val, ok = pathParams["installation_id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "installation_id")
+	}
+	protoReq.InstallationId, err = runtime.Int64(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "installation_id", err)
+	}
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_AuthService_DisconnectGitHubInstallation_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if req.Body != nil {
+		_, _ = io.Copy(io.Discard, req.Body)
+	}
+	msg, err := client.DisconnectGitHubInstallation(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+}
+
+func local_request_AuthService_DisconnectGitHubInstallation_0(ctx context.Context, marshaler runtime.Marshaler, server AuthServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq DisconnectGitHubInstallationRequest
+		metadata runtime.ServerMetadata
+		err      error
+	)
+	val, ok := pathParams["org_id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "org_id")
+	}
+	protoReq.OrgId, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "org_id", err)
+	}
+	val, ok = pathParams["installation_id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "installation_id")
+	}
+	protoReq.InstallationId, err = runtime.Int64(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "installation_id", err)
+	}
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_AuthService_DisconnectGitHubInstallation_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	msg, err := server.DisconnectGitHubInstallation(ctx, &protoReq)
+	return msg, metadata, err
+}
+
+var filter_AuthService_ListGitHubRepositories_0 = &utilities.DoubleArray{Encoding: map[string]int{"org_id": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
+
+func request_AuthService_ListGitHubRepositories_0(ctx context.Context, marshaler runtime.Marshaler, client AuthServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq ListGitHubRepositoriesRequest
+		metadata runtime.ServerMetadata
+		err      error
+	)
+	val, ok := pathParams["org_id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "org_id")
+	}
+	protoReq.OrgId, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "org_id", err)
+	}
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_AuthService_ListGitHubRepositories_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if req.Body != nil {
+		_, _ = io.Copy(io.Discard, req.Body)
+	}
+	msg, err := client.ListGitHubRepositories(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+}
+
+func local_request_AuthService_ListGitHubRepositories_0(ctx context.Context, marshaler runtime.Marshaler, server AuthServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq ListGitHubRepositoriesRequest
+		metadata runtime.ServerMetadata
+		err      error
+	)
+	val, ok := pathParams["org_id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "org_id")
+	}
+	protoReq.OrgId, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "org_id", err)
+	}
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_AuthService_ListGitHubRepositories_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	msg, err := server.ListGitHubRepositories(ctx, &protoReq)
+	return msg, metadata, err
+}
+
+var filter_AuthService_ListGitHubBranches_0 = &utilities.DoubleArray{Encoding: map[string]int{"org_id": 0, "owner": 1, "repo": 2}, Base: []int{1, 1, 2, 3, 0, 0, 0}, Check: []int{0, 1, 1, 1, 2, 3, 4}}
+
+func request_AuthService_ListGitHubBranches_0(ctx context.Context, marshaler runtime.Marshaler, client AuthServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq ListGitHubBranchesRequest
+		metadata runtime.ServerMetadata
+		err      error
+	)
+	val, ok := pathParams["org_id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "org_id")
+	}
+	protoReq.OrgId, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "org_id", err)
+	}
+	val, ok = pathParams["owner"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "owner")
+	}
+	protoReq.Owner, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "owner", err)
+	}
+	val, ok = pathParams["repo"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "repo")
+	}
+	protoReq.Repo, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "repo", err)
+	}
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_AuthService_ListGitHubBranches_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if req.Body != nil {
+		_, _ = io.Copy(io.Discard, req.Body)
+	}
+	msg, err := client.ListGitHubBranches(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+}
+
+func local_request_AuthService_ListGitHubBranches_0(ctx context.Context, marshaler runtime.Marshaler, server AuthServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq ListGitHubBranchesRequest
+		metadata runtime.ServerMetadata
+		err      error
+	)
+	val, ok := pathParams["org_id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "org_id")
+	}
+	protoReq.OrgId, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "org_id", err)
+	}
+	val, ok = pathParams["owner"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "owner")
+	}
+	protoReq.Owner, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "owner", err)
+	}
+	val, ok = pathParams["repo"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "repo")
+	}
+	protoReq.Repo, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "repo", err)
+	}
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_AuthService_ListGitHubBranches_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	msg, err := server.ListGitHubBranches(ctx, &protoReq)
+	return msg, metadata, err
+}
+
+var filter_AuthService_ListGitHubDirectories_0 = &utilities.DoubleArray{Encoding: map[string]int{"org_id": 0, "owner": 1, "repo": 2}, Base: []int{1, 1, 2, 3, 0, 0, 0}, Check: []int{0, 1, 1, 1, 2, 3, 4}}
+
+func request_AuthService_ListGitHubDirectories_0(ctx context.Context, marshaler runtime.Marshaler, client AuthServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq ListGitHubDirectoriesRequest
+		metadata runtime.ServerMetadata
+		err      error
+	)
+	val, ok := pathParams["org_id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "org_id")
+	}
+	protoReq.OrgId, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "org_id", err)
+	}
+	val, ok = pathParams["owner"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "owner")
+	}
+	protoReq.Owner, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "owner", err)
+	}
+	val, ok = pathParams["repo"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "repo")
+	}
+	protoReq.Repo, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "repo", err)
+	}
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_AuthService_ListGitHubDirectories_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if req.Body != nil {
+		_, _ = io.Copy(io.Discard, req.Body)
+	}
+	msg, err := client.ListGitHubDirectories(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+}
+
+func local_request_AuthService_ListGitHubDirectories_0(ctx context.Context, marshaler runtime.Marshaler, server AuthServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var (
+		protoReq ListGitHubDirectoriesRequest
+		metadata runtime.ServerMetadata
+		err      error
+	)
+	val, ok := pathParams["org_id"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "org_id")
+	}
+	protoReq.OrgId, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "org_id", err)
+	}
+	val, ok = pathParams["owner"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "owner")
+	}
+	protoReq.Owner, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "owner", err)
+	}
+	val, ok = pathParams["repo"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "repo")
+	}
+	protoReq.Repo, err = runtime.String(val)
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "repo", err)
+	}
+	if err := req.ParseForm(); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	if err := runtime.PopulateQueryParameters(&protoReq, req.Form, filter_AuthService_ListGitHubDirectories_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+	msg, err := server.ListGitHubDirectories(ctx, &protoReq)
+	return msg, metadata, err
+}
+
 // RegisterAuthServiceHandlerServer registers the http handlers for service AuthService to "mux".
 // UnaryRPC     :call AuthServiceServer directly.
 // StreamingRPC :currently unsupported pending https://github.com/grpc/grpc-go/issues/906.
@@ -1947,6 +2390,146 @@ func RegisterAuthServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		}
 		forward_AuthService_ListAuditEvents_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
+	mux.Handle(http.MethodGet, pattern_AuthService_StartGitHubInstallation_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/auth.v1.AuthService/StartGitHubInstallation", runtime.WithHTTPPathPattern("/api/v1/orgs/{org_id}/github/installations/start"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_AuthService_StartGitHubInstallation_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_AuthService_StartGitHubInstallation_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
+	mux.Handle(http.MethodPost, pattern_AuthService_CompleteGitHubInstallation_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/auth.v1.AuthService/CompleteGitHubInstallation", runtime.WithHTTPPathPattern("/api/v1/orgs/{org_id}/github/installations"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_AuthService_CompleteGitHubInstallation_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_AuthService_CompleteGitHubInstallation_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
+	mux.Handle(http.MethodGet, pattern_AuthService_ListGitHubInstallations_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/auth.v1.AuthService/ListGitHubInstallations", runtime.WithHTTPPathPattern("/api/v1/orgs/{org_id}/github/installations"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_AuthService_ListGitHubInstallations_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_AuthService_ListGitHubInstallations_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
+	mux.Handle(http.MethodDelete, pattern_AuthService_DisconnectGitHubInstallation_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/auth.v1.AuthService/DisconnectGitHubInstallation", runtime.WithHTTPPathPattern("/api/v1/orgs/{org_id}/github/installations/{installation_id}"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_AuthService_DisconnectGitHubInstallation_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_AuthService_DisconnectGitHubInstallation_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
+	mux.Handle(http.MethodGet, pattern_AuthService_ListGitHubRepositories_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/auth.v1.AuthService/ListGitHubRepositories", runtime.WithHTTPPathPattern("/api/v1/orgs/{org_id}/github/repositories"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_AuthService_ListGitHubRepositories_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_AuthService_ListGitHubRepositories_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
+	mux.Handle(http.MethodGet, pattern_AuthService_ListGitHubBranches_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/auth.v1.AuthService/ListGitHubBranches", runtime.WithHTTPPathPattern("/api/v1/orgs/{org_id}/github/repositories/{owner}/{repo}/branches"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_AuthService_ListGitHubBranches_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_AuthService_ListGitHubBranches_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
+	mux.Handle(http.MethodGet, pattern_AuthService_ListGitHubDirectories_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		var stream runtime.ServerTransportStream
+		ctx = grpc.NewContextWithServerTransportStream(ctx, &stream)
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateIncomingContext(ctx, mux, req, "/auth.v1.AuthService/ListGitHubDirectories", runtime.WithHTTPPathPattern("/api/v1/orgs/{org_id}/github/repositories/{owner}/{repo}/directories"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := local_request_AuthService_ListGitHubDirectories_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_AuthService_ListGitHubDirectories_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
 
 	return nil
 }
@@ -2531,75 +3114,208 @@ func RegisterAuthServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 		}
 		forward_AuthService_ListAuditEvents_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 	})
+	mux.Handle(http.MethodGet, pattern_AuthService_StartGitHubInstallation_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/auth.v1.AuthService/StartGitHubInstallation", runtime.WithHTTPPathPattern("/api/v1/orgs/{org_id}/github/installations/start"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_AuthService_StartGitHubInstallation_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_AuthService_StartGitHubInstallation_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
+	mux.Handle(http.MethodPost, pattern_AuthService_CompleteGitHubInstallation_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/auth.v1.AuthService/CompleteGitHubInstallation", runtime.WithHTTPPathPattern("/api/v1/orgs/{org_id}/github/installations"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_AuthService_CompleteGitHubInstallation_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_AuthService_CompleteGitHubInstallation_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
+	mux.Handle(http.MethodGet, pattern_AuthService_ListGitHubInstallations_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/auth.v1.AuthService/ListGitHubInstallations", runtime.WithHTTPPathPattern("/api/v1/orgs/{org_id}/github/installations"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_AuthService_ListGitHubInstallations_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_AuthService_ListGitHubInstallations_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
+	mux.Handle(http.MethodDelete, pattern_AuthService_DisconnectGitHubInstallation_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/auth.v1.AuthService/DisconnectGitHubInstallation", runtime.WithHTTPPathPattern("/api/v1/orgs/{org_id}/github/installations/{installation_id}"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_AuthService_DisconnectGitHubInstallation_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_AuthService_DisconnectGitHubInstallation_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
+	mux.Handle(http.MethodGet, pattern_AuthService_ListGitHubRepositories_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/auth.v1.AuthService/ListGitHubRepositories", runtime.WithHTTPPathPattern("/api/v1/orgs/{org_id}/github/repositories"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_AuthService_ListGitHubRepositories_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_AuthService_ListGitHubRepositories_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
+	mux.Handle(http.MethodGet, pattern_AuthService_ListGitHubBranches_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/auth.v1.AuthService/ListGitHubBranches", runtime.WithHTTPPathPattern("/api/v1/orgs/{org_id}/github/repositories/{owner}/{repo}/branches"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_AuthService_ListGitHubBranches_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_AuthService_ListGitHubBranches_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
+	mux.Handle(http.MethodGet, pattern_AuthService_ListGitHubDirectories_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		annotatedContext, err := runtime.AnnotateContext(ctx, mux, req, "/auth.v1.AuthService/ListGitHubDirectories", runtime.WithHTTPPathPattern("/api/v1/orgs/{org_id}/github/repositories/{owner}/{repo}/directories"))
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_AuthService_ListGitHubDirectories_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
+		if err != nil {
+			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		forward_AuthService_ListGitHubDirectories_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+	})
 	return nil
 }
 
 var (
-	pattern_AuthService_Register_0             = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"api", "v1", "auth", "register"}, ""))
-	pattern_AuthService_Login_0                = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"api", "v1", "auth", "login"}, ""))
-	pattern_AuthService_Refresh_0              = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"api", "v1", "auth", "refresh"}, ""))
-	pattern_AuthService_Logout_0               = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"api", "v1", "auth", "logout"}, ""))
-	pattern_AuthService_VerifyEmail_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"api", "v1", "auth", "verify-email"}, ""))
-	pattern_AuthService_GetJWKS_0              = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"api", "v1", "auth", "jwks"}, ""))
-	pattern_AuthService_ResendVerification_0   = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"api", "v1", "auth", "resend-verification"}, ""))
-	pattern_AuthService_RequestPasswordReset_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"api", "v1", "auth", "password-reset", "request"}, ""))
-	pattern_AuthService_ConfirmPasswordReset_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"api", "v1", "auth", "password-reset", "confirm"}, ""))
-	pattern_AuthService_ChangePassword_0       = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"api", "v1", "auth", "password", "change"}, ""))
-	pattern_AuthService_GetMe_0                = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"api", "v1", "me"}, ""))
-	pattern_AuthService_ListSessions_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"api", "v1", "auth", "sessions"}, ""))
-	pattern_AuthService_RevokeSession_0        = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4}, []string{"api", "v1", "auth", "sessions", "session_id"}, ""))
-	pattern_AuthService_StartGitHubOAuth_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"api", "v1", "auth", "github", "start"}, ""))
-	pattern_AuthService_CompleteGitHubOAuth_0  = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"api", "v1", "auth", "github", "callback"}, ""))
-	pattern_AuthService_ListRoles_0            = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"api", "v1", "roles"}, ""))
-	pattern_AuthService_CreateOrganization_0   = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"api", "v1", "orgs"}, ""))
-	pattern_AuthService_ListOrganizations_0    = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"api", "v1", "orgs"}, ""))
-	pattern_AuthService_GetOrganization_0      = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"api", "v1", "orgs", "org_id"}, ""))
-	pattern_AuthService_UpdateOrganization_0   = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"api", "v1", "orgs", "org_id"}, ""))
-	pattern_AuthService_DeleteOrganization_0   = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"api", "v1", "orgs", "org_id"}, ""))
-	pattern_AuthService_ListMembers_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4}, []string{"api", "v1", "orgs", "org_id", "members"}, ""))
-	pattern_AuthService_AddMember_0            = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4}, []string{"api", "v1", "orgs", "org_id", "members"}, ""))
-	pattern_AuthService_UpdateMemberRole_0     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4, 1, 0, 4, 1, 5, 5}, []string{"api", "v1", "orgs", "org_id", "members", "target_user_id"}, ""))
-	pattern_AuthService_RemoveMember_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4, 1, 0, 4, 1, 5, 5}, []string{"api", "v1", "orgs", "org_id", "members", "target_user_id"}, ""))
-	pattern_AuthService_CreateInvite_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4}, []string{"api", "v1", "orgs", "org_id", "invites"}, ""))
-	pattern_AuthService_AcceptInvite_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"api", "v1", "orgs", "invites", "accept"}, ""))
-	pattern_AuthService_RevokeInvite_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4, 1, 0, 4, 1, 5, 5}, []string{"api", "v1", "orgs", "org_id", "invites", "invite_id"}, ""))
-	pattern_AuthService_CreateAPIToken_0       = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4}, []string{"api", "v1", "orgs", "org_id", "tokens"}, ""))
-	pattern_AuthService_ListAPITokens_0        = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4}, []string{"api", "v1", "orgs", "org_id", "tokens"}, ""))
-	pattern_AuthService_RevokeAPIToken_0       = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4, 1, 0, 4, 1, 5, 5}, []string{"api", "v1", "orgs", "org_id", "tokens", "token_id"}, ""))
-	pattern_AuthService_ListAuditEvents_0      = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4}, []string{"api", "v1", "orgs", "org_id", "audit"}, ""))
+	pattern_AuthService_Register_0                     = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"api", "v1", "auth", "register"}, ""))
+	pattern_AuthService_Login_0                        = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"api", "v1", "auth", "login"}, ""))
+	pattern_AuthService_Refresh_0                      = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"api", "v1", "auth", "refresh"}, ""))
+	pattern_AuthService_Logout_0                       = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"api", "v1", "auth", "logout"}, ""))
+	pattern_AuthService_VerifyEmail_0                  = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"api", "v1", "auth", "verify-email"}, ""))
+	pattern_AuthService_GetJWKS_0                      = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"api", "v1", "auth", "jwks"}, ""))
+	pattern_AuthService_ResendVerification_0           = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"api", "v1", "auth", "resend-verification"}, ""))
+	pattern_AuthService_RequestPasswordReset_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"api", "v1", "auth", "password-reset", "request"}, ""))
+	pattern_AuthService_ConfirmPasswordReset_0         = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"api", "v1", "auth", "password-reset", "confirm"}, ""))
+	pattern_AuthService_ChangePassword_0               = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"api", "v1", "auth", "password", "change"}, ""))
+	pattern_AuthService_GetMe_0                        = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"api", "v1", "me"}, ""))
+	pattern_AuthService_ListSessions_0                 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3}, []string{"api", "v1", "auth", "sessions"}, ""))
+	pattern_AuthService_RevokeSession_0                = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 1, 0, 4, 1, 5, 4}, []string{"api", "v1", "auth", "sessions", "session_id"}, ""))
+	pattern_AuthService_StartGitHubOAuth_0             = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"api", "v1", "auth", "github", "start"}, ""))
+	pattern_AuthService_CompleteGitHubOAuth_0          = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"api", "v1", "auth", "github", "callback"}, ""))
+	pattern_AuthService_ListRoles_0                    = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"api", "v1", "roles"}, ""))
+	pattern_AuthService_CreateOrganization_0           = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"api", "v1", "orgs"}, ""))
+	pattern_AuthService_ListOrganizations_0            = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"api", "v1", "orgs"}, ""))
+	pattern_AuthService_GetOrganization_0              = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"api", "v1", "orgs", "org_id"}, ""))
+	pattern_AuthService_UpdateOrganization_0           = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"api", "v1", "orgs", "org_id"}, ""))
+	pattern_AuthService_DeleteOrganization_0           = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3}, []string{"api", "v1", "orgs", "org_id"}, ""))
+	pattern_AuthService_ListMembers_0                  = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4}, []string{"api", "v1", "orgs", "org_id", "members"}, ""))
+	pattern_AuthService_AddMember_0                    = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4}, []string{"api", "v1", "orgs", "org_id", "members"}, ""))
+	pattern_AuthService_UpdateMemberRole_0             = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4, 1, 0, 4, 1, 5, 5}, []string{"api", "v1", "orgs", "org_id", "members", "target_user_id"}, ""))
+	pattern_AuthService_RemoveMember_0                 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4, 1, 0, 4, 1, 5, 5}, []string{"api", "v1", "orgs", "org_id", "members", "target_user_id"}, ""))
+	pattern_AuthService_CreateInvite_0                 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4}, []string{"api", "v1", "orgs", "org_id", "invites"}, ""))
+	pattern_AuthService_AcceptInvite_0                 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 2, 3, 2, 4}, []string{"api", "v1", "orgs", "invites", "accept"}, ""))
+	pattern_AuthService_RevokeInvite_0                 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4, 1, 0, 4, 1, 5, 5}, []string{"api", "v1", "orgs", "org_id", "invites", "invite_id"}, ""))
+	pattern_AuthService_CreateAPIToken_0               = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4}, []string{"api", "v1", "orgs", "org_id", "tokens"}, ""))
+	pattern_AuthService_ListAPITokens_0                = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4}, []string{"api", "v1", "orgs", "org_id", "tokens"}, ""))
+	pattern_AuthService_RevokeAPIToken_0               = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4, 1, 0, 4, 1, 5, 5}, []string{"api", "v1", "orgs", "org_id", "tokens", "token_id"}, ""))
+	pattern_AuthService_ListAuditEvents_0              = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4}, []string{"api", "v1", "orgs", "org_id", "audit"}, ""))
+	pattern_AuthService_StartGitHubInstallation_0      = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4, 2, 5, 2, 6}, []string{"api", "v1", "orgs", "org_id", "github", "installations", "start"}, ""))
+	pattern_AuthService_CompleteGitHubInstallation_0   = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4, 2, 5}, []string{"api", "v1", "orgs", "org_id", "github", "installations"}, ""))
+	pattern_AuthService_ListGitHubInstallations_0      = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4, 2, 5}, []string{"api", "v1", "orgs", "org_id", "github", "installations"}, ""))
+	pattern_AuthService_DisconnectGitHubInstallation_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4, 2, 5, 1, 0, 4, 1, 5, 6}, []string{"api", "v1", "orgs", "org_id", "github", "installations", "installation_id"}, ""))
+	pattern_AuthService_ListGitHubRepositories_0       = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4, 2, 5}, []string{"api", "v1", "orgs", "org_id", "github", "repositories"}, ""))
+	pattern_AuthService_ListGitHubBranches_0           = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4, 2, 5, 1, 0, 4, 1, 5, 6, 1, 0, 4, 1, 5, 7, 2, 8}, []string{"api", "v1", "orgs", "org_id", "github", "repositories", "owner", "repo", "branches"}, ""))
+	pattern_AuthService_ListGitHubDirectories_0        = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2, 1, 0, 4, 1, 5, 3, 2, 4, 2, 5, 1, 0, 4, 1, 5, 6, 1, 0, 4, 1, 5, 7, 2, 8}, []string{"api", "v1", "orgs", "org_id", "github", "repositories", "owner", "repo", "directories"}, ""))
 )
 
 var (
-	forward_AuthService_Register_0             = runtime.ForwardResponseMessage
-	forward_AuthService_Login_0                = runtime.ForwardResponseMessage
-	forward_AuthService_Refresh_0              = runtime.ForwardResponseMessage
-	forward_AuthService_Logout_0               = runtime.ForwardResponseMessage
-	forward_AuthService_VerifyEmail_0          = runtime.ForwardResponseMessage
-	forward_AuthService_GetJWKS_0              = runtime.ForwardResponseMessage
-	forward_AuthService_ResendVerification_0   = runtime.ForwardResponseMessage
-	forward_AuthService_RequestPasswordReset_0 = runtime.ForwardResponseMessage
-	forward_AuthService_ConfirmPasswordReset_0 = runtime.ForwardResponseMessage
-	forward_AuthService_ChangePassword_0       = runtime.ForwardResponseMessage
-	forward_AuthService_GetMe_0                = runtime.ForwardResponseMessage
-	forward_AuthService_ListSessions_0         = runtime.ForwardResponseMessage
-	forward_AuthService_RevokeSession_0        = runtime.ForwardResponseMessage
-	forward_AuthService_StartGitHubOAuth_0     = runtime.ForwardResponseMessage
-	forward_AuthService_CompleteGitHubOAuth_0  = runtime.ForwardResponseMessage
-	forward_AuthService_ListRoles_0            = runtime.ForwardResponseMessage
-	forward_AuthService_CreateOrganization_0   = runtime.ForwardResponseMessage
-	forward_AuthService_ListOrganizations_0    = runtime.ForwardResponseMessage
-	forward_AuthService_GetOrganization_0      = runtime.ForwardResponseMessage
-	forward_AuthService_UpdateOrganization_0   = runtime.ForwardResponseMessage
-	forward_AuthService_DeleteOrganization_0   = runtime.ForwardResponseMessage
-	forward_AuthService_ListMembers_0          = runtime.ForwardResponseMessage
-	forward_AuthService_AddMember_0            = runtime.ForwardResponseMessage
-	forward_AuthService_UpdateMemberRole_0     = runtime.ForwardResponseMessage
-	forward_AuthService_RemoveMember_0         = runtime.ForwardResponseMessage
-	forward_AuthService_CreateInvite_0         = runtime.ForwardResponseMessage
-	forward_AuthService_AcceptInvite_0         = runtime.ForwardResponseMessage
-	forward_AuthService_RevokeInvite_0         = runtime.ForwardResponseMessage
-	forward_AuthService_CreateAPIToken_0       = runtime.ForwardResponseMessage
-	forward_AuthService_ListAPITokens_0        = runtime.ForwardResponseMessage
-	forward_AuthService_RevokeAPIToken_0       = runtime.ForwardResponseMessage
-	forward_AuthService_ListAuditEvents_0      = runtime.ForwardResponseMessage
+	forward_AuthService_Register_0                     = runtime.ForwardResponseMessage
+	forward_AuthService_Login_0                        = runtime.ForwardResponseMessage
+	forward_AuthService_Refresh_0                      = runtime.ForwardResponseMessage
+	forward_AuthService_Logout_0                       = runtime.ForwardResponseMessage
+	forward_AuthService_VerifyEmail_0                  = runtime.ForwardResponseMessage
+	forward_AuthService_GetJWKS_0                      = runtime.ForwardResponseMessage
+	forward_AuthService_ResendVerification_0           = runtime.ForwardResponseMessage
+	forward_AuthService_RequestPasswordReset_0         = runtime.ForwardResponseMessage
+	forward_AuthService_ConfirmPasswordReset_0         = runtime.ForwardResponseMessage
+	forward_AuthService_ChangePassword_0               = runtime.ForwardResponseMessage
+	forward_AuthService_GetMe_0                        = runtime.ForwardResponseMessage
+	forward_AuthService_ListSessions_0                 = runtime.ForwardResponseMessage
+	forward_AuthService_RevokeSession_0                = runtime.ForwardResponseMessage
+	forward_AuthService_StartGitHubOAuth_0             = runtime.ForwardResponseMessage
+	forward_AuthService_CompleteGitHubOAuth_0          = runtime.ForwardResponseMessage
+	forward_AuthService_ListRoles_0                    = runtime.ForwardResponseMessage
+	forward_AuthService_CreateOrganization_0           = runtime.ForwardResponseMessage
+	forward_AuthService_ListOrganizations_0            = runtime.ForwardResponseMessage
+	forward_AuthService_GetOrganization_0              = runtime.ForwardResponseMessage
+	forward_AuthService_UpdateOrganization_0           = runtime.ForwardResponseMessage
+	forward_AuthService_DeleteOrganization_0           = runtime.ForwardResponseMessage
+	forward_AuthService_ListMembers_0                  = runtime.ForwardResponseMessage
+	forward_AuthService_AddMember_0                    = runtime.ForwardResponseMessage
+	forward_AuthService_UpdateMemberRole_0             = runtime.ForwardResponseMessage
+	forward_AuthService_RemoveMember_0                 = runtime.ForwardResponseMessage
+	forward_AuthService_CreateInvite_0                 = runtime.ForwardResponseMessage
+	forward_AuthService_AcceptInvite_0                 = runtime.ForwardResponseMessage
+	forward_AuthService_RevokeInvite_0                 = runtime.ForwardResponseMessage
+	forward_AuthService_CreateAPIToken_0               = runtime.ForwardResponseMessage
+	forward_AuthService_ListAPITokens_0                = runtime.ForwardResponseMessage
+	forward_AuthService_RevokeAPIToken_0               = runtime.ForwardResponseMessage
+	forward_AuthService_ListAuditEvents_0              = runtime.ForwardResponseMessage
+	forward_AuthService_StartGitHubInstallation_0      = runtime.ForwardResponseMessage
+	forward_AuthService_CompleteGitHubInstallation_0   = runtime.ForwardResponseMessage
+	forward_AuthService_ListGitHubInstallations_0      = runtime.ForwardResponseMessage
+	forward_AuthService_DisconnectGitHubInstallation_0 = runtime.ForwardResponseMessage
+	forward_AuthService_ListGitHubRepositories_0       = runtime.ForwardResponseMessage
+	forward_AuthService_ListGitHubBranches_0           = runtime.ForwardResponseMessage
+	forward_AuthService_ListGitHubDirectories_0        = runtime.ForwardResponseMessage
 )

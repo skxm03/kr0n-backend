@@ -39,7 +39,8 @@ func NewGatewayServeMux(trustedProxies []*net.IPNet) *runtime.ServeMux {
 				*authv1.CreateOrganizationResponse,
 				*authv1.AddMemberResponse,
 				*authv1.CreateInviteResponse,
-				*authv1.CreateAPITokenResponse:
+				*authv1.CreateAPITokenResponse,
+				*authv1.CompleteGitHubInstallationResponse:
 				w.WriteHeader(http.StatusCreated)
 			}
 			return nil

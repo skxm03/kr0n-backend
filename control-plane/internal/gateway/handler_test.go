@@ -52,8 +52,15 @@ type mockAuthClient struct {
 	createAPITokenFunc       func(ctx context.Context, in *authv1.CreateAPITokenRequest, opts ...grpc.CallOption) (*authv1.CreateAPITokenResponse, error)
 	listAPITokensFunc        func(ctx context.Context, in *authv1.ListAPITokensRequest, opts ...grpc.CallOption) (*authv1.ListAPITokensResponse, error)
 	revokeAPITokenFunc       func(ctx context.Context, in *authv1.RevokeAPITokenRequest, opts ...grpc.CallOption) (*authv1.RevokeAPITokenResponse, error)
-	validateAPITokenFunc     func(ctx context.Context, in *authv1.ValidateAPITokenRequest, opts ...grpc.CallOption) (*authv1.ValidateAPITokenResponse, error)
-	listAuditEventsFunc      func(ctx context.Context, in *authv1.ListAuditEventsRequest, opts ...grpc.CallOption) (*authv1.ListAuditEventsResponse, error)
+	validateAPITokenFunc             func(ctx context.Context, in *authv1.ValidateAPITokenRequest, opts ...grpc.CallOption) (*authv1.ValidateAPITokenResponse, error)
+	listAuditEventsFunc              func(ctx context.Context, in *authv1.ListAuditEventsRequest, opts ...grpc.CallOption) (*authv1.ListAuditEventsResponse, error)
+	startGitHubInstallationFunc      func(ctx context.Context, in *authv1.StartGitHubInstallationRequest, opts ...grpc.CallOption) (*authv1.StartGitHubInstallationResponse, error)
+	completeGitHubInstallationFunc   func(ctx context.Context, in *authv1.CompleteGitHubInstallationRequest, opts ...grpc.CallOption) (*authv1.CompleteGitHubInstallationResponse, error)
+	listGitHubInstallationsFunc      func(ctx context.Context, in *authv1.ListGitHubInstallationsRequest, opts ...grpc.CallOption) (*authv1.ListGitHubInstallationsResponse, error)
+	disconnectGitHubInstallationFunc func(ctx context.Context, in *authv1.DisconnectGitHubInstallationRequest, opts ...grpc.CallOption) (*authv1.DisconnectGitHubInstallationResponse, error)
+	listGitHubRepositoriesFunc       func(ctx context.Context, in *authv1.ListGitHubRepositoriesRequest, opts ...grpc.CallOption) (*authv1.ListGitHubRepositoriesResponse, error)
+	listGitHubBranchesFunc           func(ctx context.Context, in *authv1.ListGitHubBranchesRequest, opts ...grpc.CallOption) (*authv1.ListGitHubBranchesResponse, error)
+	listGitHubDirectoriesFunc        func(ctx context.Context, in *authv1.ListGitHubDirectoriesRequest, opts ...grpc.CallOption) (*authv1.ListGitHubDirectoriesResponse, error)
 }
 
 func (m *mockAuthClient) Register(ctx context.Context, in *authv1.RegisterRequest, opts ...grpc.CallOption) (*authv1.RegisterResponse, error) {
@@ -326,6 +333,81 @@ func (m *mockAuthClient) ListAuditEvents(ctx context.Context, in *authv1.ListAud
 		return m.listAuditEventsFunc(ctx, in, opts...)
 	}
 	return &authv1.ListAuditEventsResponse{}, nil
+}
+
+func (m *mockAuthClient) StartGitHubInstallation(ctx context.Context, in *authv1.StartGitHubInstallationRequest, opts ...grpc.CallOption) (*authv1.StartGitHubInstallationResponse, error) {
+	if m.startGitHubInstallationFunc != nil {
+		return m.startGitHubInstallationFunc(ctx, in, opts...)
+	}
+	return &authv1.StartGitHubInstallationResponse{
+		InstallUrl: "https://github.com/apps/kr0n-cloud/installations/new?state=st1",
+		State:      "st1",
+	}, nil
+}
+
+func (m *mockAuthClient) CompleteGitHubInstallation(ctx context.Context, in *authv1.CompleteGitHubInstallationRequest, opts ...grpc.CallOption) (*authv1.CompleteGitHubInstallationResponse, error) {
+	if m.completeGitHubInstallationFunc != nil {
+		return m.completeGitHubInstallationFunc(ctx, in, opts...)
+	}
+	return &authv1.CompleteGitHubInstallationResponse{
+		Installation: &authv1.GitHubInstallationInfo{
+			Id:             "inst-uuid-1",
+			OrgId:          in.GetOrgId(),
+			InstallationId: in.GetInstallationId(),
+			AccountLogin:   "acme-gh",
+			AccountType:    "Organization",
+			Status:         "active",
+		},
+	}, nil
+}
+
+func (m *mockAuthClient) ListGitHubInstallations(ctx context.Context, in *authv1.ListGitHubInstallationsRequest, opts ...grpc.CallOption) (*authv1.ListGitHubInstallationsResponse, error) {
+	if m.listGitHubInstallationsFunc != nil {
+		return m.listGitHubInstallationsFunc(ctx, in, opts...)
+	}
+	return &authv1.ListGitHubInstallationsResponse{
+		Installations: []*authv1.GitHubInstallationInfo{
+			{Id: "inst-uuid-1", OrgId: in.GetOrgId(), InstallationId: 77001, AccountLogin: "acme-gh"},
+		},
+	}, nil
+}
+
+func (m *mockAuthClient) DisconnectGitHubInstallation(ctx context.Context, in *authv1.DisconnectGitHubInstallationRequest, opts ...grpc.CallOption) (*authv1.DisconnectGitHubInstallationResponse, error) {
+	if m.disconnectGitHubInstallationFunc != nil {
+		return m.disconnectGitHubInstallationFunc(ctx, in, opts...)
+	}
+	return &authv1.DisconnectGitHubInstallationResponse{Message: "disconnected"}, nil
+}
+
+func (m *mockAuthClient) ListGitHubRepositories(ctx context.Context, in *authv1.ListGitHubRepositoriesRequest, opts ...grpc.CallOption) (*authv1.ListGitHubRepositoriesResponse, error) {
+	if m.listGitHubRepositoriesFunc != nil {
+		return m.listGitHubRepositoriesFunc(ctx, in, opts...)
+	}
+	return &authv1.ListGitHubRepositoriesResponse{
+		Repositories: []*authv1.GitHubRepositoryInfo{
+			{Id: 501, Owner: "acme-gh", Name: "monorepo", FullName: "acme-gh/monorepo", DefaultBranch: "main"},
+		},
+	}, nil
+}
+
+func (m *mockAuthClient) ListGitHubBranches(ctx context.Context, in *authv1.ListGitHubBranchesRequest, opts ...grpc.CallOption) (*authv1.ListGitHubBranchesResponse, error) {
+	if m.listGitHubBranchesFunc != nil {
+		return m.listGitHubBranchesFunc(ctx, in, opts...)
+	}
+	return &authv1.ListGitHubBranchesResponse{
+		Branches: []*authv1.GitHubBranchInfo{
+			{Name: "main", CommitSha: "deadbeef1234", Protected: true},
+		},
+	}, nil
+}
+
+func (m *mockAuthClient) ListGitHubDirectories(ctx context.Context, in *authv1.ListGitHubDirectoriesRequest, opts ...grpc.CallOption) (*authv1.ListGitHubDirectoriesResponse, error) {
+	if m.listGitHubDirectoriesFunc != nil {
+		return m.listGitHubDirectoriesFunc(ctx, in, opts...)
+	}
+	return &authv1.ListGitHubDirectoriesResponse{
+		Directories: []string{"/", "/apps/api"},
+	}, nil
 }
 
 func TestHandler_Register_Success(t *testing.T) {
@@ -1561,5 +1643,50 @@ func TestHandler_P6_OrgsMembersInvitesAPITokens(t *testing.T) {
 	router.ServeHTTP(w, withUser(httptest.NewRequest(http.MethodDelete, "/api/v1/orgs/org-1/tokens/tok-1", nil)))
 	if w.Code != http.StatusOK {
 		t.Fatalf("DELETE token: %d", w.Code)
+	}
+
+	// 8. GitHub App Installations & Repository Explorer
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, withUser(httptest.NewRequest(http.MethodGet, "/api/v1/orgs/org-1/github/installations/start", nil)))
+	if w.Code != http.StatusOK || !bytes.Contains(w.Body.Bytes(), []byte(`"install_url"`)) {
+		t.Fatalf("GET github/installations/start: %d %s", w.Code, w.Body.String())
+	}
+
+	req = withUser(httptest.NewRequest(http.MethodPost, "/api/v1/orgs/org-1/github/installations", bytes.NewReader([]byte(`{"installation_id":77001,"state":"st1"}`))))
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated || !bytes.Contains(w.Body.Bytes(), []byte(`"acme-gh"`)) {
+		t.Fatalf("POST github/installations: %d %s", w.Code, w.Body.String())
+	}
+
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, withUser(httptest.NewRequest(http.MethodGet, "/api/v1/orgs/org-1/github/installations", nil)))
+	if w.Code != http.StatusOK || !bytes.Contains(w.Body.Bytes(), []byte(`"acme-gh"`)) {
+		t.Fatalf("GET github/installations: %d %s", w.Code, w.Body.String())
+	}
+
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, withUser(httptest.NewRequest(http.MethodGet, "/api/v1/orgs/org-1/github/repositories?installation_id=77001", nil)))
+	if w.Code != http.StatusOK || !bytes.Contains(w.Body.Bytes(), []byte(`"acme-gh/monorepo"`)) {
+		t.Fatalf("GET github/repositories: %d %s", w.Code, w.Body.String())
+	}
+
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, withUser(httptest.NewRequest(http.MethodGet, "/api/v1/orgs/org-1/github/repositories/acme-gh/monorepo/branches?installation_id=77001", nil)))
+	if w.Code != http.StatusOK || !bytes.Contains(w.Body.Bytes(), []byte(`"deadbeef1234"`)) {
+		t.Fatalf("GET github/branches: %d %s", w.Code, w.Body.String())
+	}
+
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, withUser(httptest.NewRequest(http.MethodGet, "/api/v1/orgs/org-1/github/repositories/acme-gh/monorepo/directories?installation_id=77001&ref=main", nil)))
+	if w.Code != http.StatusOK || !bytes.Contains(w.Body.Bytes(), []byte(`"/apps/api"`)) {
+		t.Fatalf("GET github/directories: %d %s", w.Code, w.Body.String())
+	}
+
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, withUser(httptest.NewRequest(http.MethodDelete, "/api/v1/orgs/org-1/github/installations/77001", nil)))
+	if w.Code != http.StatusOK {
+		t.Fatalf("DELETE github/installation: %d %s", w.Code, w.Body.String())
 	}
 }

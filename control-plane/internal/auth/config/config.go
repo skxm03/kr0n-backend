@@ -26,6 +26,10 @@ type Config struct {
 	GitHubClientID                 string        `env:"GITHUB_CLIENT_ID"`
 	GitHubClientSecret             string        `env:"GITHUB_CLIENT_SECRET"`
 	GitHubRedirectURL              string        `env:"GITHUB_REDIRECT_URL"`
+	GitHubAppID                    string        `env:"GITHUB_APP_ID"`
+	GitHubAppSlug                  string        `env:"GITHUB_APP_SLUG"`
+	GitHubAppPrivateKey            string        `env:"GITHUB_APP_PRIVATE_KEY"`
+	GitHubAppStateSecret           string        `env:"GITHUB_APP_STATE_SECRET"`
 	AuthGRPCTLSCertFile            string        `env:"AUTH_GRPC_TLS_CERT_FILE"`
 	AuthGRPCTLSKeyFile             string        `env:"AUTH_GRPC_TLS_KEY_FILE"`
 	AuthGRPCClientCAFile           string        `env:"AUTH_GRPC_CLIENT_CA_FILE"`

@@ -34,10 +34,12 @@ var (
 	ErrLastOwner           = errors.New("cannot remove or demote the last organization owner")
 	ErrMemberNotFound      = errors.New("organization member not found")
 	ErrMemberAlreadyExists = errors.New("user is already a member of this organization")
-	ErrInviteNotFound      = errors.New("organization invite not found")
-	ErrInvalidInviteToken  = errors.New("invalid or expired organization invite token")
-	ErrTokenNotFound       = errors.New("api token not found")
-	ErrInvalidAPIToken     = errors.New("invalid api token")
+	ErrInviteNotFound            = errors.New("organization invite not found")
+	ErrInvalidInviteToken        = errors.New("invalid or expired organization invite token")
+	ErrTokenNotFound             = errors.New("api token not found")
+	ErrInvalidAPIToken           = errors.New("invalid api token")
+	ErrInstallationNotFound      = errors.New("github installation not found")
+	ErrInstallationAlreadyLinked = errors.New("github installation is already linked to another organization")
 )
 
 // Principal represents an authenticated caller evaluated by the authorization service.
@@ -104,6 +106,20 @@ type APIToken struct {
 	CreatedAt       time.Time
 }
 
+// GitHubInstallation represents a GitHub App installation bound to a kr0n Organization.
+type GitHubInstallation struct {
+	ID                  uuid.UUID
+	OrganizationID      uuid.UUID
+	InstallationID      int64
+	AccountLogin        string
+	AccountType         string
+	RepositorySelection string
+	Status              string
+	CreatedByUserID     uuid.UUID
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+}
+
 // GenerateAPIToken generates a `kr0n_pat_<64 hex>` secret, its display prefix, and its SHA-256 hash.
 func GenerateAPIToken() (rawToken, prefix, tokenHash string, err error) {
 	b := make([]byte, 32)
@@ -153,6 +169,10 @@ type OrgRepository interface {
 	RevokeAPIToken(ctx context.Context, orgID, tokenID uuid.UUID, now time.Time) error
 	GetAPITokenByHash(ctx context.Context, tokenHash string) (*APIToken, Status, error)
 	TouchAPITokenLastUsed(ctx context.Context, tokenID uuid.UUID, usedAt time.Time) error
+
+	UpsertGitHubInstallation(ctx context.Context, inst *GitHubInstallation) (*GitHubInstallation, error)
+	ListGitHubInstallations(ctx context.Context, orgID uuid.UUID) ([]GitHubInstallation, error)
+	DeleteGitHubInstallation(ctx context.Context, orgID uuid.UUID, installationID int64) error
 }
 
 // PostgresOrgRepository implements OrgRepository using PostgreSQL.
@@ -716,3 +736,86 @@ func (r *PostgresOrgRepository) TouchAPITokenLastUsed(ctx context.Context, token
 	`, usedAt, tokenID, LastUsedWriteInterval.Seconds())
 	return err
 }
+
+// UpsertGitHubInstallation inserts or updates a GitHub installation for orgID, rejecting cross-org hijacks.
+func (r *PostgresOrgRepository) UpsertGitHubInstallation(ctx context.Context, inst *GitHubInstallation) (*GitHubInstallation, error) {
+	var out GitHubInstallation
+	var createdBy *uuid.UUID
+	err := r.pool.QueryRow(ctx, `
+		INSERT INTO github_installations (
+			id, organization_id, installation_id, account_login, account_type,
+			repository_selection, status, created_by_user_id, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		ON CONFLICT (installation_id) DO UPDATE
+		SET account_login = EXCLUDED.account_login,
+		    account_type = EXCLUDED.account_type,
+		    repository_selection = EXCLUDED.repository_selection,
+		    status = EXCLUDED.status,
+		    updated_at = EXCLUDED.updated_at
+		WHERE github_installations.organization_id = EXCLUDED.organization_id
+		RETURNING id, organization_id, installation_id, account_login, account_type,
+		          repository_selection, status, created_by_user_id, created_at, updated_at;
+	`, inst.ID, inst.OrganizationID, inst.InstallationID, inst.AccountLogin, inst.AccountType,
+		inst.RepositorySelection, inst.Status, inst.CreatedByUserID, inst.CreatedAt, inst.UpdatedAt).Scan(
+		&out.ID, &out.OrganizationID, &out.InstallationID, &out.AccountLogin, &out.AccountType,
+		&out.RepositorySelection, &out.Status, &createdBy, &out.CreatedAt, &out.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrInstallationAlreadyLinked
+		}
+		return nil, fmt.Errorf("upsert github installation: %w", err)
+	}
+	if createdBy != nil {
+		out.CreatedByUserID = *createdBy
+	}
+	return &out, nil
+}
+
+// ListGitHubInstallations returns all GitHub installations bound to orgID.
+func (r *PostgresOrgRepository) ListGitHubInstallations(ctx context.Context, orgID uuid.UUID) ([]GitHubInstallation, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, organization_id, installation_id, account_login, account_type,
+		       repository_selection, status, created_by_user_id, created_at, updated_at
+		FROM github_installations
+		WHERE organization_id = $1
+		ORDER BY created_at DESC;
+	`, orgID)
+	if err != nil {
+		return nil, fmt.Errorf("list github installations: %w", err)
+	}
+	defer rows.Close()
+
+	var out []GitHubInstallation
+	for rows.Next() {
+		var item GitHubInstallation
+		var createdBy *uuid.UUID
+		if err := rows.Scan(
+			&item.ID, &item.OrganizationID, &item.InstallationID, &item.AccountLogin, &item.AccountType,
+			&item.RepositorySelection, &item.Status, &createdBy, &item.CreatedAt, &item.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		if createdBy != nil {
+			item.CreatedByUserID = *createdBy
+		}
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
+// DeleteGitHubInstallation removes a GitHub installation record from orgID.
+func (r *PostgresOrgRepository) DeleteGitHubInstallation(ctx context.Context, orgID uuid.UUID, installationID int64) error {
+	tag, err := r.pool.Exec(ctx, `
+		DELETE FROM github_installations
+		WHERE organization_id = $1 AND installation_id = $2;
+	`, orgID, installationID)
+	if err != nil {
+		return fmt.Errorf("delete github installation: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrInstallationNotFound
+	}
+	return nil
+}
+

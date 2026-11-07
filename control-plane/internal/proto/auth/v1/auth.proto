@@ -252,6 +252,56 @@ service AuthService {
       get: "/api/v1/orgs/{org_id}/audit"
     };
   }
+
+  // StartGitHubInstallation generates a signed installation state token and GitHub App installation URL.
+  rpc StartGitHubInstallation(StartGitHubInstallationRequest) returns (StartGitHubInstallationResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/orgs/{org_id}/github/installations/start"
+    };
+  }
+
+  // CompleteGitHubInstallation verifies the installation state and links the GitHub App installation to the organization.
+  rpc CompleteGitHubInstallation(CompleteGitHubInstallationRequest) returns (CompleteGitHubInstallationResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/orgs/{org_id}/github/installations"
+      body: "*"
+    };
+  }
+
+  // ListGitHubInstallations lists GitHub App installations linked to the organization.
+  rpc ListGitHubInstallations(ListGitHubInstallationsRequest) returns (ListGitHubInstallationsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/orgs/{org_id}/github/installations"
+    };
+  }
+
+  // DisconnectGitHubInstallation unlinks a GitHub App installation from the organization.
+  rpc DisconnectGitHubInstallation(DisconnectGitHubInstallationRequest) returns (DisconnectGitHubInstallationResponse) {
+    option (google.api.http) = {
+      delete: "/api/v1/orgs/{org_id}/github/installations/{installation_id}"
+    };
+  }
+
+  // ListGitHubRepositories lists GitHub repositories accessible to an organization installation.
+  rpc ListGitHubRepositories(ListGitHubRepositoriesRequest) returns (ListGitHubRepositoriesResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/orgs/{org_id}/github/repositories"
+    };
+  }
+
+  // ListGitHubBranches lists branches in a GitHub repository accessible to an organization installation.
+  rpc ListGitHubBranches(ListGitHubBranchesRequest) returns (ListGitHubBranchesResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/orgs/{org_id}/github/repositories/{owner}/{repo}/branches"
+    };
+  }
+
+  // ListGitHubDirectories lists canonical root directory paths (e.g. "/", "/apps/api") in a GitHub repository ref.
+  rpc ListGitHubDirectories(ListGitHubDirectoriesRequest) returns (ListGitHubDirectoriesResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/orgs/{org_id}/github/repositories/{owner}/{repo}/directories"
+    };
+  }
 }
 
 message RegisterRequest {
@@ -711,4 +761,108 @@ message AuditEventInfo {
 
 message ListAuditEventsResponse {
   repeated AuditEventInfo events = 1;
+}
+
+message GitHubInstallationInfo {
+  string id = 1;
+  string org_id = 2;
+  int64 installation_id = 3;
+  string account_login = 4;
+  string account_type = 5;
+  string repository_selection = 6;
+  string status = 7;
+  string created_by_user_id = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message StartGitHubInstallationRequest {
+  CallerPrincipal caller = 1;
+  string org_id = 2;
+}
+
+message StartGitHubInstallationResponse {
+  string install_url = 1;
+  string state = 2;
+}
+
+message CompleteGitHubInstallationRequest {
+  CallerPrincipal caller = 1;
+  string org_id = 2;
+  int64 installation_id = 3;
+  string state = 4;
+}
+
+message CompleteGitHubInstallationResponse {
+  GitHubInstallationInfo installation = 1;
+}
+
+message ListGitHubInstallationsRequest {
+  CallerPrincipal caller = 1;
+  string org_id = 2;
+}
+
+message ListGitHubInstallationsResponse {
+  repeated GitHubInstallationInfo installations = 1;
+}
+
+message DisconnectGitHubInstallationRequest {
+  CallerPrincipal caller = 1;
+  string org_id = 2;
+  int64 installation_id = 3;
+}
+
+message DisconnectGitHubInstallationResponse {
+  string message = 1;
+}
+
+message GitHubRepositoryInfo {
+  int64 id = 1;
+  string owner = 2;
+  string name = 3;
+  string full_name = 4;
+  bool private = 5;
+  string default_branch = 6;
+  string html_url = 7;
+}
+
+message ListGitHubRepositoriesRequest {
+  CallerPrincipal caller = 1;
+  string org_id = 2;
+  int64 installation_id = 3;
+}
+
+message ListGitHubRepositoriesResponse {
+  repeated GitHubRepositoryInfo repositories = 1;
+}
+
+message GitHubBranchInfo {
+  string name = 1;
+  string commit_sha = 2;
+  bool protected = 3;
+}
+
+message ListGitHubBranchesRequest {
+  CallerPrincipal caller = 1;
+  string org_id = 2;
+  int64 installation_id = 3;
+  string owner = 4;
+  string repo = 5;
+}
+
+message ListGitHubBranchesResponse {
+  repeated GitHubBranchInfo branches = 1;
+}
+
+message ListGitHubDirectoriesRequest {
+  CallerPrincipal caller = 1;
+  string org_id = 2;
+  int64 installation_id = 3;
+  string owner = 4;
+  string repo = 5;
+  string ref = 6;
+}
+
+message ListGitHubDirectoriesResponse {
+  repeated string directories = 1;
 }
