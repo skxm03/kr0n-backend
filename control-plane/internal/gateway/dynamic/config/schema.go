@@ -1,30 +1,38 @@
 package config
 
-import "time"
+import (
+	"time"
+
+	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/middleware"
+)
 
 // GatewayConfig represents the top-level YAML configuration structure.
 type GatewayConfig struct {
-	Gateway  ServerConfig             `yaml:"gateway"`
-	Services map[string]ServiceConfig `yaml:"services"`
+	Gateway            ServerConfig                         `yaml:"gateway"`
+	MiddlewareProfiles map[string][]middleware.MiddlewareItem `yaml:"middleware_profiles"`
+	Services           map[string]ServiceConfig             `yaml:"services"`
 }
 
-// ServerConfig defines the gateway's HTTP listener and global connection settings.
+// ServerConfig defines the gateway's HTTP listener, global settings, and global middleware.
 type ServerConfig struct {
-	HTTPAddr     string        `yaml:"http_addr"`
-	ReadTimeout  time.Duration `yaml:"read_timeout"`
-	WriteTimeout time.Duration `yaml:"write_timeout"`
-	IdleTimeout  time.Duration `yaml:"idle_timeout"`
-	MaxBodyBytes int64         `yaml:"max_body_bytes"`
+	HTTPAddr     string                      `yaml:"http_addr"`
+	ReadTimeout  time.Duration               `yaml:"read_timeout"`
+	WriteTimeout time.Duration               `yaml:"write_timeout"`
+	IdleTimeout  time.Duration               `yaml:"idle_timeout"`
+	MaxBodyBytes int64                       `yaml:"max_body_bytes"`
+	Middleware   []middleware.MiddlewareItem `yaml:"middleware"` // Global middleware chain
 }
 
-// ServiceConfig defines an upstream gRPC service connection, timeouts, and exposed endpoints.
+// ServiceConfig defines an upstream gRPC service connection, timeouts, groups, and exposed endpoints.
 type ServiceConfig struct {
-	Address      string           `yaml:"address"`
-	Enabled      *bool            `yaml:"enabled"` // Optional, defaults to true
-	Timeout      time.Duration    `yaml:"timeout"`
-	TLS          TLSConfig        `yaml:"tls"`
-	ServiceToken string           `yaml:"service_token"`
-	Endpoints    []EndpointConfig `yaml:"endpoints"`
+	Address      string                      `yaml:"address"`
+	Enabled      *bool                       `yaml:"enabled"` // Optional, defaults to true
+	Timeout      time.Duration               `yaml:"timeout"`
+	TLS          TLSConfig                   `yaml:"tls"`
+	ServiceToken string                      `yaml:"service_token"`
+	Middleware   []middleware.MiddlewareItem `yaml:"middleware"` // Service-level middleware chain
+	Groups       map[string]GroupConfig      `yaml:"groups"`     // URL group middleware
+	Endpoints    []EndpointConfig            `yaml:"endpoints"`
 }
 
 // IsEnabled returns true if the service is explicitly enabled or enabled is nil (default).
@@ -33,6 +41,20 @@ func (s ServiceConfig) IsEnabled() bool {
 		return true
 	}
 	return *s.Enabled
+}
+
+// GroupConfig defines URL pattern-matching rules and the middleware applied to matching endpoints.
+type GroupConfig struct {
+	Match      []MatchRule                 `yaml:"match"`
+	Use        []string                    `yaml:"use"`        // Profile names
+	Middleware []middleware.MiddlewareItem `yaml:"middleware"` // Group-specific middleware items
+}
+
+// MatchRule defines a URL path matching condition.
+type MatchRule struct {
+	Path    string   `yaml:"path"`
+	Type    string   `yaml:"type"`    // "exact", "prefix", "template"
+	Methods []string `yaml:"methods"` // Optional method filter (empty = any method)
 }
 
 // TLSConfig defines transport security parameters for connecting to an upstream gRPC service.
@@ -46,7 +68,9 @@ type TLSConfig struct {
 
 // EndpointConfig defines an explicitly allowed HTTP endpoint mapped to the upstream gRPC service.
 type EndpointConfig struct {
-	Path    string        `yaml:"path"`
-	Method  string        `yaml:"method"`
-	Timeout time.Duration `yaml:"timeout"`
+	Path       string                      `yaml:"path"`
+	Method     string                      `yaml:"method"`
+	Timeout    time.Duration               `yaml:"timeout"`
+	Use        []string                    `yaml:"use"`        // Profile names
+	Middleware []middleware.MiddlewareItem `yaml:"middleware"` // Endpoint-specific middleware items
 }

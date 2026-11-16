@@ -128,6 +128,34 @@ func RejectAPIToken() Middleware {
 	}
 }
 
+// RequirePermission ensures the authenticated principal holds all specified permissions.
+func RequirePermission(permissions ...string) Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			p, ok := PrincipalFromContext(r.Context())
+			if !ok || p == nil {
+				unauthorized(w, r)
+				return
+			}
+			if len(permissions) == 0 {
+				next.ServeHTTP(w, r)
+				return
+			}
+			held := make(map[string]bool)
+			for _, perm := range p.Permissions {
+				held[perm] = true
+			}
+			for _, required := range permissions {
+				if !held[required] {
+					WriteError(w, r, http.StatusForbidden, "insufficient permissions", "FORBIDDEN")
+					return
+				}
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 func unauthorized(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("WWW-Authenticate", `Bearer realm="kr0n"`)
 	WriteError(w, r, http.StatusUnauthorized, "authentication required", "UNAUTHORIZED")

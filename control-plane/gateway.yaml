@@ -5,6 +5,36 @@ gateway:
   idle_timeout: 60s
   max_body_bytes: 4194304
 
+  middleware:
+    - request_id
+    - recovery
+    - access_log
+
+middleware_profiles:
+  public_api:
+    - cors
+    - request_validation
+    - rate_limit:
+        requests: 100
+        window: 1m
+
+  authenticated_api:
+    - cors
+    - authentication:
+        allow_api_tokens: true
+    - rate_limit:
+        requests: 300
+        window: 1m
+
+  sensitive_api:
+    - cors
+    - authentication:
+        allow_api_tokens: true
+    - audit_log
+    - rate_limit:
+        requests: 50
+        window: 1m
+
 services:
   auth:
     address: "${AUTH_GRPC_ADDR:-localhost:50051}"
@@ -13,103 +43,175 @@ services:
     tls:
       enabled: false
 
+    middleware:
+      - cors
+
+    groups:
+      public_auth:
+        match:
+          - path: "/api/v1/auth/*"
+            type: prefix
+            methods: [POST]
+        use:
+          - public_api
+
     endpoints:
       # Public credential & authentication routes
       - path: "/api/v1/auth/register"
         method: "POST"
         timeout: 5s
+        use:
+          - public_api
       - path: "/api/v1/auth/login"
         method: "POST"
         timeout: 5s
+        use:
+          - public_api
       - path: "/api/v1/auth/refresh"
         method: "POST"
         timeout: 5s
+        use:
+          - public_api
       - path: "/api/v1/auth/logout"
         method: "POST"
         timeout: 5s
+        use:
+          - public_api
       - path: "/api/v1/auth/verify-email"
         method: "POST"
         timeout: 5s
+        use:
+          - public_api
       - path: "/api/v1/auth/resend-verification"
         method: "POST"
         timeout: 5s
+        use:
+          - public_api
       - path: "/api/v1/auth/password-reset/request"
         method: "POST"
         timeout: 5s
+        use:
+          - public_api
       - path: "/api/v1/auth/password-reset/confirm"
         method: "POST"
         timeout: 5s
+        use:
+          - public_api
 
-      # Personal account & session management
+      # Personal account & session management (authenticated)
       - path: "/api/v1/auth/password/change"
         method: "POST"
         timeout: 5s
+        use:
+          - authenticated_api
       - path: "/api/v1/me"
         method: "GET"
         timeout: 5s
+        use:
+          - authenticated_api
       - path: "/api/v1/auth/sessions"
         method: "GET"
         timeout: 5s
+        use:
+          - authenticated_api
       - path: "/api/v1/auth/sessions/{id}"
         method: "DELETE"
         timeout: 5s
+        use:
+          - authenticated_api
 
-      # Roles & Organizations
+      # Roles & Organizations (sensitive, audit-logged)
       - path: "/api/v1/roles"
         method: "GET"
         timeout: 5s
+        use:
+          - authenticated_api
       - path: "/api/v1/orgs"
         method: "POST"
         timeout: 5s
+        use:
+          - sensitive_api
       - path: "/api/v1/orgs"
         method: "GET"
         timeout: 5s
+        use:
+          - authenticated_api
       - path: "/api/v1/orgs/{org_id}"
         method: "GET"
         timeout: 5s
+        use:
+          - authenticated_api
       - path: "/api/v1/orgs/{org_id}"
         method: "PUT"
         timeout: 5s
+        use:
+          - sensitive_api
       - path: "/api/v1/orgs/{org_id}"
         method: "DELETE"
         timeout: 5s
+        use:
+          - sensitive_api
 
       # Organization Members & Invites
       - path: "/api/v1/orgs/{org_id}/members"
         method: "GET"
         timeout: 5s
+        use:
+          - authenticated_api
       - path: "/api/v1/orgs/{org_id}/members"
         method: "POST"
         timeout: 5s
+        use:
+          - sensitive_api
       - path: "/api/v1/orgs/{org_id}/members/{user_id}"
         method: "PUT"
         timeout: 5s
+        use:
+          - sensitive_api
       - path: "/api/v1/orgs/{org_id}/members/{user_id}"
         method: "DELETE"
         timeout: 5s
+        use:
+          - sensitive_api
       - path: "/api/v1/orgs/{org_id}/invites"
         method: "POST"
         timeout: 5s
+        use:
+          - sensitive_api
       - path: "/api/v1/orgs/{org_id}/invites"
         method: "GET"
         timeout: 5s
+        use:
+          - authenticated_api
       - path: "/api/v1/orgs/{org_id}/invites/{invite_id}"
         method: "DELETE"
         timeout: 5s
+        use:
+          - sensitive_api
       - path: "/api/v1/orgs/invites/accept"
         method: "POST"
         timeout: 5s
+        use:
+          - authenticated_api
 
       # API Tokens & Audit Events
       - path: "/api/v1/orgs/{org_id}/api-tokens"
         method: "POST"
         timeout: 5s
+        use:
+          - sensitive_api
       - path: "/api/v1/orgs/{org_id}/api-tokens"
         method: "GET"
         timeout: 5s
+        use:
+          - sensitive_api
       - path: "/api/v1/orgs/{org_id}/api-tokens/{token_id}"
         method: "DELETE"
         timeout: 5s
+        use:
+          - sensitive_api
       - path: "/api/v1/orgs/{org_id}/audit-events"
         method: "GET"
         timeout: 5s
+        use:
+          - sensitive_api

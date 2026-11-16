@@ -19,6 +19,7 @@ import (
 
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/dynamic/config"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/dynamic/registry"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/middleware"
 )
 
 // MuxFactory creates a configured grpc-gateway ServeMux.
@@ -26,6 +27,15 @@ type MuxFactory func() *runtime.ServeMux
 
 // ServiceDialer creates a gRPC client connection for a given service configuration.
 type ServiceDialer func(svc config.ServiceConfig) (*grpc.ClientConn, error)
+
+// SnapshotOptions configures the snapshot compilation process.
+type SnapshotOptions struct {
+	Registry           *registry.Registry
+	MiddlewareRegistry *middleware.Registry
+	MuxFactory         MuxFactory
+	Dialer             ServiceDialer
+	ReadyCheck         func(context.Context) error
+}
 
 // DefaultServiceDialer provides standard gRPC dialing with TLS or insecure credentials.
 func DefaultServiceDialer(svc config.ServiceConfig) (*grpc.ClientConn, error) {
@@ -77,29 +87,36 @@ func TimeoutWrapper(next http.Handler, timeout time.Duration) http.HandlerFunc {
 
 // BuildSnapshot constructs an immutable Snapshot from the GatewayConfig.
 // It dials enabled services, binds their grpc-gateway ServeMuxes, and mounts only
-// explicitly allowed endpoints on an outer Chi router.
+// explicitly allowed endpoints wrapped with their compiled hierarchical middleware chains.
 func BuildSnapshot(
 	ctx context.Context,
 	cfg *config.GatewayConfig,
-	reg *registry.Registry,
-	muxFactory MuxFactory,
-	dialer ServiceDialer,
-	readyCheck func(context.Context) error,
+	opts SnapshotOptions,
 ) (*Snapshot, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("gateway config cannot be nil")
 	}
-	if reg == nil {
-		return nil, fmt.Errorf("service registry cannot be nil")
+	if opts.Registry == nil {
+		opts.Registry = registry.DefaultRegistry()
 	}
-	if muxFactory == nil {
-		muxFactory = func() *runtime.ServeMux {
+	if opts.MiddlewareRegistry == nil {
+		opts.MiddlewareRegistry = middleware.NewRegistry()
+	}
+	if opts.MuxFactory == nil {
+		opts.MuxFactory = func() *runtime.ServeMux {
 			return runtime.NewServeMux()
 		}
 	}
-	if dialer == nil {
-		dialer = DefaultServiceDialer
+	if opts.Dialer == nil {
+		opts.Dialer = DefaultServiceDialer
 	}
+
+	// 1. Compile profile resolver & chain compiler
+	resolver, err := middleware.NewProfileResolver(cfg.MiddlewareProfiles)
+	if err != nil {
+		return nil, fmt.Errorf("initialize middleware profile resolver: %w", err)
+	}
+	compiler := middleware.NewChainCompiler(opts.MiddlewareRegistry, resolver)
 
 	router := chi.NewRouter()
 
@@ -111,10 +128,10 @@ func BuildSnapshot(
 	})
 	router.Get("/readyz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		if readyCheck != nil {
+		if opts.ReadyCheck != nil {
 			checkCtx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 			defer cancel()
-			if err := readyCheck(checkCtx); err != nil {
+			if err := opts.ReadyCheck(checkCtx); err != nil {
 				w.WriteHeader(http.StatusServiceUnavailable)
 				_ = json.NewEncoder(w).Encode(map[string]string{
 					"status": "unavailable",
@@ -136,32 +153,65 @@ func BuildSnapshot(
 		}
 	}
 
-	// Iterate services and mount only allowed endpoints
+	// 2. Iterate services and compile hierarchical middleware
 	for svcName, svc := range cfg.Services {
 		if !svc.IsEnabled() {
 			continue
 		}
 
-		registrar, found := reg.Get(svcName)
+		registrar, found := opts.Registry.Get(svcName)
 		if !found {
 			cleanupOnErr()
 			return nil, fmt.Errorf("no registrar found in registry for service %q", svcName)
 		}
 
-		conn, err := dialer(svc)
+		conn, err := opts.Dialer(svc)
 		if err != nil {
 			cleanupOnErr()
 			return nil, fmt.Errorf("failed to dial service %q (%s): %w", svcName, svc.Address, err)
 		}
 		conns = append(conns, conn)
 
-		svcMux := muxFactory()
+		svcMux := opts.MuxFactory()
 		if err := registrar(ctx, svcMux, conn); err != nil {
 			cleanupOnErr()
 			return nil, fmt.Errorf("failed to register grpc-gateway handlers for service %q: %w", svcName, err)
 		}
 
-		// Mount each allowed endpoint
+		// Compile service groups
+		var compiledGroups []middleware.CompiledGroup
+		for gName, gCfg := range svc.Groups {
+			grpItems := gCfg.Middleware
+			if len(gCfg.Use) > 0 {
+				pItems, err := resolver.Resolve(gCfg.Use)
+				if err != nil {
+					cleanupOnErr()
+					return nil, fmt.Errorf("resolve group %q profiles: %w", gName, err)
+				}
+				grpItems = append(grpItems, pItems...)
+			}
+
+			var rules []middleware.GroupMatchRule
+			for _, r := range gCfg.Match {
+				methodsMap := make(map[string]bool)
+				for _, m := range r.Methods {
+					methodsMap[strings.ToUpper(strings.TrimSpace(m))] = true
+				}
+				rules = append(rules, middleware.GroupMatchRule{
+					Path:    r.Path,
+					Type:    middleware.MatchType(r.Type),
+					Methods: methodsMap,
+				})
+			}
+
+			compiledGroups = append(compiledGroups, middleware.CompiledGroup{
+				Name:       gName,
+				Rules:      rules,
+				Middleware: grpItems,
+			})
+		}
+
+		// Mount each allowed endpoint with its compiled chain
 		for _, ep := range svc.Endpoints {
 			timeout := ep.Timeout
 			if timeout <= 0 {
@@ -171,11 +221,31 @@ func BuildSnapshot(
 				timeout = 10 * time.Second
 			}
 
-			handler := TimeoutWrapper(svcMux, timeout)
+			baseHandler := TimeoutWrapper(svcMux, timeout)
 			method := strings.ToUpper(strings.TrimSpace(ep.Method))
 			path := strings.TrimSpace(ep.Path)
 
-			router.Method(method, path, handler)
+			endpointTarget := middleware.EndpointTarget{
+				Method:     method,
+				Path:       path,
+				Use:        ep.Use,
+				Middleware: ep.Middleware,
+			}
+
+			// Compile 4-tier middleware chain: Global -> Service -> Group -> Endpoint
+			compiledHandler, err := compiler.CompileEndpoint(
+				baseHandler,
+				cfg.Gateway.Middleware, // Global
+				svc.Middleware,         // Service
+				compiledGroups,         // Matching groups
+				endpointTarget,         // Endpoint
+			)
+			if err != nil {
+				cleanupOnErr()
+				return nil, fmt.Errorf("compile middleware chain for %s %s: %w", method, path, err)
+			}
+
+			router.Method(method, path, compiledHandler)
 		}
 	}
 

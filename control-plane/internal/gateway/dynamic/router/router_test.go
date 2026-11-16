@@ -88,7 +88,10 @@ func TestSnapshot_EndpointAllowlisting(t *testing.T) {
 		return nil, nil // return nil conn for unit test
 	}
 
-	snap, err := BuildSnapshot(context.Background(), cfg, reg, nil, mockDialer, nil)
+	snap, err := BuildSnapshot(context.Background(), cfg, SnapshotOptions{
+		Registry: reg,
+		Dialer:   mockDialer,
+	})
 	if err != nil {
 		t.Fatalf("unexpected error building snapshot: %v", err)
 	}

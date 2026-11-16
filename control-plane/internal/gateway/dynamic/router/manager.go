@@ -9,15 +9,17 @@ import (
 
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/dynamic/config"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/dynamic/registry"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/middleware"
 )
 
 // ManagerOptions configures the dynamic snapshot Manager.
 type ManagerOptions struct {
-	Registry      *registry.Registry
-	MuxFactory    MuxFactory
-	Dialer        ServiceDialer
-	ReadyCheck    func(context.Context) error
-	SafetyTimeout time.Duration
+	Registry           *registry.Registry
+	MiddlewareRegistry *middleware.Registry
+	MuxFactory         MuxFactory
+	Dialer             ServiceDialer
+	ReadyCheck         func(context.Context) error
+	SafetyTimeout      time.Duration
 }
 
 // Manager coordinates atomic snapshot replacement, safe in-flight request tracking,
@@ -33,6 +35,9 @@ func NewManager(opts ManagerOptions) *Manager {
 	if opts.Registry == nil {
 		opts.Registry = registry.DefaultRegistry()
 	}
+	if opts.MiddlewareRegistry == nil {
+		opts.MiddlewareRegistry = middleware.NewRegistry()
+	}
 	if opts.SafetyTimeout <= 0 {
 		opts.SafetyTimeout = 30 * time.Second
 	}
@@ -44,14 +49,13 @@ func NewManager(opts ManagerOptions) *Manager {
 
 // Initialize compiles the initial Snapshot from GatewayConfig and activates it.
 func (m *Manager) Initialize(ctx context.Context, cfg *config.GatewayConfig) error {
-	snapshot, err := BuildSnapshot(
-		ctx,
-		cfg,
-		m.opts.Registry,
-		m.opts.MuxFactory,
-		m.opts.Dialer,
-		m.opts.ReadyCheck,
-	)
+	snapshot, err := BuildSnapshot(ctx, cfg, SnapshotOptions{
+		Registry:           m.opts.Registry,
+		MiddlewareRegistry: m.opts.MiddlewareRegistry,
+		MuxFactory:         m.opts.MuxFactory,
+		Dialer:             m.opts.Dialer,
+		ReadyCheck:         m.opts.ReadyCheck,
+	})
 	if err != nil {
 		return fmt.Errorf("build initial snapshot: %w", err)
 	}
@@ -95,14 +99,13 @@ func (m *Manager) Swap(next *Snapshot) {
 // Reload compiles a new Snapshot from the updated GatewayConfig. If compilation succeeds,
 // it atomically swaps the snapshot; if compilation fails, the active snapshot remains untouched.
 func (m *Manager) Reload(ctx context.Context, cfg *config.GatewayConfig) error {
-	next, err := BuildSnapshot(
-		ctx,
-		cfg,
-		m.opts.Registry,
-		m.opts.MuxFactory,
-		m.opts.Dialer,
-		m.opts.ReadyCheck,
-	)
+	next, err := BuildSnapshot(ctx, cfg, SnapshotOptions{
+		Registry:           m.opts.Registry,
+		MiddlewareRegistry: m.opts.MiddlewareRegistry,
+		MuxFactory:         m.opts.MuxFactory,
+		Dialer:             m.opts.Dialer,
+		ReadyCheck:         m.opts.ReadyCheck,
+	})
 	if err != nil {
 		return fmt.Errorf("compile reload snapshot: %w", err)
 	}

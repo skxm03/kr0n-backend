@@ -16,6 +16,12 @@ var validHTTPMethods = map[string]bool{
 	"OPTIONS": true,
 }
 
+var validMatchTypes = map[string]bool{
+	"exact":    true,
+	"prefix":   true,
+	"template": true,
+}
+
 // Validate checks the consistency and validity of the GatewayConfig.
 func Validate(cfg *GatewayConfig) error {
 	if cfg == nil {
@@ -34,6 +40,21 @@ func Validate(cfg *GatewayConfig) error {
 	}
 	if cfg.Gateway.MaxBodyBytes < 0 {
 		return fmt.Errorf("gateway.max_body_bytes cannot be negative")
+	}
+
+	// Validate profiles map
+	profiles := make(map[string]bool)
+	for profileName, items := range cfg.MiddlewareProfiles {
+		name := strings.TrimSpace(profileName)
+		if name == "" {
+			return fmt.Errorf("middleware profile name cannot be empty")
+		}
+		profiles[name] = true
+		for idx, item := range items {
+			if strings.TrimSpace(item.Name) == "" {
+				return fmt.Errorf("profile %q item[%d] has empty middleware name", name, idx)
+			}
+		}
 	}
 
 	// Track seen routes across all services to prevent collision: "METHOD:PATH"
@@ -57,6 +78,36 @@ func Validate(cfg *GatewayConfig) error {
 			return fmt.Errorf("service %q timeout cannot be negative", svcName)
 		}
 
+		// Validate group rules
+		for grpName, grp := range svc.Groups {
+			grpName = strings.TrimSpace(grpName)
+			if grpName == "" {
+				return fmt.Errorf("service %q group name cannot be empty", svcName)
+			}
+			for _, prof := range grp.Use {
+				if !profiles[prof] {
+					return fmt.Errorf("service %q group %q references unknown profile %q", svcName, grpName, prof)
+				}
+			}
+			for idx, rule := range grp.Match {
+				matchType := strings.ToLower(strings.TrimSpace(rule.Type))
+				if matchType != "" && !validMatchTypes[matchType] {
+					return fmt.Errorf("service %q group %q match[%d] has invalid type %q (must be exact, prefix, or template)", svcName, grpName, idx, rule.Type)
+				}
+				path := strings.TrimSpace(rule.Path)
+				if path == "" || !strings.HasPrefix(path, "/") {
+					return fmt.Errorf("service %q group %q match[%d] path must start with '/': %q", svcName, grpName, idx, rule.Path)
+				}
+				for _, m := range rule.Methods {
+					mUpper := strings.ToUpper(strings.TrimSpace(m))
+					if !validHTTPMethods[mUpper] {
+						return fmt.Errorf("service %q group %q match[%d] has invalid method %q", svcName, grpName, idx, m)
+					}
+				}
+			}
+		}
+
+		// Validate endpoints
 		for idx, ep := range svc.Endpoints {
 			method := strings.ToUpper(strings.TrimSpace(ep.Method))
 			if !validHTTPMethods[method] {
@@ -70,6 +121,12 @@ func Validate(cfg *GatewayConfig) error {
 
 			if ep.Timeout < 0 {
 				return fmt.Errorf("service %q endpoint[%d] (%s %s) timeout cannot be negative", svcName, idx, method, path)
+			}
+
+			for _, prof := range ep.Use {
+				if !profiles[prof] {
+					return fmt.Errorf("service %q endpoint (%s %s) references unknown profile %q", svcName, method, path, prof)
+				}
 			}
 
 			routeKey := method + ":" + path
@@ -108,6 +165,19 @@ func ApplyDefaults(cfg *GatewayConfig) {
 		for i := range svc.Endpoints {
 			svc.Endpoints[i].Method = strings.ToUpper(strings.TrimSpace(svc.Endpoints[i].Method))
 			svc.Endpoints[i].Path = strings.TrimSpace(svc.Endpoints[i].Path)
+		}
+		for gName, grp := range svc.Groups {
+			for idx := range grp.Match {
+				if grp.Match[idx].Type == "" {
+					grp.Match[idx].Type = "exact"
+				} else {
+					grp.Match[idx].Type = strings.ToLower(strings.TrimSpace(grp.Match[idx].Type))
+				}
+				for mIdx := range grp.Match[idx].Methods {
+					grp.Match[idx].Methods[mIdx] = strings.ToUpper(strings.TrimSpace(grp.Match[idx].Methods[mIdx]))
+				}
+			}
+			svc.Groups[gName] = grp
 		}
 		cfg.Services[k] = svc
 	}

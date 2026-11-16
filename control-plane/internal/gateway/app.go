@@ -29,6 +29,8 @@ import (
 	dynamicregistry "github.com/skxm03/kr0n-backend/control-plane/internal/gateway/dynamic/registry"
 	dynamicrouter "github.com/skxm03/kr0n-backend/control-plane/internal/gateway/dynamic/router"
 	dynamicwatcher "github.com/skxm03/kr0n-backend/control-plane/internal/gateway/dynamic/watcher"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/middleware"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/middleware/builtins"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/ratelimit"
 )
 
@@ -204,8 +206,21 @@ func NewApp(cfg *config.Config) (*App, error) {
 				return nil, fmt.Errorf("load dynamic gateway config from %q: %w", cfg.GatewayConfigPath, err)
 			}
 
+			apiTokenVerifier := NewGRPCAPITokenVerifier(authClient)
+			mwReg := middleware.NewRegistry()
+			_ = builtins.RegisterDefaults(mwReg, builtins.SharedDeps{
+				Logger:           logger,
+				Verifier:         verifier,
+				APITokenVerifier: apiTokenVerifier,
+				Limiter:          generalLimiter,
+				TrustedProxies:   trustedProxies,
+				MaxBodyBytes:     1 << 20,
+			})
+			mwReg.Freeze()
+
 			dynManager = dynamicrouter.NewManager(dynamicrouter.ManagerOptions{
-				Registry: dynamicregistry.DefaultRegistry(),
+				Registry:           dynamicregistry.DefaultRegistry(),
+				MiddlewareRegistry: mwReg,
 				MuxFactory: func() *runtime.ServeMux {
 					return NewGatewayServeMux(trustedProxies)
 				},
