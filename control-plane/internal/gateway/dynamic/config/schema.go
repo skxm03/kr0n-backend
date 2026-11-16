@@ -25,14 +25,16 @@ type ServerConfig struct {
 
 // ServiceConfig defines an upstream gRPC service connection, timeouts, groups, and exposed endpoints.
 type ServiceConfig struct {
-	Address      string                      `yaml:"address"`
-	Enabled      *bool                       `yaml:"enabled"` // Optional, defaults to true
-	Timeout      time.Duration               `yaml:"timeout"`
-	TLS          TLSConfig                   `yaml:"tls"`
-	ServiceToken string                      `yaml:"service_token"`
-	Middleware   []middleware.MiddlewareItem `yaml:"middleware"` // Service-level middleware chain
-	Groups       map[string]GroupConfig      `yaml:"groups"`     // URL group middleware
-	Endpoints    []EndpointConfig            `yaml:"endpoints"`
+	Address        string                      `yaml:"address"`
+	Enabled        *bool                       `yaml:"enabled"`         // Optional, defaults to true
+	AutoMount      *bool                       `yaml:"auto_mount"`      // Optional, defaults to true: auto-mounts registered service endpoints
+	DefaultProfile string                      `yaml:"default_profile"` // Fallback profile if an endpoint does not match any group
+	Timeout        time.Duration               `yaml:"timeout"`
+	TLS            TLSConfig                   `yaml:"tls"`
+	ServiceToken   string                      `yaml:"service_token"`
+	Middleware     []middleware.MiddlewareItem `yaml:"middleware"` // Service-level middleware chain
+	Groups         map[string]GroupConfig      `yaml:"groups"`     // URL group middleware
+	Endpoints      []EndpointConfig            `yaml:"endpoints"`
 }
 
 // IsEnabled returns true if the service is explicitly enabled or enabled is nil (default).
@@ -41,6 +43,14 @@ func (s ServiceConfig) IsEnabled() bool {
 		return true
 	}
 	return *s.Enabled
+}
+
+// IsAutoMount returns true if AutoMount is nil (default) or explicitly set to true.
+func (s ServiceConfig) IsAutoMount() bool {
+	if s.AutoMount == nil {
+		return true
+	}
+	return *s.AutoMount
 }
 
 // GroupConfig defines URL pattern-matching rules and the middleware applied to matching endpoints.

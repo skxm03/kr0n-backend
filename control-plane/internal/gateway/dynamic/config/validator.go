@@ -78,6 +78,10 @@ func Validate(cfg *GatewayConfig) error {
 			return fmt.Errorf("service %q timeout cannot be negative", svcName)
 		}
 
+		if svc.DefaultProfile != "" && !profiles[svc.DefaultProfile] {
+			return fmt.Errorf("service %q default_profile references unknown profile %q", svcName, svc.DefaultProfile)
+		}
+
 		// Validate group rules
 		for grpName, grp := range svc.Groups {
 			grpName = strings.TrimSpace(grpName)

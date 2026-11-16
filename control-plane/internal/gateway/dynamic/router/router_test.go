@@ -11,9 +11,11 @@ import (
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/dynamic/config"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/dynamic/registry"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/middleware"
 )
 
 func TestSnapshot_LifecycleAndConns(t *testing.T) {
@@ -281,5 +283,86 @@ func TestManager_ConcurrentRequestsDuringReload(t *testing.T) {
 
 	for err := range errCh {
 		t.Errorf("unexpected error code during concurrent reload: %v", err)
+	}
+}
+
+func TestBuildSnapshot_AutoMount_DefaultEndpoints(t *testing.T) {
+	// Service has NO endpoints explicitly declared in YAML, but DefaultProfile is set.
+	cfg := &config.GatewayConfig{
+		Gateway: config.ServerConfig{
+			HTTPAddr: ":8080",
+		},
+		MiddlewareProfiles: map[string][]middleware.MiddlewareItem{
+			"public_api": {
+				{Name: "custom_header", Config: map[string]any{"header": "X-Profile", "value": "public"}},
+			},
+			"authenticated_api": {
+				{Name: "custom_header", Config: map[string]any{"header": "X-Profile", "value": "auth"}},
+			},
+		},
+		Services: map[string]config.ServiceConfig{
+			"auth": {
+				Address:        "localhost:50051",
+				DefaultProfile: "authenticated_api",
+				Groups: map[string]config.GroupConfig{
+					"public_routes": {
+						Match: []config.MatchRule{
+							{Path: "/api/v1/auth/*", Type: "prefix", Methods: []string{"POST"}},
+						},
+						Use: []string{"public_api"},
+					},
+				},
+				// Endpoints intentionally omitted to trigger AutoMount from Registry
+			},
+		},
+	}
+
+	reg := registry.DefaultRegistry()
+	mwReg := middleware.NewRegistry()
+	_ = mwReg.Register("custom_header", func(c map[string]any) (middleware.Middleware, error) {
+		h := c["header"].(string)
+		v := c["value"].(string)
+		return func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set(h, v)
+				next.ServeHTTP(w, r)
+			})
+		}, nil
+	})
+
+	snap, err := BuildSnapshot(context.Background(), cfg, SnapshotOptions{
+		Registry:           reg,
+		MiddlewareRegistry: mwReg,
+		Dialer: func(svc config.ServiceConfig) (*grpc.ClientConn, error) {
+			return grpc.NewClient("passthrough:///bufnet", grpc.WithTransportCredentials(insecure.NewCredentials()))
+		},
+	})
+	if err != nil {
+		t.Fatalf("failed to build snapshot: %v", err)
+	}
+	defer func() {
+		snap.Retire()
+		snap.WaitAndClose(5 * time.Second)
+	}()
+
+	// 1. Group-matched route (/api/v1/auth/login) should auto-mount with public_api profile
+	recLogin := httptest.NewRecorder()
+	snap.Router().ServeHTTP(recLogin, httptest.NewRequest("POST", "/api/v1/auth/login", nil))
+	if got := recLogin.Header().Get("X-Profile"); got != "public" {
+		t.Errorf("POST /api/v1/auth/login expected X-Profile 'public', got %q", got)
+	}
+
+	// 2. Non-group-matched route (/api/v1/me) should auto-mount with default_profile (authenticated_api)
+	recMe := httptest.NewRecorder()
+	snap.Router().ServeHTTP(recMe, httptest.NewRequest("GET", "/api/v1/me", nil))
+	if got := recMe.Header().Get("X-Profile"); got != "auth" {
+		t.Errorf("GET /api/v1/me expected X-Profile 'auth', got %q", got)
+	}
+
+	// 3. Unregistered route should return 404
+	recNotFound := httptest.NewRecorder()
+	snap.Router().ServeHTTP(recNotFound, httptest.NewRequest("GET", "/api/v1/not-a-real-endpoint", nil))
+	if recNotFound.Code != http.StatusNotFound {
+		t.Errorf("expected 404 for unregistered endpoint, got %d", recNotFound.Code)
 	}
 }

@@ -14,46 +14,72 @@ import (
 // ServiceRegistrar binds a gRPC client connection to a grpc-gateway ServeMux.
 type ServiceRegistrar func(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error
 
+// EndpointDescriptor describes a known HTTP route supported by a service.
+type EndpointDescriptor struct {
+	Method string
+	Path   string
+}
+
+// ServiceRegistration holds a registrar and its optional list of default known endpoints.
+type ServiceRegistration struct {
+	Registrar ServiceRegistrar
+	Endpoints []EndpointDescriptor
+}
+
 // Registry maintains the mapping between service names and their compiled grpc-gateway registrars.
 type Registry struct {
-	mu         sync.RWMutex
-	frozen     bool
-	registrars map[string]ServiceRegistrar
+	mu       sync.RWMutex
+	frozen   bool
+	services map[string]ServiceRegistration
 }
 
 // NewRegistry initializes an empty Registry.
 func NewRegistry() *Registry {
 	return &Registry{
-		registrars: make(map[string]ServiceRegistrar),
+		services: make(map[string]ServiceRegistration),
 	}
 }
 
-// Register adds a service registrar to the registry. Fails if registry is frozen or name exists.
-func (r *Registry) Register(name string, registrar ServiceRegistrar) error {
+// RegisterService adds a service with its registrar and optional endpoints.
+func (r *Registry) RegisterService(name string, reg ServiceRegistration) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if r.frozen {
 		return fmt.Errorf("cannot register service %q: registry is frozen", name)
 	}
-	if registrar == nil {
+	if reg.Registrar == nil {
 		return fmt.Errorf("service registrar for %q cannot be nil", name)
 	}
-	if _, exists := r.registrars[name]; exists {
+	if _, exists := r.services[name]; exists {
 		return fmt.Errorf("service %q is already registered", name)
 	}
 
-	r.registrars[name] = registrar
+	r.services[name] = reg
 	return nil
+}
+
+// Register adds a service registrar to the registry without default endpoints.
+func (r *Registry) Register(name string, registrar ServiceRegistrar) error {
+	return r.RegisterService(name, ServiceRegistration{Registrar: registrar})
+}
+
+// GetService retrieves a service registration by name.
+func (r *Registry) GetService(name string) (ServiceRegistration, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	reg, ok := r.services[name]
+	return reg, ok
 }
 
 // Get retrieves a service registrar by name.
 func (r *Registry) Get(name string) (ServiceRegistrar, bool) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	reg, ok := r.registrars[name]
-	return reg, ok
+	reg, ok := r.GetService(name)
+	if !ok {
+		return nil, false
+	}
+	return reg.Registrar, true
 }
 
 // Freeze prevents any future registrations.
@@ -70,12 +96,51 @@ func (r *Registry) IsFrozen() bool {
 	return r.frozen
 }
 
+// DefaultAuthEndpoints provides the complete list of REST routes defined in auth.proto.
+var DefaultAuthEndpoints = []EndpointDescriptor{
+	{Method: "POST", Path: "/api/v1/auth/register"},
+	{Method: "POST", Path: "/api/v1/auth/login"},
+	{Method: "POST", Path: "/api/v1/auth/refresh"},
+	{Method: "POST", Path: "/api/v1/auth/logout"},
+	{Method: "POST", Path: "/api/v1/auth/verify-email"},
+	{Method: "POST", Path: "/api/v1/auth/resend-verification"},
+	{Method: "POST", Path: "/api/v1/auth/password-reset/request"},
+	{Method: "POST", Path: "/api/v1/auth/password-reset/confirm"},
+	{Method: "POST", Path: "/api/v1/auth/password/change"},
+	{Method: "GET", Path: "/api/v1/me"},
+	{Method: "GET", Path: "/api/v1/auth/sessions"},
+	{Method: "DELETE", Path: "/api/v1/auth/sessions/{session_id}"},
+	{Method: "GET", Path: "/api/v1/roles"},
+	{Method: "POST", Path: "/api/v1/orgs"},
+	{Method: "GET", Path: "/api/v1/orgs"},
+	{Method: "GET", Path: "/api/v1/orgs/{org_id}"},
+	{Method: "PATCH", Path: "/api/v1/orgs/{org_id}"},
+	{Method: "DELETE", Path: "/api/v1/orgs/{org_id}"},
+	{Method: "GET", Path: "/api/v1/orgs/{org_id}/members"},
+	{Method: "POST", Path: "/api/v1/orgs/{org_id}/members"},
+	{Method: "PATCH", Path: "/api/v1/orgs/{org_id}/members/{target_user_id}"},
+	{Method: "DELETE", Path: "/api/v1/orgs/{org_id}/members/{target_user_id}"},
+	{Method: "POST", Path: "/api/v1/orgs/{org_id}/invites"},
+	{Method: "POST", Path: "/api/v1/orgs/invites/accept"},
+	{Method: "DELETE", Path: "/api/v1/orgs/{org_id}/invites/{invite_id}"},
+	{Method: "POST", Path: "/api/v1/orgs/{org_id}/tokens"},
+	{Method: "GET", Path: "/api/v1/orgs/{org_id}/tokens"},
+	{Method: "DELETE", Path: "/api/v1/orgs/{org_id}/tokens/{token_id}"},
+	{Method: "GET", Path: "/api/v1/orgs/{org_id}/audit"},
+	{Method: "GET", Path: "/api/v1/auth/jwks"},
+	{Method: "GET", Path: "/api/v1/auth/github/start"},
+	{Method: "GET", Path: "/api/v1/auth/github/callback"},
+}
+
 // DefaultRegistry creates and returns a Registry pre-populated with standard kr0n services.
 func DefaultRegistry() *Registry {
 	reg := NewRegistry()
-	_ = reg.Register("auth", func(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
-		client := authv1.NewAuthServiceClient(conn)
-		return authv1.RegisterAuthServiceHandlerClient(ctx, mux, client)
+	_ = reg.RegisterService("auth", ServiceRegistration{
+		Registrar: func(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
+			client := authv1.NewAuthServiceClient(conn)
+			return authv1.RegisterAuthServiceHandlerClient(ctx, mux, client)
+		},
+		Endpoints: DefaultAuthEndpoints,
 	})
 	return reg
 }

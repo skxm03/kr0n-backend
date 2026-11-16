@@ -211,9 +211,22 @@ func BuildSnapshot(
 			})
 		}
 
+		// Determine endpoints: if none specified in YAML, auto-populate from registry if enabled
+		endpoints := svc.Endpoints
+		if len(endpoints) == 0 && svc.IsAutoMount() {
+			if sreg, ok := opts.Registry.GetService(svcName); ok && len(sreg.Endpoints) > 0 {
+				for _, d := range sreg.Endpoints {
+					endpoints = append(endpoints, config.EndpointConfig{
+						Method: d.Method,
+						Path:   d.Path,
+					})
+				}
+			}
+		}
+
 		// Mount each allowed endpoint with its compiled chain
 		optionsHandled := make(map[string]bool)
-		for _, ep := range svc.Endpoints {
+		for _, ep := range endpoints {
 			timeout := ep.Timeout
 			if timeout <= 0 {
 				timeout = svc.Timeout
@@ -231,6 +244,20 @@ func BuildSnapshot(
 				Path:       path,
 				Use:        ep.Use,
 				Middleware: ep.Middleware,
+			}
+
+			// Apply svc.DefaultProfile if endpoint has no custom policy and matches no groups
+			if len(endpointTarget.Use) == 0 && len(endpointTarget.Middleware) == 0 && svc.DefaultProfile != "" {
+				matchedGroup := false
+				for _, grp := range compiledGroups {
+					if grp.Matches(method, path) {
+						matchedGroup = true
+						break
+					}
+				}
+				if !matchedGroup {
+					endpointTarget.Use = []string{svc.DefaultProfile}
+				}
 			}
 
 			// Compile 4-tier middleware chain: Global -> Service -> Group -> Endpoint

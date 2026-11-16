@@ -29,6 +29,11 @@ func NewSnapshot(router http.Handler, conns []*grpc.ClientConn) *Snapshot {
 	}
 }
 
+// Router returns the underlying HTTP handler router compiled for this snapshot.
+func (s *Snapshot) Router() http.Handler {
+	return s.router
+}
+
 // Acquire increments the in-flight request counter if the snapshot is not retired.
 // Returns false if the snapshot has already been retired.
 func (s *Snapshot) Acquire() bool {

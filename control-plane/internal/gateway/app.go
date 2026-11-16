@@ -40,11 +40,33 @@ type App struct {
 	dynWatcher *dynamicwatcher.Watcher
 }
 
-// NewApp wires the Auth gRPC client, JWKS verifier, Redis rate limiters, and HTTP router.
+// NewApp wires the Auth gRPC client, JWKS verifier, Redis rate limiters, and dynamic HTTP router.
 func NewApp(cfg *config.Config) (*App, error) {
 	isDev := cfg.Env == "dev" || cfg.Env == "development"
 
-	authConn, err := DialUpstream(cfg.AuthGRPCAddr, DialUpstreamTLSConfig{
+	// 1. Load dynamic YAML configuration as single authoritative topology source
+	configPath := cfg.GatewayConfigPath
+	if configPath == "" {
+		configPath = "gateway.yaml"
+	}
+	dynCfg, err := dynamicconfig.LoadConfigFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("load dynamic gateway config from %q: %w", configPath, err)
+	}
+
+	// 2. Resolve Auth Upstream address (env override takes precedence over yaml if set)
+	authAddr := cfg.AuthGRPCAddr
+	if authAddr == "" {
+		if authSvc, ok := dynCfg.Services["auth"]; ok {
+			authAddr = authSvc.Address
+		}
+	}
+	if authAddr == "" {
+		authAddr = "localhost:50051"
+	}
+
+	// 3. Dial upstream for auth client (used by JWKS key set provider & API token verifier)
+	authConn, err := DialUpstream(authAddr, DialUpstreamTLSConfig{
 		Enabled:    cfg.AuthGRPCTLSEnabled,
 		CertFile:   cfg.AuthGRPCTLSCertFile,
 		KeyFile:    cfg.AuthGRPCTLSKeyFile,
@@ -52,9 +74,10 @@ func NewApp(cfg *config.Config) (*App, error) {
 		ServerName: cfg.AuthGRPCServerName,
 	}, cfg.AuthServiceToken, isDev)
 	if err != nil {
-		return nil, fmt.Errorf("dial auth gRPC service %q: %w", cfg.AuthGRPCAddr, err)
+		return nil, fmt.Errorf("dial auth gRPC service %q: %w", authAddr, err)
 	}
 
+	// 4. Set up JWT Verifier
 	var pubKeys map[string]ed25519.PublicKey
 	if cfg.JWTPublicKeys != "" {
 		pubKeys, err = jwtkeys.ParsePublicKeys(cfg.JWTPublicKeys)
@@ -93,19 +116,11 @@ func NewApp(cfg *config.Config) (*App, error) {
 		return nil, err
 	}
 
+	// 5. Connect Redis client & default rate limiter
 	rdb := redis.NewClient(&redis.Options{Addr: cfg.RedisAddr})
 	generalLimiter, err := ratelimit.NewRedis(rdb, "rl:general", ratelimit.Policy{
-		Capacity:   cfg.GeneralRateCapacity,
-		LeakPerSec: cfg.GeneralRatePerSec,
-	})
-	if err != nil {
-		_ = rdb.Close()
-		_ = authConn.Close()
-		return nil, err
-	}
-	authLimiter, err := ratelimit.NewRedis(rdb, "rl:auth", ratelimit.Policy{
-		Capacity:   cfg.AuthRateCapacity,
-		LeakPerSec: cfg.AuthRatePerSec,
+		Capacity:   120,
+		LeakPerSec: 20,
 	})
 	if err != nil {
 		_ = rdb.Close()
@@ -124,101 +139,94 @@ func NewApp(cfg *config.Config) (*App, error) {
 	}
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	var primaryHandler http.Handler = NewServerHandler(NewHandler(authClient), Options{
-		Env:            cfg.Env,
-		Log:            logger,
-		Verifier:       verifier,
-		GeneralLimiter: generalLimiter,
-		AuthLimiter:    authLimiter,
-		TrustedProxies: trustedProxies,
-		Ready: func(context.Context) error {
+	apiTokenVerifier := NewGRPCAPITokenVerifier(authClient)
+
+	// 6. Build Middleware Registry
+	mwReg := middleware.NewRegistry()
+	_ = builtins.RegisterDefaults(mwReg, builtins.SharedDeps{
+		Logger:           logger,
+		Verifier:         verifier,
+		APITokenVerifier: apiTokenVerifier,
+		Limiter:          generalLimiter,
+		TrustedProxies:   trustedProxies,
+		MaxBodyBytes:     dynCfg.Gateway.MaxBodyBytes,
+	})
+	mwReg.Freeze()
+
+	// 7. Dynamic Router Manager (Unified Single HTTP Engine)
+	dynManager := dynamicrouter.NewManager(dynamicrouter.ManagerOptions{
+		Registry:           dynamicregistry.DefaultRegistry(),
+		MiddlewareRegistry: mwReg,
+		Dialer: func(svc dynamicconfig.ServiceConfig) (*grpc.ClientConn, error) {
+			return DialUpstream(svc.Address, DialUpstreamTLSConfig{
+				Enabled:    svc.TLS.Enabled,
+				CertFile:   svc.TLS.CertFile,
+				KeyFile:    svc.TLS.KeyFile,
+				CAFile:     svc.TLS.CAFile,
+				ServerName: svc.TLS.ServerName,
+			}, svc.ServiceToken, isDev)
+		},
+		MuxFactory: func() *runtime.ServeMux {
+			return NewGatewayServeMux(trustedProxies)
+		},
+		ReadyCheck: func(ctx context.Context) error {
 			if authConn.GetState() == connectivity.Shutdown || authConn.GetState() == connectivity.TransientFailure {
 				return errors.New("auth service unreachable")
 			}
 			return nil
 		},
+		SafetyTimeout: 30 * time.Second,
 	})
 
-	var dynManager *dynamicrouter.Manager
-	var dynWatcher *dynamicwatcher.Watcher
+	if err := dynManager.Initialize(context.Background(), dynCfg); err != nil {
+		_ = rdb.Close()
+		_ = authConn.Close()
+		return nil, fmt.Errorf("initialize dynamic gateway router: %w", err)
+	}
 
-	// Check if dynamic YAML configuration is available
-	if cfg.GatewayConfigPath != "" {
-		if _, err := os.Stat(cfg.GatewayConfigPath); err == nil {
-			dynCfg, err := dynamicconfig.LoadConfigFile(cfg.GatewayConfigPath)
-			if err != nil {
-				_ = rdb.Close()
-				_ = authConn.Close()
-				return nil, fmt.Errorf("load dynamic gateway config from %q: %w", cfg.GatewayConfigPath, err)
-			}
-
-			apiTokenVerifier := NewGRPCAPITokenVerifier(authClient)
-			mwReg := middleware.NewRegistry()
-			_ = builtins.RegisterDefaults(mwReg, builtins.SharedDeps{
-				Logger:           logger,
-				Verifier:         verifier,
-				APITokenVerifier: apiTokenVerifier,
-				Limiter:          generalLimiter,
-				TrustedProxies:   trustedProxies,
-				MaxBodyBytes:     1 << 20,
-			})
-			mwReg.Freeze()
-
-			dynManager = dynamicrouter.NewManager(dynamicrouter.ManagerOptions{
-				Registry:           dynamicregistry.DefaultRegistry(),
-				MiddlewareRegistry: mwReg,
-				Dialer: func(svc dynamicconfig.ServiceConfig) (*grpc.ClientConn, error) {
-					return DialUpstream(svc.Address, DialUpstreamTLSConfig{
-						Enabled:    svc.TLS.Enabled,
-						CertFile:   svc.TLS.CertFile,
-						KeyFile:    svc.TLS.KeyFile,
-						CAFile:     svc.TLS.CAFile,
-						ServerName: svc.TLS.ServerName,
-					}, svc.ServiceToken, isDev)
-				},
-				MuxFactory: func() *runtime.ServeMux {
-					return NewGatewayServeMux(trustedProxies)
-				},
-				ReadyCheck: func(ctx context.Context) error {
-					if authConn.GetState() == connectivity.Shutdown || authConn.GetState() == connectivity.TransientFailure {
-						return errors.New("auth service unreachable")
-					}
-					return nil
-				},
-				SafetyTimeout: 30 * time.Second,
-			})
-
-			if err := dynManager.Initialize(context.Background(), dynCfg); err != nil {
-				_ = rdb.Close()
-				_ = authConn.Close()
-				return nil, fmt.Errorf("initialize dynamic gateway router: %w", err)
-			}
-
-			dynWatcher, err = dynamicwatcher.NewWatcher(cfg.GatewayConfigPath, 100*time.Millisecond, func(ctx context.Context, path string) error {
-				newCfg, err := dynamicconfig.LoadConfigFile(path)
-				if err != nil {
-					return err
-				}
-				return dynManager.Reload(ctx, newCfg)
-			}, logger)
-			if err != nil {
-				_ = rdb.Close()
-				_ = authConn.Close()
-				return nil, fmt.Errorf("initialize dynamic config watcher: %w", err)
-			}
-
-			primaryHandler = dynManager
-			logger.Info("dynamic YAML gateway routing initialized", "config_path", cfg.GatewayConfigPath)
+	// 8. Dynamic File Watcher
+	dynWatcher, err := dynamicwatcher.NewWatcher(configPath, 100*time.Millisecond, func(ctx context.Context, path string) error {
+		newCfg, err := dynamicconfig.LoadConfigFile(path)
+		if err != nil {
+			return err
 		}
+		return dynManager.Reload(ctx, newCfg)
+	}, logger)
+	if err != nil {
+		_ = rdb.Close()
+		_ = authConn.Close()
+		return nil, fmt.Errorf("initialize dynamic config watcher: %w", err)
+	}
+
+	// 9. HTTP Server with YAML topology
+	httpAddr := cfg.GatewayHTTPAddr
+	if httpAddr == "" {
+		httpAddr = dynCfg.Gateway.HTTPAddr
+	}
+	if httpAddr == "" {
+		httpAddr = ":8080"
+	}
+
+	readTimeout := dynCfg.Gateway.ReadTimeout
+	if readTimeout <= 0 {
+		readTimeout = 15 * time.Second
+	}
+	writeTimeout := dynCfg.Gateway.WriteTimeout
+	if writeTimeout <= 0 {
+		writeTimeout = 30 * time.Second
+	}
+	idleTimeout := dynCfg.Gateway.IdleTimeout
+	if idleTimeout <= 0 {
+		idleTimeout = 60 * time.Second
 	}
 
 	server := &http.Server{
-		Addr:              cfg.GatewayHTTPAddr,
-		Handler:           primaryHandler,
+		Addr:              httpAddr,
+		Handler:           dynManager,
 		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      30 * time.Second,
-		IdleTimeout:       60 * time.Second,
+		ReadTimeout:       readTimeout,
+		WriteTimeout:      writeTimeout,
+		IdleTimeout:       idleTimeout,
 	}
 
 	return &App{
