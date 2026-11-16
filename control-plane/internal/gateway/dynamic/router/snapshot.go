@@ -212,6 +212,7 @@ func BuildSnapshot(
 		}
 
 		// Mount each allowed endpoint with its compiled chain
+		optionsHandled := make(map[string]bool)
 		for _, ep := range svc.Endpoints {
 			timeout := ep.Timeout
 			if timeout <= 0 {
@@ -246,6 +247,10 @@ func BuildSnapshot(
 			}
 
 			router.Method(method, path, compiledHandler)
+			if !optionsHandled[path] {
+				optionsHandled[path] = true
+				router.Method(http.MethodOptions, path, compiledHandler)
+			}
 		}
 	}
 

@@ -65,6 +65,10 @@ func Authenticate(v TokenVerifier, patVerifiers ...APITokenVerifier) Middleware 
 	}
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method == http.MethodOptions {
+				next.ServeHTTP(w, r)
+				return
+			}
 			if r.Header.Get("Authorization") == "" && v == nil {
 				if _, ok := PrincipalFromContext(r.Context()); ok {
 					next.ServeHTTP(w, r)

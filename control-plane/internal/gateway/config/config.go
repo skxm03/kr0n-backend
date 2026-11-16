@@ -8,28 +8,28 @@ import (
 )
 
 type Config struct {
-	GatewayHTTPAddr     string   `env:"GATEWAY_HTTP_ADDR"`
-	AuthGRPCAddr        string   `env:"AUTH_GRPC_ADDR"`
-	Env                 string   `env:"KR0N_ENV"`
+	GatewayHTTPAddr     string   `env:"GATEWAY_HTTP_ADDR" envDefault:":8080"`
+	AuthGRPCAddr        string   `env:"AUTH_GRPC_ADDR" envDefault:":50051"`
+	Env                 string   `env:"KR0N_ENV" envDefault:"dev"`
 	JWTPublicKeys       string   `env:"JWT_PUBLIC_KEYS"`
-	JWTKeyID            string   `env:"JWT_KEY_ID"`
-	JWTIssuer           string   `env:"JWT_ISSUER"`
-	JWTAudience         string   `env:"JWT_AUDIENCE"`
-	RedisAddr           string   `env:"REDIS_ADDR"`
+	JWTKeyID            string   `env:"JWT_KEY_ID" envDefault:"k1"`
+	JWTIssuer           string   `env:"JWT_ISSUER" envDefault:"kr0n-auth"`
+	JWTAudience         string   `env:"JWT_AUDIENCE" envDefault:"kr0n-api"`
+	RedisAddr           string   `env:"REDIS_ADDR" envDefault:"localhost:6379"`
 	TrustedProxyCIDRs   []string `env:"TRUSTED_PROXY_CIDRS"`
-	GeneralRateCapacity int      `env:"RATE_LIMIT_CAPACITY"`
-	GeneralRatePerSec   float64  `env:"RATE_LIMIT_PER_SEC"`
-	AuthRateCapacity    int      `env:"AUTH_RATE_LIMIT_CAPACITY"`
-	AuthRatePerSec      float64  `env:"AUTH_RATE_LIMIT_PER_SEC"`
-	AuthGRPCTLSEnabled  bool     `env:"AUTH_GRPC_TLS_ENABLED"`
+	GeneralRateCapacity int      `env:"RATE_LIMIT_CAPACITY" envDefault:"120"`
+	GeneralRatePerSec   float64  `env:"RATE_LIMIT_PER_SEC" envDefault:"20"`
+	AuthRateCapacity    int      `env:"AUTH_RATE_LIMIT_CAPACITY" envDefault:"10"`
+	AuthRatePerSec      float64  `env:"AUTH_RATE_LIMIT_PER_SEC" envDefault:"0.2"`
+	AuthGRPCTLSEnabled  bool     `env:"AUTH_GRPC_TLS_ENABLED" envDefault:"false"`
 	AuthGRPCTLSCAFile   string   `env:"AUTH_GRPC_TLS_CA_FILE"`
 	AuthGRPCTLSCertFile string   `env:"GATEWAY_GRPC_TLS_CERT_FILE"`
 	AuthGRPCTLSKeyFile  string   `env:"GATEWAY_GRPC_TLS_KEY_FILE"`
 	AuthGRPCServerName  string   `env:"AUTH_GRPC_SERVER_NAME"`
 	AuthServiceToken    string   `env:"AUTH_SERVICE_TOKEN"`
 	RabbitMQURL         string   `env:"RABBITMQ_URL"`
-	EmailQueueName      string   `env:"EMAIL_QUEUE_NAME"`
-	GatewayConfigPath   string   `env:"GATEWAY_CONFIG_PATH"`
+	EmailQueueName      string   `env:"EMAIL_QUEUE_NAME" envDefault:"email.jobs"`
+	GatewayConfigPath   string   `env:"GATEWAY_CONFIG_PATH" envDefault:"gateway.yaml"`
 }
 
 func LoadConfig() (*Config, error) {

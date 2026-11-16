@@ -171,5 +171,5 @@ func (h *Handler) writeGRPCError(w http.ResponseWriter, err error) {
 }
 
 func (h *Handler) writeError(w http.ResponseWriter, statusCode int, message, code string) {
-	WriteErrorJSON(nil, w, statusCode, message, code)
+	WriteErrorJSON(context.Background(), w, statusCode, message, code)
 }
