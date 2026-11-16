@@ -29,6 +29,7 @@ type Config struct {
 	AuthServiceToken    string   `env:"AUTH_SERVICE_TOKEN"`
 	RabbitMQURL         string   `env:"RABBITMQ_URL"`
 	EmailQueueName      string   `env:"EMAIL_QUEUE_NAME"`
+	GatewayConfigPath   string   `env:"GATEWAY_CONFIG_PATH"`
 }
 
 func LoadConfig() (*Config, error) {
@@ -37,6 +38,10 @@ func LoadConfig() (*Config, error) {
 	var cfg Config
 	if err := env.Parse(&cfg); err != nil {
 		return nil, fmt.Errorf("parse config environment variables: %w", err)
+	}
+
+	if cfg.GatewayConfigPath == "" {
+		cfg.GatewayConfigPath = "gateway.yaml"
 	}
 
 	return &cfg, nil

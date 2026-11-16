@@ -14,6 +14,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
@@ -24,15 +25,21 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/jwtkeys"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/email"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/config"
+	dynamicconfig "github.com/skxm03/kr0n-backend/control-plane/internal/gateway/dynamic/config"
+	dynamicregistry "github.com/skxm03/kr0n-backend/control-plane/internal/gateway/dynamic/registry"
+	dynamicrouter "github.com/skxm03/kr0n-backend/control-plane/internal/gateway/dynamic/router"
+	dynamicwatcher "github.com/skxm03/kr0n-backend/control-plane/internal/gateway/dynamic/watcher"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/ratelimit"
 )
 
 // App encapsulates the API Gateway HTTP server and its backing connections.
 type App struct {
-	authConn  *grpc.ClientConn
-	rdb       *redis.Client
-	rmqSender *email.RabbitMQSender
-	server    *http.Server
+	authConn   *grpc.ClientConn
+	rdb        *redis.Client
+	rmqSender  *email.RabbitMQSender
+	server     *http.Server
+	dynManager *dynamicrouter.Manager
+	dynWatcher *dynamicwatcher.Watcher
 }
 
 // NewApp wires the Auth gRPC client, JWKS verifier, Redis rate limiters, and HTTP router.
@@ -169,7 +176,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 	}
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	router := NewServerHandler(NewHandler(authClient), Options{
+	var primaryHandler http.Handler = NewServerHandler(NewHandler(authClient), Options{
 		Env:            cfg.Env,
 		Log:            logger,
 		Verifier:       verifier,
@@ -184,9 +191,60 @@ func NewApp(cfg *config.Config) (*App, error) {
 		},
 	})
 
+	var dynManager *dynamicrouter.Manager
+	var dynWatcher *dynamicwatcher.Watcher
+
+	// Check if dynamic YAML configuration is available
+	if cfg.GatewayConfigPath != "" {
+		if _, err := os.Stat(cfg.GatewayConfigPath); err == nil {
+			dynCfg, err := dynamicconfig.LoadConfigFile(cfg.GatewayConfigPath)
+			if err != nil {
+				_ = rdb.Close()
+				_ = authConn.Close()
+				return nil, fmt.Errorf("load dynamic gateway config from %q: %w", cfg.GatewayConfigPath, err)
+			}
+
+			dynManager = dynamicrouter.NewManager(dynamicrouter.ManagerOptions{
+				Registry: dynamicregistry.DefaultRegistry(),
+				MuxFactory: func() *runtime.ServeMux {
+					return NewGatewayServeMux(trustedProxies)
+				},
+				ReadyCheck: func(ctx context.Context) error {
+					if authConn.GetState() == connectivity.Shutdown || authConn.GetState() == connectivity.TransientFailure {
+						return errors.New("auth service unreachable")
+					}
+					return nil
+				},
+				SafetyTimeout: 30 * time.Second,
+			})
+
+			if err := dynManager.Initialize(context.Background(), dynCfg); err != nil {
+				_ = rdb.Close()
+				_ = authConn.Close()
+				return nil, fmt.Errorf("initialize dynamic gateway router: %w", err)
+			}
+
+			dynWatcher, err = dynamicwatcher.NewWatcher(cfg.GatewayConfigPath, 100*time.Millisecond, func(ctx context.Context, path string) error {
+				newCfg, err := dynamicconfig.LoadConfigFile(path)
+				if err != nil {
+					return err
+				}
+				return dynManager.Reload(ctx, newCfg)
+			}, logger)
+			if err != nil {
+				_ = rdb.Close()
+				_ = authConn.Close()
+				return nil, fmt.Errorf("initialize dynamic config watcher: %w", err)
+			}
+
+			primaryHandler = dynManager
+			logger.Info("dynamic YAML gateway routing initialized", "config_path", cfg.GatewayConfigPath)
+		}
+	}
+
 	server := &http.Server{
 		Addr:              cfg.GatewayHTTPAddr,
-		Handler:           router,
+		Handler:           primaryHandler,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,
@@ -194,10 +252,12 @@ func NewApp(cfg *config.Config) (*App, error) {
 	}
 
 	return &App{
-		authConn:  authConn,
-		rdb:       rdb,
-		rmqSender: rmqSender,
-		server:    server,
+		authConn:   authConn,
+		rdb:        rdb,
+		rmqSender:  rmqSender,
+		server:     server,
+		dynManager: dynManager,
+		dynWatcher: dynWatcher,
 	}, nil
 }
 
@@ -207,6 +267,15 @@ func (a *App) Run(ctx context.Context) error {
 	defer a.rdb.Close()
 	if a.rmqSender != nil {
 		defer a.rmqSender.Close()
+	}
+	if a.dynManager != nil {
+		defer a.dynManager.Close()
+	}
+	if a.dynWatcher != nil {
+		if err := a.dynWatcher.Start(ctx); err != nil {
+			return fmt.Errorf("start dynamic config watcher: %w", err)
+		}
+		defer a.dynWatcher.Stop()
 	}
 
 	errChan := make(chan error, 1)
