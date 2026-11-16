@@ -3,8 +3,6 @@ package gateway
 import (
 	"context"
 	"crypto/ed25519"
-	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"log"
@@ -18,8 +16,6 @@ import (
 	"github.com/redis/go-redis/v9"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/jwtkeys"
@@ -47,66 +43,16 @@ type App struct {
 // NewApp wires the Auth gRPC client, JWKS verifier, Redis rate limiters, and HTTP router.
 func NewApp(cfg *config.Config) (*App, error) {
 	isDev := cfg.Env == "dev" || cfg.Env == "development"
-	tlsPlain := isDev && cfg.AuthGRPCTLSCAFile == "" && !cfg.AuthGRPCTLSEnabled
 
-	var dialOpts []grpc.DialOption
-	var dialCreds credentials.TransportCredentials
-	if cfg.AuthGRPCTLSCertFile != "" && cfg.AuthGRPCTLSKeyFile != "" {
-		cert, err := tls.LoadX509KeyPair(cfg.AuthGRPCTLSCertFile, cfg.AuthGRPCTLSKeyFile)
-		if err != nil {
-			return nil, fmt.Errorf("load gateway client cert/key: %w", err)
-		}
-		tlsConfig := &tls.Config{
-			Certificates: []tls.Certificate{cert},
-			ServerName:   cfg.AuthGRPCServerName,
-			MinVersion:   tls.VersionTLS12,
-		}
-		if cfg.AuthGRPCTLSCAFile != "" {
-			caPEM, err := os.ReadFile(cfg.AuthGRPCTLSCAFile)
-			if err != nil {
-				return nil, fmt.Errorf("read auth ca file: %w", err)
-			}
-			pool := x509.NewCertPool()
-			if !pool.AppendCertsFromPEM(caPEM) {
-				return nil, errors.New("failed to parse auth ca cert: file contains no valid certificates")
-			}
-			tlsConfig.RootCAs = pool
-		}
-		dialCreds = credentials.NewTLS(tlsConfig)
-	} else if cfg.AuthGRPCTLSCAFile != "" {
-		caPEM, err := os.ReadFile(cfg.AuthGRPCTLSCAFile)
-		if err != nil {
-			return nil, fmt.Errorf("read auth ca file: %w", err)
-		}
-		pool := x509.NewCertPool()
-		if !pool.AppendCertsFromPEM(caPEM) {
-			return nil, errors.New("failed to parse auth ca cert: file contains no valid certificates")
-		}
-		tlsConfig := &tls.Config{
-			RootCAs:    pool,
-			ServerName: cfg.AuthGRPCServerName,
-			MinVersion: tls.VersionTLS12,
-		}
-		dialCreds = credentials.NewTLS(tlsConfig)
-	} else if !tlsPlain {
-		dialCreds = credentials.NewTLS(&tls.Config{
-			ServerName: cfg.AuthGRPCServerName,
-			MinVersion: tls.VersionTLS12,
-		})
-	} else if isDev {
-		dialCreds = insecure.NewCredentials()
-	} else {
-		return nil, errors.New("plaintext Auth gRPC is only allowed when KR0N_ENV=dev")
-	}
-
-	dialOpts = append(dialOpts, grpc.WithTransportCredentials(dialCreds))
-	if cfg.AuthServiceToken != "" {
-		dialOpts = append(dialOpts, grpc.WithUnaryInterceptor(ServiceTokenClientInterceptor(cfg.AuthServiceToken)))
-	}
-
-	authConn, err := grpc.NewClient(cfg.AuthGRPCAddr, dialOpts...)
+	authConn, err := DialUpstream(cfg.AuthGRPCAddr, DialUpstreamTLSConfig{
+		Enabled:    cfg.AuthGRPCTLSEnabled,
+		CertFile:   cfg.AuthGRPCTLSCertFile,
+		KeyFile:    cfg.AuthGRPCTLSKeyFile,
+		CAFile:     cfg.AuthGRPCTLSCAFile,
+		ServerName: cfg.AuthGRPCServerName,
+	}, cfg.AuthServiceToken, isDev)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("dial auth gRPC service %q: %w", cfg.AuthGRPCAddr, err)
 	}
 
 	var pubKeys map[string]ed25519.PublicKey
@@ -221,6 +167,15 @@ func NewApp(cfg *config.Config) (*App, error) {
 			dynManager = dynamicrouter.NewManager(dynamicrouter.ManagerOptions{
 				Registry:           dynamicregistry.DefaultRegistry(),
 				MiddlewareRegistry: mwReg,
+				Dialer: func(svc dynamicconfig.ServiceConfig) (*grpc.ClientConn, error) {
+					return DialUpstream(svc.Address, DialUpstreamTLSConfig{
+						Enabled:    svc.TLS.Enabled,
+						CertFile:   svc.TLS.CertFile,
+						KeyFile:    svc.TLS.KeyFile,
+						CAFile:     svc.TLS.CAFile,
+						ServerName: svc.TLS.ServerName,
+					}, svc.ServiceToken, isDev)
+				},
 				MuxFactory: func() *runtime.ServeMux {
 					return NewGatewayServeMux(trustedProxies)
 				},

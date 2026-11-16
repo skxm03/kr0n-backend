@@ -2,7 +2,6 @@ package gateway
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
 	"net"
 	"net/http"
@@ -126,16 +125,16 @@ func NewServerHandler(h *Handler, o Options) http.Handler {
 	)
 
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+		WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 	r.Get("/readyz", func(w http.ResponseWriter, req *http.Request) {
 		ctx, cancel := context.WithTimeout(req.Context(), 2*time.Second)
 		defer cancel()
 		if o.Ready != nil && o.Ready(ctx) != nil {
-			writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "unavailable"})
+			WriteJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "unavailable"})
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
+		WriteJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 	})
 
 	// Initialize grpc-gateway ServeMux with snake_case JSON, metadata propagation, and error envelope
@@ -202,16 +201,10 @@ func EnforceJSONContentType(next http.Handler) http.Handler {
 		if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodPatch {
 			ct := r.Header.Get("Content-Type")
 			if !strings.HasPrefix(strings.ToLower(ct), "application/json") {
-				writeErrorJSON(r.Context(), w, http.StatusUnsupportedMediaType, "content-type must be application/json", "UNSUPPORTED_MEDIA_TYPE")
+				WriteErrorJSON(r.Context(), w, http.StatusUnsupportedMediaType, "content-type must be application/json", "UNSUPPORTED_MEDIA_TYPE")
 				return
 			}
 		}
 		next.ServeHTTP(w, r)
 	})
-}
-
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
 }
