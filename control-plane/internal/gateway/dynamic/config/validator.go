@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 )
@@ -66,12 +67,13 @@ func Validate(cfg *GatewayConfig) error {
 			return fmt.Errorf("service name cannot be empty")
 		}
 
-		if !svc.IsEnabled() {
-			continue
+		if strings.TrimSpace(svc.Address) == "" {
+			envKey := serviceEnvPrefix(svcName) + "_GRPC_ADDR"
+			return fmt.Errorf("service %q is defined in YAML but has no address in YAML or .env (%s)", svcName, envKey)
 		}
 
-		if strings.TrimSpace(svc.Address) == "" {
-			return fmt.Errorf("service %q has empty address", svcName)
+		if !svc.IsEnabled() {
+			continue
 		}
 
 		if svc.Timeout < 0 {
@@ -163,6 +165,9 @@ func ApplyDefaults(cfg *GatewayConfig) {
 	}
 
 	for k, svc := range cfg.Services {
+		if strings.TrimSpace(svc.Address) == "" {
+			svc.Address = lookupServiceEnvAddress(k)
+		}
 		if svc.Timeout == 0 {
 			svc.Timeout = 10 * time.Second
 		}
@@ -185,4 +190,21 @@ func ApplyDefaults(cfg *GatewayConfig) {
 		}
 		cfg.Services[k] = svc
 	}
+}
+
+func serviceEnvPrefix(svcName string) string {
+	return strings.ToUpper(strings.NewReplacer("-", "_", ".", "_").Replace(strings.TrimSpace(svcName)))
+}
+
+func lookupServiceEnvAddress(svcName string) string {
+	prefix := serviceEnvPrefix(svcName)
+	if prefix == "" {
+		return ""
+	}
+	for _, suffix := range []string{"_GRPC_ADDR", "_ADDR", "_URL"} {
+		if val := strings.TrimSpace(os.Getenv(prefix + suffix)); val != "" {
+			return val
+		}
+	}
+	return ""
 }

@@ -158,8 +158,7 @@ services:
 	}
 }
 
-func TestValidate_DisabledServiceIgnored(t *testing.T) {
-	falseVal := false
+func TestValidate_DisabledServiceRequiresAddress(t *testing.T) {
 	yamlData := `
 services:
   disabled_service:
@@ -169,11 +168,28 @@ services:
       - path: "/disabled"
         method: "GET"
 `
+	if _, err := LoadConfig([]byte(yamlData)); err == nil {
+		t.Fatalf("expected validation error for disabled service without address in YAML or .env, got nil")
+	}
+}
+
+func TestLoadConfig_DynamicEnvServiceAddressFallback(t *testing.T) {
+	_ = os.Setenv("BILLING_GRPC_ADDR", "billing.internal:50052")
+	defer os.Unsetenv("BILLING_GRPC_ADDR")
+
+	yamlData := `
+services:
+  billing:
+    enabled: false
+    endpoints:
+      - path: "/api/v1/billing"
+        method: "GET"
+`
 	cfg, err := LoadConfig([]byte(yamlData))
 	if err != nil {
-		t.Fatalf("unexpected error for disabled service with empty address: %v", err)
+		t.Fatalf("unexpected error when address is provided via env: %v", err)
 	}
-	if cfg.Services["disabled_service"].IsEnabled() != falseVal {
-		t.Errorf("expected disabled service to be disabled")
+	if got := cfg.Services["billing"].Address; got != "billing.internal:50052" {
+		t.Fatalf("expected billing address from BILLING_GRPC_ADDR, got %q", got)
 	}
 }

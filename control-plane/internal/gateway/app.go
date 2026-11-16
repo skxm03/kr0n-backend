@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
@@ -45,24 +46,44 @@ func NewApp(cfg *config.Config) (*App, error) {
 	isDev := cfg.Env == "dev" || cfg.Env == "development"
 
 	// 1. Load dynamic YAML configuration as single authoritative topology source
-	configPath := cfg.GatewayConfigPath
+	if cfg == nil {
+		return nil, errors.New("gateway config is nil")
+	}
+	configPath := strings.TrimSpace(cfg.GatewayConfigPath)
 	if configPath == "" {
-		configPath = "gateway.yaml"
+		return nil, errors.New("gateway YAML config path is required (GATEWAY_CONFIG_PATH not set)")
+	}
+	if info, err := os.Stat(configPath); err != nil {
+		return nil, fmt.Errorf("gateway YAML config file %q not found: %w", configPath, err)
+	} else if info.IsDir() {
+		return nil, fmt.Errorf("gateway YAML config path %q is a directory, expected a file", configPath)
 	}
 	dynCfg, err := dynamicconfig.LoadConfigFile(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("load dynamic gateway config from %q: %w", configPath, err)
 	}
 
-	// 2. Resolve Auth Upstream address (env override takes precedence over yaml if set)
-	authAddr := cfg.AuthGRPCAddr
+	// 2. Resolve service addresses (env overrides / fallbacks) and ensure every defined service has a URL
+	if strings.TrimSpace(cfg.AuthGRPCAddr) != "" {
+		if authSvc, ok := dynCfg.Services["auth"]; ok {
+			authSvc.Address = strings.TrimSpace(cfg.AuthGRPCAddr)
+			dynCfg.Services["auth"] = authSvc
+		}
+	}
+	for svcName, svc := range dynCfg.Services {
+		if strings.TrimSpace(svc.Address) == "" {
+			return nil, fmt.Errorf("service %q is defined in YAML but has no address configured in YAML or .env", svcName)
+		}
+	}
+
+	authAddr := strings.TrimSpace(cfg.AuthGRPCAddr)
 	if authAddr == "" {
 		if authSvc, ok := dynCfg.Services["auth"]; ok {
-			authAddr = authSvc.Address
+			authAddr = strings.TrimSpace(authSvc.Address)
 		}
 	}
 	if authAddr == "" {
-		authAddr = "localhost:50051"
+		return nil, errors.New("service \"auth\" has no address configured in YAML or .env (AUTH_GRPC_ADDR)")
 	}
 
 	// 3. Dial upstream for auth client (used by JWKS key set provider & API token verifier)

@@ -41,7 +41,7 @@ func LoadConfig() (*Config, error) {
 	}
 
 	if cfg.GatewayConfigPath == "" {
-		cfg.GatewayConfigPath = "gateway.yaml"
+		return nil, fmt.Errorf("GATEWAY_CONFIG_PATH is required and cannot be empty")
 	}
 
 	return &cfg, nil

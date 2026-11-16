@@ -37,7 +37,7 @@ middleware_profiles:
 
 services:
   auth:
-    address: "${AUTH_GRPC_ADDR:-localhost:50051}"
+    address: "${AUTH_GRPC_ADDR}"
     enabled: true
     timeout: 10s
     default_profile: authenticated_api

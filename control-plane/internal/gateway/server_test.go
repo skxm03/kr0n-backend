@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -20,6 +21,7 @@ import (
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/jwtkeys"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/config"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/ratelimit"
 )
 
@@ -296,5 +298,35 @@ func TestGatewayOrgAuditEndpointGatedByAuditReadPermission(t *testing.T) {
 	rec := do(srv, "GET", "/api/v1/orgs/org-1/audit?limit=10", "Bearer "+patSecret)
 	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"apitoken.created"`) {
 		t.Fatalf("expected 200 with audit events, got %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestNewAppFailsWithoutYAMLConfig(t *testing.T) {
+	if _, err := NewApp(&config.Config{}); err == nil {
+		t.Fatal("expected startup error when GatewayConfigPath is empty, got nil")
+	}
+
+	if _, err := NewApp(&config.Config{GatewayConfigPath: "/nonexistent/path/gateway.yaml"}); err == nil {
+		t.Fatal("expected startup error when YAML file does not exist, got nil")
+	}
+}
+
+func TestNewAppFailsWhenServiceHasNoURL(t *testing.T) {
+	tmpFile := t.TempDir() + "/gateway.yaml"
+	yamlContent := `
+gateway:
+  http_addr: ":8080"
+services:
+  auth:
+    enabled: true
+  payments:
+    enabled: false
+`
+	if err := os.WriteFile(tmpFile, []byte(yamlContent), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := NewApp(&config.Config{GatewayConfigPath: tmpFile}); err == nil {
+		t.Fatal("expected startup error when defined services have no URL in YAML or .env, got nil")
 	}
 }
