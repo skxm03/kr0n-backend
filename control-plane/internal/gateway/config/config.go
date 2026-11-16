@@ -10,8 +10,8 @@ import (
 type Config struct {
 	Env               string   `env:"KR0N_ENV" envDefault:"dev"`
 	GatewayConfigPath string   `env:"GATEWAY_CONFIG_PATH" envDefault:"gateway.yaml"`
-	GatewayHTTPAddr   string   `env:"GATEWAY_HTTP_ADDR"` // Optional override for gateway.yaml http_addr
-	AuthGRPCAddr      string   `env:"AUTH_GRPC_ADDR"`    // Optional override for services.auth.address
+	GatewayHTTPAddr   string   `env:"GATEWAY_HTTP_ADDR"`
+	AuthGRPCAddr      string   `env:"AUTH_GRPC_ADDR"`
 	JWTPublicKeys     string   `env:"JWT_PUBLIC_KEYS"`
 	JWTKeyID          string   `env:"JWT_KEY_ID" envDefault:"k1"`
 	JWTIssuer         string   `env:"JWT_ISSUER" envDefault:"kr0n-auth"`
