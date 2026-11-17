@@ -17,7 +17,6 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/oauth"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
 )
-
 func actorTypeFromPrincipal(p repository.Principal) string {
 	if p.Kind == repository.ActorTypeAPIToken {
 		return repository.ActorTypeAPIToken
@@ -25,7 +24,6 @@ func actorTypeFromPrincipal(p repository.Principal) string {
 	return repository.ActorTypeUser
 }
 
-// ParseCallerPrincipal validates and extracts the caller principal from context and request.
 func (s *Server) ParseCallerPrincipal(ctx context.Context, c *authv1.CallerPrincipal) (repository.Principal, error) {
 	if s.serviceAuth.Enabled && !IsTrustedService(ctx) {
 		return repository.Principal{}, status.Error(codes.Unauthenticated, "caller principal rejected: untrusted service boundary")
