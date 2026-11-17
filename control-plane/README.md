@@ -62,6 +62,7 @@ The API Gateway and Auth Service communicate over internal gRPC (`:50051`). In p
 - **API Tokens**: Opaque `kr0n_pat_<random>` tokens are hashed (SHA-256) and verified on-demand via the Auth Service `ValidateAPIToken` RPC, reflecting privilege changes and revocation in real time.
 
 ### Database Schema, Token Lifecycle & UUID Strategy
+- **PostgreSQL migrations**: The schema is defined in [`internal/auth/migrations/`](internal/auth/migrations/).
 - **UUID Ordering**:
   - `uuid.NewV7()` (time-ordered sequential UUIDs) is used for high-write tables (`audit_events`, `users`, `sessions`) to ensure B-Tree index page locality and high write throughput.
   - `uuid.New()` (cryptographically secure random UUID v4) is used for non-clustered resources (`organizations`, `api_tokens`, `organization_invites`).
