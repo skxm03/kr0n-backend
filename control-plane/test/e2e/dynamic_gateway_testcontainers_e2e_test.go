@@ -40,10 +40,15 @@ func TestE2E_DynamicGateway_Testcontainers_FullFlow(t *testing.T) {
 
 	tmpDir := t.TempDir()
 
-	// 2. Pre-compile upstream and gateway Linux binaries for fast, reproducible container startup
-	upstreamBinPath := filepath.Join(tmpDir, "upstream")
-	gatewayBinPath := filepath.Join(tmpDir, "kr0n-gateway")
+	upstreamBuildDir := filepath.Join(tmpDir, "upstream_build")
+	require.NoError(t, os.MkdirAll(upstreamBuildDir, 0755))
+	upstreamBinPath := filepath.Join(upstreamBuildDir, "upstream")
 
+	gatewayBuildDir := filepath.Join(tmpDir, "gateway_build")
+	require.NoError(t, os.MkdirAll(gatewayBuildDir, 0755))
+	gatewayBinPath := filepath.Join(gatewayBuildDir, "kr0n-gateway")
+
+	// 2. Pre-compile upstream and gateway Linux binaries for fast, reproducible container startup
 	t.Log("Building upstream Linux binary...")
 	buildUpstream := exec.CommandContext(ctx, "go", "build", "-trimpath", "-o", upstreamBinPath, "../testupstream")
 	buildUpstream.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS=linux")
@@ -55,6 +60,22 @@ func TestE2E_DynamicGateway_Testcontainers_FullFlow(t *testing.T) {
 	buildGateway.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS=linux")
 	out, err = buildGateway.CombinedOutput()
 	require.NoError(t, err, "failed to compile gateway: %s", string(out))
+
+	t.Log("Generating mTLS test certificates...")
+	certsDir := filepath.Join(tmpDir, "certs")
+	genCerts := exec.CommandContext(ctx, "../../../scripts/gen-certs.sh", certsDir)
+	out, err = genCerts.CombinedOutput()
+	require.NoError(t, err, "failed to generate mTLS certs: %s", string(out))
+
+	// Copy certs into isolated build directories
+	require.NoError(t, os.MkdirAll(filepath.Join(upstreamBuildDir, "tls"), 0755))
+	require.NoError(t, copyTestFile(filepath.Join(certsDir, "auth", "server.crt"), filepath.Join(upstreamBuildDir, "tls", "server.crt")))
+	require.NoError(t, copyTestFile(filepath.Join(certsDir, "auth", "server.key"), filepath.Join(upstreamBuildDir, "tls", "server.key")))
+
+	require.NoError(t, os.MkdirAll(filepath.Join(gatewayBuildDir, "tls"), 0755))
+	require.NoError(t, copyTestFile(filepath.Join(certsDir, "ca", "ca.crt"), filepath.Join(gatewayBuildDir, "tls", "ca.crt")))
+	require.NoError(t, copyTestFile(filepath.Join(certsDir, "gateway", "client.crt"), filepath.Join(gatewayBuildDir, "tls", "client.crt")))
+	require.NoError(t, copyTestFile(filepath.Join(certsDir, "gateway", "client.key"), filepath.Join(gatewayBuildDir, "tls", "client.key")))
 
 	// 3. Create test gateway.yaml declarative configuration
 	gatewayYAML := `
@@ -92,7 +113,10 @@ services:
     enabled: true
     timeout: 5s
     tls:
-      enabled: false
+      ca_file: "/etc/kr0n/tls/ca.crt"
+      cert_file: "/etc/kr0n/tls/client.crt"
+      key_file: "/etc/kr0n/tls/client.key"
+      server_name: "auth.internal"
 
     middleware:
       - cors
@@ -112,7 +136,7 @@ services:
         use:
           - authenticated_api
 `
-	gatewayYAMLPath := filepath.Join(tmpDir, "gateway.yaml")
+	gatewayYAMLPath := filepath.Join(gatewayBuildDir, "gateway.yaml")
 	require.NoError(t, os.WriteFile(gatewayYAMLPath, []byte(strings.TrimSpace(gatewayYAML)), 0644))
 
 	// 4. Create Docker network for container-to-container communication
@@ -134,20 +158,24 @@ services:
 		_ = testcontainers.TerminateContainer(redisCtr)
 	})
 
-	// 6. Write Dockerfile for upstream API and spin up upstream Testcontainer
+	// 6. Write Dockerfile for upstream API and spin up upstream Testcontainer with TLS
 	upstreamDockerfile := `FROM alpine:3.21
 COPY upstream /bin/upstream
+COPY tls/server.crt /etc/kr0n/tls/server.crt
+COPY tls/server.key /etc/kr0n/tls/server.key
+ENV TLS_CERT_FILE=/etc/kr0n/tls/server.crt
+ENV TLS_KEY_FILE=/etc/kr0n/tls/server.key
 EXPOSE 50051
 ENTRYPOINT ["/bin/upstream"]
 `
-	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "Dockerfile.upstream"), []byte(upstreamDockerfile), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(upstreamBuildDir, "Dockerfile"), []byte(upstreamDockerfile), 0644))
 
-	t.Log("Spinning up Upstream API container...")
+	t.Log("Spinning up Upstream API container with TLS...")
 	upstreamCtr, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
 			FromDockerfile: testcontainers.FromDockerfile{
-				Context:    tmpDir,
-				Dockerfile: "Dockerfile.upstream",
+				Context:    upstreamBuildDir,
+				Dockerfile: "Dockerfile",
 			},
 			Networks: []string{dockerNet.Name},
 			NetworkAliases: map[string][]string{
@@ -163,36 +191,39 @@ ENTRYPOINT ["/bin/upstream"]
 		_ = testcontainers.TerminateContainer(upstreamCtr)
 	})
 
-	// 7. Write Dockerfile for Gateway and spin up Gateway Testcontainer
+	// 7. Write Dockerfile for Gateway and spin up Gateway Testcontainer with TLS client certs
 	gatewayDockerfile := `FROM alpine:3.21
 COPY kr0n-gateway /bin/kr0n-gateway
 COPY gateway.yaml /etc/kr0n/gateway.yaml
+COPY tls/ca.crt /etc/kr0n/tls/ca.crt
+COPY tls/client.crt /etc/kr0n/tls/client.crt
+COPY tls/client.key /etc/kr0n/tls/client.key
 EXPOSE 8080
 ENTRYPOINT ["/bin/kr0n-gateway"]
 `
-	require.NoError(t, os.WriteFile(filepath.Join(tmpDir, "Dockerfile.gateway"), []byte(gatewayDockerfile), 0644))
+	require.NoError(t, os.WriteFile(filepath.Join(gatewayBuildDir, "Dockerfile"), []byte(gatewayDockerfile), 0644))
 
-	t.Log("Spinning up Gateway container...")
+	t.Log("Spinning up Gateway container with TLS...")
 	gatewayCtr, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
 			FromDockerfile: testcontainers.FromDockerfile{
-				Context:    tmpDir,
-				Dockerfile: "Dockerfile.gateway",
+				Context:    gatewayBuildDir,
+				Dockerfile: "Dockerfile",
 			},
 			Networks: []string{dockerNet.Name},
 			NetworkAliases: map[string][]string{
 				dockerNet.Name: {"kr0n-gateway"},
 			},
 			Env: map[string]string{
-				"KR0N_ENV":                  "dev",
-				"GATEWAY_HTTP_ADDR":         ":8080",
-				"AUTH_GRPC_ADDR":            "mock-upstream:50051",
-				"REDIS_ADDR":                "redis:6379",
-				"GATEWAY_CONFIG_PATH":       "/etc/kr0n/gateway.yaml",
-				"RATE_LIMIT_CAPACITY":       "100",
-				"RATE_LIMIT_PER_SEC":        "50",
-				"AUTH_RATE_LIMIT_CAPACITY":  "20",
-				"AUTH_RATE_LIMIT_PER_SEC":   "5",
+				"KR0N_ENV":                   "dev",
+				"GATEWAY_HTTP_ADDR":          ":8080",
+				"AUTH_GRPC_ADDR":             "mock-upstream:50051",
+				"REDIS_ADDR":                 "redis:6379",
+				"GATEWAY_CONFIG_PATH":        "/etc/kr0n/gateway.yaml",
+				"AUTH_GRPC_TLS_CA_FILE":      "/etc/kr0n/tls/ca.crt",
+				"GATEWAY_GRPC_TLS_CERT_FILE": "/etc/kr0n/tls/client.crt",
+				"GATEWAY_GRPC_TLS_KEY_FILE":  "/etc/kr0n/tls/client.key",
+				"AUTH_GRPC_SERVER_NAME":      "auth.internal",
 			},
 			ExposedPorts: []string{"8080/tcp"},
 			WaitingFor:   wait.ForHTTP("/healthz").WithPort("8080/tcp").WithStartupTimeout(30 * time.Second),
@@ -341,4 +372,12 @@ ENTRYPOINT ["/bin/kr0n-gateway"]
 
 		assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 	})
+}
+
+func copyTestFile(src, dst string) error {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(dst, data, 0644)
 }

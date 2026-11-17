@@ -1,4 +1,4 @@
-package gateway
+package e2e
 
 // ErrorResponseDTO represents the standard gateway error response JSON schema.
 type ErrorResponseDTO struct {

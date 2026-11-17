@@ -21,7 +21,6 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/service"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway"
 )
 
 func startE2ECluster(t *testing.T, ctx context.Context) (*pgxpool.Pool, string, func()) {
@@ -67,9 +66,10 @@ func startE2ECluster(t *testing.T, ctx context.Context) (*pgxpool.Pool, string, 
 		t.Fatalf("failed to dial auth gRPC: %v", err)
 	}
 
-	authClient := authv1.NewAuthServiceClient(authConn)
-	gwHandler := gateway.NewHandler(authClient)
-	gwRouter := gateway.NewServerHandler(gwHandler, gateway.Options{})
+	gwRouter, err := newE2ETestRouter(authConn)
+	if err != nil {
+		t.Fatalf("failed to create dynamic gateway test router: %v", err)
+	}
 
 	httpListener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -135,7 +135,7 @@ func TestE2E_Login_Slice(t *testing.T) {
 		t.Fatalf("expected 201 Created on register, got %d: %s", regResp.StatusCode, string(b))
 	}
 
-	var regData gateway.RegisterResponseDTO
+	var regData RegisterResponseDTO
 	_ = json.NewDecoder(regResp.Body).Decode(&regData)
 	userID, err := uuid.Parse(regData.UserID)
 	if err != nil {
@@ -163,7 +163,7 @@ func TestE2E_Login_Slice(t *testing.T) {
 			t.Fatalf("expected 200 OK, got %d: %s", resp.StatusCode, string(b))
 		}
 
-		var loginResult gateway.LoginResponseDTO
+		var loginResult LoginResponseDTO
 		if err := json.NewDecoder(resp.Body).Decode(&loginResult); err != nil {
 			t.Fatalf("decode login response failed: %v", err)
 		}
@@ -242,7 +242,7 @@ func TestE2E_Login_Slice(t *testing.T) {
 			t.Fatalf("expected 401 Unauthorized, got %d", resp.StatusCode)
 		}
 
-		var errResp gateway.ErrorResponseDTO
+		var errResp ErrorResponseDTO
 		_ = json.NewDecoder(resp.Body).Decode(&errResp)
 		if errResp.Error != "invalid email or password" {
 			t.Fatalf("expected 'invalid email or password', got %s", errResp.Error)
@@ -274,7 +274,7 @@ func TestE2E_Login_Slice(t *testing.T) {
 			t.Fatalf("expected 401 Unauthorized, got %d", resp.StatusCode)
 		}
 
-		var errResp gateway.ErrorResponseDTO
+		var errResp ErrorResponseDTO
 		_ = json.NewDecoder(resp.Body).Decode(&errResp)
 		if errResp.Error != "invalid email or password" {
 			t.Fatalf("expected 'invalid email or password', got %s", errResp.Error)

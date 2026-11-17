@@ -13,6 +13,13 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/middleware"
 )
 
+// ErrorResponseDTO represents the standard gateway error response JSON schema.
+type ErrorResponseDTO struct {
+	Error     string `json:"error"`
+	Code      string `json:"code,omitempty"`
+	RequestID string `json:"request_id,omitempty"`
+}
+
 // WriteJSON marshals v as JSON and writes it to w with the given HTTP status code.
 func WriteJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")

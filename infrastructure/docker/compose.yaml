@@ -14,5 +14,3 @@ services:
     depends_on:
       auth:
         condition: service_healthy
-      mailer-rabbitmq:
-        condition: service_healthy

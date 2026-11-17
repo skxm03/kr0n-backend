@@ -42,7 +42,10 @@ services:
     timeout: 10s
     default_profile: authenticated_api
     tls:
-      enabled: false
+      ca_file: "${AUTH_GRPC_TLS_CA_FILE:-}"
+      cert_file: "${GATEWAY_GRPC_TLS_CERT_FILE:-}"
+      key_file: "${GATEWAY_GRPC_TLS_KEY_FILE:-}"
+      server_name: "${AUTH_GRPC_SERVER_NAME:-auth.internal}"
 
     middleware:
       - cors

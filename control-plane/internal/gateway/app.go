@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"cmp"
 	"context"
 	"crypto/ed25519"
 	"errors"
@@ -20,7 +21,6 @@ import (
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/jwtkeys"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/email"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/config"
 	dynamicconfig "github.com/skxm03/kr0n-backend/control-plane/internal/gateway/dynamic/config"
 	dynamicregistry "github.com/skxm03/kr0n-backend/control-plane/internal/gateway/dynamic/registry"
@@ -35,7 +35,6 @@ import (
 type App struct {
 	authConn   *grpc.ClientConn
 	rdb        *redis.Client
-	rmqSender  *email.RabbitMQSender
 	server     *http.Server
 	dynManager *dynamicrouter.Manager
 	dynWatcher *dynamicwatcher.Watcher
@@ -46,54 +45,32 @@ func NewApp(cfg *config.Config) (*App, error) {
 	isDev := cfg.Env == "dev" || cfg.Env == "development"
 
 	// 1. Load dynamic YAML configuration as single authoritative topology source
-	if cfg == nil {
-		return nil, errors.New("gateway config is nil")
+	if cfg == nil || strings.TrimSpace(cfg.GatewayConfigPath) == "" {
+		return nil, errors.New("gateway config is nil or GATEWAY_CONFIG_PATH is not set")
 	}
 	configPath := strings.TrimSpace(cfg.GatewayConfigPath)
-	if configPath == "" {
-		return nil, errors.New("gateway YAML config path is required (GATEWAY_CONFIG_PATH not set)")
-	}
-	if info, err := os.Stat(configPath); err != nil {
-		return nil, fmt.Errorf("gateway YAML config file %q not found: %w", configPath, err)
-	} else if info.IsDir() {
-		return nil, fmt.Errorf("gateway YAML config path %q is a directory, expected a file", configPath)
-	}
 	dynCfg, err := dynamicconfig.LoadConfigFile(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("load dynamic gateway config from %q: %w", configPath, err)
 	}
 
-	// 2. Resolve service addresses (env overrides / fallbacks) and ensure every defined service has a URL
-	if strings.TrimSpace(cfg.AuthGRPCAddr) != "" {
-		if authSvc, ok := dynCfg.Services["auth"]; ok {
-			authSvc.Address = strings.TrimSpace(cfg.AuthGRPCAddr)
-			dynCfg.Services["auth"] = authSvc
-		}
-	}
-	for svcName, svc := range dynCfg.Services {
-		if strings.TrimSpace(svc.Address) == "" {
-			return nil, fmt.Errorf("service %q is defined in YAML but has no address configured in YAML or .env", svcName)
-		}
-	}
-
-	authAddr := strings.TrimSpace(cfg.AuthGRPCAddr)
+	// 2. Resolve auth address (env override or dynamic config fallback)
+	authAddr := cmp.Or(strings.TrimSpace(cfg.AuthGRPCAddr), dynCfg.Services["auth"].Address)
 	if authAddr == "" {
-		if authSvc, ok := dynCfg.Services["auth"]; ok {
-			authAddr = strings.TrimSpace(authSvc.Address)
-		}
+		return nil, errors.New(`service "auth" has no address configured in YAML or .env (AUTH_GRPC_ADDR)`)
 	}
-	if authAddr == "" {
-		return nil, errors.New("service \"auth\" has no address configured in YAML or .env (AUTH_GRPC_ADDR)")
+	if authSvc, ok := dynCfg.Services["auth"]; ok {
+		authSvc.Address = authAddr
+		dynCfg.Services["auth"] = authSvc
 	}
 
 	// 3. Dial upstream for auth client (used by JWKS key set provider & API token verifier)
 	authConn, err := DialUpstream(authAddr, DialUpstreamTLSConfig{
-		Enabled:    cfg.AuthGRPCTLSEnabled,
 		CertFile:   cfg.AuthGRPCTLSCertFile,
 		KeyFile:    cfg.AuthGRPCTLSKeyFile,
 		CAFile:     cfg.AuthGRPCTLSCAFile,
 		ServerName: cfg.AuthGRPCServerName,
-	}, cfg.AuthServiceToken, isDev)
+	}, cfg.AuthServiceToken)
 	if err != nil {
 		return nil, fmt.Errorf("dial auth gRPC service %q: %w", authAddr, err)
 	}
@@ -149,16 +126,6 @@ func NewApp(cfg *config.Config) (*App, error) {
 		return nil, err
 	}
 
-	var rmqSender *email.RabbitMQSender
-	if cfg.RabbitMQURL != "" {
-		rmqSender, err = email.NewRabbitMQSender(cfg.RabbitMQURL, cfg.EmailQueueName)
-		if err != nil {
-			_ = rdb.Close()
-			_ = authConn.Close()
-			return nil, fmt.Errorf("connect rabbitmq email sender: %w", err)
-		}
-	}
-
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	apiTokenVerifier := NewGRPCAPITokenVerifier(authClient)
 
@@ -180,12 +147,11 @@ func NewApp(cfg *config.Config) (*App, error) {
 		MiddlewareRegistry: mwReg,
 		Dialer: func(svc dynamicconfig.ServiceConfig) (*grpc.ClientConn, error) {
 			return DialUpstream(svc.Address, DialUpstreamTLSConfig{
-				Enabled:    svc.TLS.Enabled,
 				CertFile:   svc.TLS.CertFile,
 				KeyFile:    svc.TLS.KeyFile,
 				CAFile:     svc.TLS.CAFile,
 				ServerName: svc.TLS.ServerName,
-			}, svc.ServiceToken, isDev)
+			}, svc.ServiceToken)
 		},
 		MuxFactory: func() *runtime.ServeMux {
 			return NewGatewayServeMux(trustedProxies)
@@ -220,40 +186,18 @@ func NewApp(cfg *config.Config) (*App, error) {
 	}
 
 	// 9. HTTP Server with YAML topology
-	httpAddr := cfg.GatewayHTTPAddr
-	if httpAddr == "" {
-		httpAddr = dynCfg.Gateway.HTTPAddr
-	}
-	if httpAddr == "" {
-		httpAddr = ":8080"
-	}
-
-	readTimeout := dynCfg.Gateway.ReadTimeout
-	if readTimeout <= 0 {
-		readTimeout = 15 * time.Second
-	}
-	writeTimeout := dynCfg.Gateway.WriteTimeout
-	if writeTimeout <= 0 {
-		writeTimeout = 30 * time.Second
-	}
-	idleTimeout := dynCfg.Gateway.IdleTimeout
-	if idleTimeout <= 0 {
-		idleTimeout = 60 * time.Second
-	}
-
 	server := &http.Server{
-		Addr:              httpAddr,
+		Addr:              cmp.Or(cfg.GatewayHTTPAddr, dynCfg.Gateway.HTTPAddr, ":8080"),
 		Handler:           dynManager,
 		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       readTimeout,
-		WriteTimeout:      writeTimeout,
-		IdleTimeout:       idleTimeout,
+		ReadTimeout:       dynCfg.Gateway.ReadTimeout,
+		WriteTimeout:      dynCfg.Gateway.WriteTimeout,
+		IdleTimeout:       dynCfg.Gateway.IdleTimeout,
 	}
 
 	return &App{
 		authConn:   authConn,
 		rdb:        rdb,
-		rmqSender:  rmqSender,
 		server:     server,
 		dynManager: dynManager,
 		dynWatcher: dynWatcher,
@@ -264,9 +208,6 @@ func NewApp(cfg *config.Config) (*App, error) {
 func (a *App) Run(ctx context.Context) error {
 	defer a.authConn.Close()
 	defer a.rdb.Close()
-	if a.rmqSender != nil {
-		defer a.rmqSender.Close()
-	}
 	if a.dynManager != nil {
 		defer a.dynManager.Close()
 	}

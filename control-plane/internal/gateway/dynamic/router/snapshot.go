@@ -15,7 +15,6 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/dynamic/config"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/dynamic/registry"
@@ -37,41 +36,34 @@ type SnapshotOptions struct {
 	ReadyCheck         func(context.Context) error
 }
 
-// DefaultServiceDialer provides standard gRPC dialing with TLS or insecure credentials.
+// DefaultServiceDialer provides standard gRPC dialing with TLS/mTLS credentials.
 func DefaultServiceDialer(svc config.ServiceConfig) (*grpc.ClientConn, error) {
-	var creds credentials.TransportCredentials
-
-	if svc.TLS.Enabled {
-		tlsConfig := &tls.Config{
-			ServerName: svc.TLS.ServerName,
-			MinVersion: tls.VersionTLS12,
-		}
-
-		if svc.TLS.CertFile != "" && svc.TLS.KeyFile != "" {
-			cert, err := tls.LoadX509KeyPair(svc.TLS.CertFile, svc.TLS.KeyFile)
-			if err != nil {
-				return nil, fmt.Errorf("load tls client cert: %w", err)
-			}
-			tlsConfig.Certificates = []tls.Certificate{cert}
-		}
-
-		if svc.TLS.CAFile != "" {
-			caPEM, err := os.ReadFile(svc.TLS.CAFile)
-			if err != nil {
-				return nil, fmt.Errorf("read tls ca file: %w", err)
-			}
-			pool := x509.NewCertPool()
-			if !pool.AppendCertsFromPEM(caPEM) {
-				return nil, fmt.Errorf("parse ca cert: no valid certificates found")
-			}
-			tlsConfig.RootCAs = pool
-		}
-
-		creds = credentials.NewTLS(tlsConfig)
-	} else {
-		creds = insecure.NewCredentials()
+	tlsConfig := &tls.Config{
+		ServerName: svc.TLS.ServerName,
+		MinVersion: tls.VersionTLS12,
 	}
 
+	if svc.TLS.CertFile != "" && svc.TLS.KeyFile != "" {
+		cert, err := tls.LoadX509KeyPair(svc.TLS.CertFile, svc.TLS.KeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("load tls client cert: %w", err)
+		}
+		tlsConfig.Certificates = []tls.Certificate{cert}
+	}
+
+	if svc.TLS.CAFile != "" {
+		caPEM, err := os.ReadFile(svc.TLS.CAFile)
+		if err != nil {
+			return nil, fmt.Errorf("read tls ca file: %w", err)
+		}
+		pool := x509.NewCertPool()
+		if !pool.AppendCertsFromPEM(caPEM) {
+			return nil, fmt.Errorf("parse ca cert: no valid certificates found")
+		}
+		tlsConfig.RootCAs = pool
+	}
+
+	creds := credentials.NewTLS(tlsConfig)
 	return grpc.NewClient(svc.Address, grpc.WithTransportCredentials(creds))
 }
 

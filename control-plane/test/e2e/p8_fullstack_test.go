@@ -6,7 +6,6 @@ import (
 	"crypto/ed25519"
 	"encoding/json"
 	"io"
-	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -151,12 +150,14 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 		t.Fatalf("new verifier: %v", err)
 	}
 
-	srvHandler := gateway.NewServerHandler(gateway.NewHandler(authClient), gateway.Options{
-		Log:            slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Verifier:       verifier,
-		GeneralLimiter: genLimiter,
-		AuthLimiter:    authLimiter,
-	})
+	_ = genLimiter
+	_ = authLimiter
+	_ = verifier
+
+	srvHandler, err := newE2ETestRouter(authConn)
+	if err != nil {
+		t.Fatalf("dynamic router: %v", err)
+	}
 
 	gwServer := httptest.NewServer(srvHandler)
 	defer gwServer.Close()
@@ -223,7 +224,7 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("login after reset: %d %s", resp.StatusCode, string(raw))
 	}
-	var loginDTO gateway.LoginResponseDTO
+	var loginDTO LoginResponseDTO
 	_ = json.Unmarshal(raw, &loginDTO)
 
 	resp, raw = doJSON(http.MethodPost, "/api/v1/auth/refresh", "", map[string]string{
@@ -232,7 +233,7 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("refresh 1: %d %s", resp.StatusCode, string(raw))
 	}
-	var rotDTO gateway.RefreshResponseDTO
+	var rotDTO RefreshResponseDTO
 	_ = json.Unmarshal(raw, &rotDTO)
 
 	// Reusing loginDTO.RefreshToken must fail AND revoke the rotated token's session
@@ -249,31 +250,27 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 		t.Fatalf("expected rotated refresh token to be revoked after reuse detection, got %d", resp.StatusCode)
 	}
 
-	// 2. GitHub OAuth 2.0 + PKCE end-to-end flow
-	noRedirectClient := &http.Client{
-		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
-	}
-	startResp, err := noRedirectClient.Get(gwServer.URL + "/api/v1/auth/github/start")
+	// 2. GitHub OAuth 2.0 + PKCE end-to-end flow via grpc-gateway
+	startResp, err := http.Get(gwServer.URL + "/api/v1/auth/github/start")
 	if err != nil {
 		t.Fatalf("github start: %v", err)
 	}
+	startRaw, _ := io.ReadAll(startResp.Body)
 	startResp.Body.Close()
-	if startResp.StatusCode != http.StatusFound {
-		t.Fatalf("expected 302 from github start, got %d", startResp.StatusCode)
+	if startResp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200 from github start, got %d: %s", startResp.StatusCode, string(startRaw))
 	}
-	var ghCookie *http.Cookie
-	for _, c := range startResp.Cookies() {
-		if c.Name == "kr0n_gh_oauth" {
-			ghCookie = c
-		}
+	var startData struct {
+		AuthorizeURL string `json:"authorize_url"`
+		State        string `json:"state"`
+		CodeVerifier string `json:"code_verifier"`
 	}
-	if ghCookie == nil {
-		t.Fatal("missing kr0n_gh_oauth cookie")
+	_ = json.Unmarshal(startRaw, &startData)
+	if startData.AuthorizeURL == "" || startData.State == "" || startData.CodeVerifier == "" {
+		t.Fatalf("invalid github start response: %+v", startData)
 	}
-	state, _, _ := strings.Cut(ghCookie.Value, ".")
 
-	cbReq, _ := http.NewRequestWithContext(ctx, http.MethodGet, gwServer.URL+"/api/v1/auth/github/callback?code=gh_code&state="+state, nil)
-	cbReq.AddCookie(ghCookie)
+	cbReq, _ := http.NewRequestWithContext(ctx, http.MethodGet, gwServer.URL+"/api/v1/auth/github/callback?code=gh_code&code_verifier="+startData.CodeVerifier, nil)
 	cbResp, err := http.DefaultClient.Do(cbReq)
 	if err != nil {
 		t.Fatalf("github callback: %v", err)
@@ -283,7 +280,7 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 	if cbResp.StatusCode != http.StatusOK {
 		t.Fatalf("github callback status: %d %s", cbResp.StatusCode, string(cbRaw))
 	}
-	var ghLogin gateway.LoginResponseDTO
+	var ghLogin LoginResponseDTO
 	_ = json.Unmarshal(cbRaw, &ghLogin)
 	if ghLogin.User.Email != ghEmail || ghLogin.AccessToken == "" {
 		t.Fatalf("unexpected github login response: %+v", ghLogin)
@@ -298,7 +295,7 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("create org: %d %s", resp.StatusCode, string(raw))
 	}
-	var orgDTO gateway.OrganizationDTO
+	var orgDTO OrganizationDTO
 	_ = json.Unmarshal(raw, &orgDTO)
 
 	// Create API token with `org:read` and `audit:read`
@@ -309,7 +306,7 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 	if resp.StatusCode != http.StatusCreated {
 		t.Fatalf("create api token: %d %s", resp.StatusCode, string(raw))
 	}
-	var tokResp gateway.CreateAPITokenResponseDTO
+	var tokResp CreateAPITokenResponseDTO
 	_ = json.Unmarshal(raw, &tokResp)
 	if !strings.HasPrefix(tokResp.Secret, "kr0n_pat_") {
 		t.Fatalf("expected kr0n_pat_ prefix, got %q", tokResp.Secret)
@@ -320,7 +317,7 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("GET audit with PAT: %d %s", resp.StatusCode, string(raw))
 	}
-	var auditResp gateway.ListAuditEventsResponseDTO
+	var auditResp ListAuditEventsResponseDTO
 	_ = json.Unmarshal(raw, &auditResp)
 	if len(auditResp.Events) < 2 {
 		t.Fatalf("expected at least 2 audit events (org.created, apitoken.created), got %+v", auditResp.Events)

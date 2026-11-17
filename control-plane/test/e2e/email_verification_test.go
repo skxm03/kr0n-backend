@@ -23,7 +23,6 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/service"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/email"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway"
 )
 
 func TestE2E_EmailVerification_Lifecycle(t *testing.T) {
@@ -94,8 +93,11 @@ func TestE2E_EmailVerification_Lifecycle(t *testing.T) {
 	defer authConn.Close()
 
 	authClient := authv1.NewAuthServiceClient(authConn)
-	gwHandler := gateway.NewHandler(authClient)
-	gwRouter := gateway.NewServerHandler(gwHandler, gateway.Options{})
+	_ = authClient
+	gwRouter, err := newE2ETestRouter(authConn)
+	if err != nil {
+		t.Fatalf("failed to create dynamic gateway test router: %v", err)
+	}
 
 	httpListener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -146,7 +148,7 @@ func TestE2E_EmailVerification_Lifecycle(t *testing.T) {
 			t.Fatalf("expected 201 Created, got %d: %s", resp.StatusCode, string(body))
 		}
 
-		var regResp gateway.RegisterResponseDTO
+		var regResp RegisterResponseDTO
 		_ = json.NewDecoder(resp.Body).Decode(&regResp)
 		parsedUserID, err := uuid.Parse(regResp.UserID)
 		if err != nil {
@@ -217,7 +219,7 @@ func TestE2E_EmailVerification_Lifecycle(t *testing.T) {
 			t.Fatalf("expected 200 OK, got %d: %s", vResp.StatusCode, string(body))
 		}
 
-		var verifyResp gateway.VerifyEmailResponseDTO
+		var verifyResp VerifyEmailResponseDTO
 		_ = json.NewDecoder(vResp.Body).Decode(&verifyResp)
 		if verifyResp.Message != "email verified successfully" {
 			t.Fatalf("expected message 'email verified successfully', got %q", verifyResp.Message)
@@ -256,7 +258,7 @@ func TestE2E_EmailVerification_Lifecycle(t *testing.T) {
 			t.Fatalf("expected status 400 Bad Request on token reuse, got %d", reuseResp.StatusCode)
 		}
 
-		var errResp gateway.ErrorResponseDTO
+		var errResp ErrorResponseDTO
 		_ = json.NewDecoder(reuseResp.Body).Decode(&errResp)
 		if errResp.Error != "invalid or expired verification token" {
 			t.Fatalf("expected generic message 'invalid or expired verification token', got %q", errResp.Error)
@@ -286,7 +288,7 @@ func TestE2E_EmailVerification_Lifecycle(t *testing.T) {
 			t.Fatalf("expected 400 Bad Request, got %d", resp.StatusCode)
 		}
 
-		var errResp gateway.ErrorResponseDTO
+		var errResp ErrorResponseDTO
 		_ = json.NewDecoder(resp.Body).Decode(&errResp)
 		if errResp.Error != "invalid or expired verification token" {
 			t.Fatalf("expected generic error message, got %q", errResp.Error)
@@ -335,7 +337,7 @@ func TestE2E_EmailVerification_Lifecycle(t *testing.T) {
 			t.Fatalf("expected 400 Bad Request, got %d", resp.StatusCode)
 		}
 
-		var errResp gateway.ErrorResponseDTO
+		var errResp ErrorResponseDTO
 		_ = json.NewDecoder(resp.Body).Decode(&errResp)
 		if errResp.Error != "invalid or expired verification token" {
 			t.Fatalf("expected generic error message, got %q", errResp.Error)
@@ -456,8 +458,11 @@ func TestE2E_EmailVerification_Manual10StepsVerification(t *testing.T) {
 	defer authConn.Close()
 
 	authClient := authv1.NewAuthServiceClient(authConn)
-	gwHandler := gateway.NewHandler(authClient)
-	gwRouter := gateway.NewServerHandler(gwHandler, gateway.Options{})
+	_ = authClient
+	gwRouter, err := newE2ETestRouter(authConn)
+	if err != nil {
+		t.Fatalf("failed to create dynamic gateway test router: %v", err)
+	}
 
 	httpListener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -486,7 +491,7 @@ func TestE2E_EmailVerification_Manual10StepsVerification(t *testing.T) {
 	if err != nil || rResp.StatusCode != http.StatusCreated {
 		t.Fatalf("Step 1 failed: status %d, err: %v", rResp.StatusCode, err)
 	}
-	var regDTO gateway.RegisterResponseDTO
+	var regDTO RegisterResponseDTO
 	_ = json.NewDecoder(rResp.Body).Decode(&regDTO)
 	rResp.Body.Close()
 	parsedUID, _ := uuid.Parse(regDTO.UserID)
@@ -576,7 +581,7 @@ func TestE2E_EmailVerification_Manual10StepsVerification(t *testing.T) {
 	if reuseResp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("Step 9 failed: expected 400 Bad Request, got %d", reuseResp.StatusCode)
 	}
-	var errDTO gateway.ErrorResponseDTO
+	var errDTO ErrorResponseDTO
 	_ = json.NewDecoder(reuseResp.Body).Decode(&errDTO)
 	reuseResp.Body.Close()
 	if errDTO.Error != "invalid or expired verification token" {

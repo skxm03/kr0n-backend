@@ -12,7 +12,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway"
 )
 
 func TestE2E_Refresh_Logout_Lifecycle(t *testing.T) {
@@ -54,7 +53,7 @@ func TestE2E_Refresh_Logout_Lifecycle(t *testing.T) {
 		t.Fatalf("expected 201 Created on register, got %d: %s", regResp.StatusCode, string(b))
 	}
 
-	var regData gateway.RegisterResponseDTO
+	var regData RegisterResponseDTO
 	_ = json.NewDecoder(regResp.Body).Decode(&regData)
 	userID, err := uuid.Parse(regData.UserID)
 	if err != nil {
@@ -80,7 +79,7 @@ func TestE2E_Refresh_Logout_Lifecycle(t *testing.T) {
 		t.Fatalf("expected 200 OK on login, got %d: %s", loginResp.StatusCode, string(b))
 	}
 
-	var loginData gateway.LoginResponseDTO
+	var loginData LoginResponseDTO
 	_ = json.NewDecoder(loginResp.Body).Decode(&loginData)
 
 	initialAccess := loginData.AccessToken
@@ -134,7 +133,7 @@ func TestE2E_Refresh_Logout_Lifecycle(t *testing.T) {
 		t.Fatalf("expected 200 OK on refresh, got %d: %s", refResp.StatusCode, string(b))
 	}
 
-	var refData gateway.RefreshResponseDTO
+	var refData RefreshResponseDTO
 	_ = json.NewDecoder(refResp.Body).Decode(&refData)
 
 	if refData.AccessToken == "" || refData.RefreshToken == "" {
@@ -196,7 +195,7 @@ func TestE2E_Refresh_Logout_Lifecycle(t *testing.T) {
 		t.Fatalf("expected 200 OK on second refresh, got %d: %s", newRefResp.StatusCode, string(b))
 	}
 
-	var secondRefData gateway.RefreshResponseDTO
+	var secondRefData RefreshResponseDTO
 	_ = json.NewDecoder(newRefResp.Body).Decode(&secondRefData)
 
 	latestRefreshToken := secondRefData.RefreshToken
@@ -218,7 +217,7 @@ func TestE2E_Refresh_Logout_Lifecycle(t *testing.T) {
 		t.Fatalf("expected 401 Unauthorized for reused old refresh token, got %d: %s", oldRefResp.StatusCode, string(b))
 	}
 
-	var errResp gateway.ErrorResponseDTO
+	var errResp ErrorResponseDTO
 	_ = json.NewDecoder(oldRefResp.Body).Decode(&errResp)
 	if errResp.Error != "invalid refresh token" {
 		t.Fatalf("expected 'invalid refresh token', got %s", errResp.Error)
@@ -304,7 +303,7 @@ func TestE2E_Refresh_EdgeCases(t *testing.T) {
 		if resp.StatusCode != http.StatusUnauthorized {
 			t.Fatalf("expected 401 Unauthorized, got %d", resp.StatusCode)
 		}
-		var errResp gateway.ErrorResponseDTO
+		var errResp ErrorResponseDTO
 		_ = json.NewDecoder(resp.Body).Decode(&errResp)
 		if errResp.Error != "invalid refresh token" {
 			t.Fatalf("expected 'invalid refresh token', got %s", errResp.Error)
@@ -333,7 +332,7 @@ func TestE2E_Refresh_EdgeCases(t *testing.T) {
 	lReq, _ := http.NewRequestWithContext(ctx, http.MethodPost, loginURL, bytes.NewReader(lBody))
 	lReq.Header.Set("Content-Type", "application/json")
 	lResp, _ := http.DefaultClient.Do(lReq)
-	var lData gateway.LoginResponseDTO
+	var lData LoginResponseDTO
 	_ = json.NewDecoder(lResp.Body).Decode(&lData)
 	lResp.Body.Close()
 
@@ -361,7 +360,7 @@ func TestE2E_Refresh_EdgeCases(t *testing.T) {
 		if resp.StatusCode != http.StatusUnauthorized {
 			t.Fatalf("expected 401 Unauthorized for expired session, got %d", resp.StatusCode)
 		}
-		var errResp gateway.ErrorResponseDTO
+		var errResp ErrorResponseDTO
 		_ = json.NewDecoder(resp.Body).Decode(&errResp)
 		if errResp.Error != "invalid refresh token" {
 			t.Fatalf("expected masked error 'invalid refresh token', got %s", errResp.Error)
@@ -390,7 +389,7 @@ func TestE2E_Refresh_EdgeCases(t *testing.T) {
 		if resp.StatusCode != http.StatusUnauthorized {
 			t.Fatalf("expected 401 Unauthorized for revoked session, got %d", resp.StatusCode)
 		}
-		var errResp gateway.ErrorResponseDTO
+		var errResp ErrorResponseDTO
 		_ = json.NewDecoder(resp.Body).Decode(&errResp)
 		if errResp.Error != "invalid refresh token" {
 			t.Fatalf("expected masked error 'invalid refresh token', got %s", errResp.Error)
@@ -418,7 +417,7 @@ func TestE2E_Refresh_EdgeCases(t *testing.T) {
 		l2Req, _ := http.NewRequestWithContext(ctx, http.MethodPost, loginURL, bytes.NewReader(l2Body))
 		l2Req.Header.Set("Content-Type", "application/json")
 		l2Resp, _ := http.DefaultClient.Do(l2Req)
-		var l2Data gateway.LoginResponseDTO
+		var l2Data LoginResponseDTO
 		_ = json.NewDecoder(l2Resp.Body).Decode(&l2Data)
 		l2Resp.Body.Close()
 
@@ -443,7 +442,7 @@ func TestE2E_Refresh_EdgeCases(t *testing.T) {
 		if resp.StatusCode != http.StatusForbidden {
 			t.Fatalf("expected 403 Forbidden for suspended user, got %d", resp.StatusCode)
 		}
-		var errResp gateway.ErrorResponseDTO
+		var errResp ErrorResponseDTO
 		_ = json.NewDecoder(resp.Body).Decode(&errResp)
 		if errResp.Error != "user account is not active" {
 			t.Fatalf("expected 'user account is not active', got %s", errResp.Error)
@@ -487,7 +486,7 @@ func TestE2E_Refresh_ConcurrentRequests(t *testing.T) {
 	lReq, _ := http.NewRequestWithContext(ctx, http.MethodPost, loginURL, bytes.NewReader(lBody))
 	lReq.Header.Set("Content-Type", "application/json")
 	lResp, _ := http.DefaultClient.Do(lReq)
-	var lData gateway.LoginResponseDTO
+	var lData LoginResponseDTO
 	_ = json.NewDecoder(lResp.Body).Decode(&lData)
 	lResp.Body.Close()
 

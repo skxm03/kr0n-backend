@@ -20,16 +20,11 @@ type Config struct {
 	TrustedProxyCIDRs []string `env:"TRUSTED_PROXY_CIDRS"`
 
 	// Upstream Auth TLS/Token optional overrides
-	AuthGRPCTLSEnabled  bool   `env:"AUTH_GRPC_TLS_ENABLED" envDefault:"false"`
 	AuthGRPCTLSCAFile   string `env:"AUTH_GRPC_TLS_CA_FILE"`
 	AuthGRPCTLSCertFile string `env:"GATEWAY_GRPC_TLS_CERT_FILE"`
 	AuthGRPCTLSKeyFile  string `env:"GATEWAY_GRPC_TLS_KEY_FILE"`
 	AuthGRPCServerName  string `env:"AUTH_GRPC_SERVER_NAME"`
 	AuthServiceToken    string `env:"AUTH_SERVICE_TOKEN"`
-
-	// Background worker integration
-	RabbitMQURL    string `env:"RABBITMQ_URL"`
-	EmailQueueName string `env:"EMAIL_QUEUE_NAME" envDefault:"email.jobs"`
 }
 
 func LoadConfig() (*Config, error) {

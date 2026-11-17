@@ -12,6 +12,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -81,7 +82,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	srv := grpc.NewServer()
+	var srvOpts []grpc.ServerOption
+	certFile := os.Getenv("TLS_CERT_FILE")
+	keyFile := os.Getenv("TLS_KEY_FILE")
+	if certFile != "" && keyFile != "" {
+		creds, err := credentials.NewServerTLSFromFile(certFile, keyFile)
+		if err != nil {
+			slog.Error("failed to load TLS credentials", "error", err)
+			os.Exit(1)
+		}
+		srvOpts = append(srvOpts, grpc.Creds(creds))
+	}
+
+	srv := grpc.NewServer(srvOpts...)
 	authv1.RegisterAuthServiceServer(srv, &mockAuthServer{})
 	reflection.Register(srv)
 

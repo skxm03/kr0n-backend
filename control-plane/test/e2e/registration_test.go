@@ -22,7 +22,6 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/service"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/testdb"
 )
 
@@ -84,9 +83,10 @@ func TestE2E_UserRegistration(t *testing.T) {
 	}
 	defer authConn.Close()
 
-	authClient := authv1.NewAuthServiceClient(authConn)
-	gwHandler := gateway.NewHandler(authClient)
-	gwRouter := gateway.NewServerHandler(gwHandler, gateway.Options{})
+	gwRouter, err := newE2ETestRouter(authConn)
+	if err != nil {
+		t.Fatalf("failed to create dynamic gateway test router: %v", err)
+	}
 
 	httpListener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -138,7 +138,7 @@ func TestE2E_UserRegistration(t *testing.T) {
 			t.Fatalf("expected status 201 Created, got %d: %s", resp.StatusCode, string(body))
 		}
 
-		var regResp gateway.RegisterResponseDTO
+		var regResp RegisterResponseDTO
 		if err := json.NewDecoder(resp.Body).Decode(&regResp); err != nil {
 			t.Fatalf("decode response failed: %v", err)
 		}
@@ -242,7 +242,7 @@ func TestE2E_UserRegistration(t *testing.T) {
 			t.Fatalf("expected status 409 Conflict, got %d: %s", resp.StatusCode, string(body))
 		}
 
-		var errResp gateway.ErrorResponseDTO
+		var errResp ErrorResponseDTO
 		if err := json.NewDecoder(resp.Body).Decode(&errResp); err != nil {
 			t.Fatalf("decode error response failed: %v", err)
 		}

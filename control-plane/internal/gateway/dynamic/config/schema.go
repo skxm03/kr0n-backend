@@ -69,7 +69,6 @@ type MatchRule struct {
 
 // TLSConfig defines transport security parameters for connecting to an upstream gRPC service.
 type TLSConfig struct {
-	Enabled    bool   `yaml:"enabled"`
 	CertFile   string `yaml:"cert_file"`
 	KeyFile    string `yaml:"key_file"`
 	CAFile     string `yaml:"ca_file"`
