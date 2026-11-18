@@ -111,84 +111,6 @@ type Server struct {
 	serviceAuth         ServiceAuthConfig
 }
 
-func (s *Server) recordAudit(ctx context.Context, ev repository.AuditEvent) {
-	if s.auditService == nil {
-		return
-	}
-	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		if ev.IPAddress == nil {
-			if ips := md.Get("x-client-ip"); len(ips) > 0 && ips[0] != "" {
-				ip := net.ParseIP(ips[0])
-				if ip != nil {
-					ev.IPAddress = &ip
-				}
-			}
-		}
-		if ev.UserAgent == nil {
-			if uas := md.Get("x-user-agent"); len(uas) > 0 && uas[0] != "" {
-				ua := uas[0]
-				ev.UserAgent = &ua
-			}
-		}
-		if reqIDs := md.Get("x-request-id"); len(reqIDs) > 0 && reqIDs[0] != "" {
-			if ev.Metadata == nil {
-				ev.Metadata = map[string]any{}
-			}
-			if _, exists := ev.Metadata["request_id"]; !exists {
-				ev.Metadata["request_id"] = reqIDs[0]
-			}
-		}
-	}
-	if err := s.auditService.Record(ctx, ev); err != nil {
-		log.Printf("audit event write error (%s): %v", ev.Action, err)
-	}
-}
-
-func getMetadata(ctx context.Context) (metadata.MD, bool) {
-	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		return md, true
-	}
-	return metadata.FromOutgoingContext(ctx)
-}
-
-func (s *Server) extractUserID(ctx context.Context, explicit string) (uuid.UUID, error) {
-	if raw := strings.TrimSpace(explicit); raw != "" {
-		uid, err := uuid.Parse(raw)
-		if err != nil {
-			return uuid.Nil, status.Error(codes.InvalidArgument, "invalid user_id")
-		}
-		return uid, nil
-	}
-	if md, ok := getMetadata(ctx); ok {
-		if vals := md.Get("x-caller-user-id"); len(vals) > 0 && strings.TrimSpace(vals[0]) != "" {
-			uid, err := uuid.Parse(strings.TrimSpace(vals[0]))
-			if err != nil {
-				return uuid.Nil, status.Error(codes.InvalidArgument, "invalid user_id in metadata")
-			}
-			return uid, nil
-		}
-	}
-	return uuid.Nil, status.Error(codes.Unauthenticated, "authentication required: user_id missing")
-}
-
-func (s *Server) extractSessionID(ctx context.Context, explicit string) (*uuid.UUID, error) {
-	if raw := strings.TrimSpace(explicit); raw != "" {
-		parsed, err := uuid.Parse(raw)
-		if err != nil {
-			return nil, status.Error(codes.InvalidArgument, "invalid session_id")
-		}
-		return &parsed, nil
-	}
-	if md, ok := getMetadata(ctx); ok {
-		if vals := md.Get("x-caller-session-id"); len(vals) > 0 && strings.TrimSpace(vals[0]) != "" {
-			if parsed, err := uuid.Parse(strings.TrimSpace(vals[0])); err == nil {
-				return &parsed, nil
-			}
-		}
-	}
-	return nil, nil
-}
-
 // NewServer creates a new gRPC Server instance.
 func NewServer(regService RegistrationService, sessionService SessionService, opts ...Option) *Server {
 	s := &Server{
@@ -262,27 +184,8 @@ func (s *Server) Login(ctx context.Context, req *authv1.LoginRequest) (*authv1.L
 		return nil, status.Error(codes.Unimplemented, "session service not configured")
 	}
 
-	var userAgent *string
-	if ua := req.GetUserAgent(); ua != "" {
-		userAgent = &ua
-	} else if md, ok := getMetadata(ctx); ok {
-		if uas := md.Get("x-user-agent"); len(uas) > 0 && uas[0] != "" {
-			userAgent = &uas[0]
-		}
-	}
-
-	var clientIP *net.IP
-	if rawIP := req.GetClientIp(); rawIP != "" {
-		if parsed := net.ParseIP(rawIP); parsed != nil {
-			clientIP = &parsed
-		}
-	} else if md, ok := getMetadata(ctx); ok {
-		if ips := md.Get("x-client-ip"); len(ips) > 0 && ips[0] != "" {
-			if parsed := net.ParseIP(ips[0]); parsed != nil {
-				clientIP = &parsed
-			}
-		}
-	}
+	userAgent := extractUserAgent(ctx, req.GetUserAgent())
+	clientIP := extractClientIP(ctx, req.GetClientIp())
 
 	res, err := s.sessionService.Login(ctx, service.LoginParams{
 		Email:     req.GetEmail(),
