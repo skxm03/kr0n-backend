@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
@@ -11,7 +12,6 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
-	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/middleware"
 )
 
@@ -19,7 +19,7 @@ import (
 // 1. Emits snake_case JSON fields matching current REST DTO contracts.
 // 2. Propagates client IP, user agent, request ID, and authenticated Principal into gRPC metadata.
 // 3. Translates gRPC status errors into kr0n ErrorResponseDTO JSON schema.
-// 4. Sets HTTP 201 Created status for creation RPC responses.
+// 4. Sets HTTP 201 Created status for creation RPC responses dynamically.
 func NewGatewayServeMux(trustedProxies []*net.IPNet) *runtime.ServeMux {
 	return runtime.NewServeMux(
 		runtime.WithMarshalerOption(runtime.MIMEWildcard, &runtime.JSONPb{
@@ -33,19 +33,43 @@ func NewGatewayServeMux(trustedProxies []*net.IPNet) *runtime.ServeMux {
 		}),
 		runtime.WithMetadata(GatewayMetadataAnnotator(trustedProxies)),
 		runtime.WithErrorHandler(GatewayErrorHandler),
-		runtime.WithForwardResponseOption(func(ctx context.Context, w http.ResponseWriter, resp proto.Message) error {
-			switch resp.(type) {
-			case *authv1.RegisterResponse,
-				*authv1.CreateOrganizationResponse,
-				*authv1.AddMemberResponse,
-				*authv1.CreateInviteResponse,
-				*authv1.CreateAPITokenResponse,
-				*authv1.CompleteGitHubInstallationResponse:
-				w.WriteHeader(http.StatusCreated)
-			}
-			return nil
-		}),
+		runtime.WithForwardResponseOption(GatewayResponseModifier),
 	)
+}
+
+// GatewayResponseModifier handles HTTP response status code customization dynamically:
+// 1. Honors explicit HTTP status codes sent by upstream services via gRPC response headers ("x-http-code" / "x-http-status").
+// 2. Automatically sets HTTP 201 Created for resource creation responses by protobuf convention (Create*, Add*, Register*).
+func GatewayResponseModifier(ctx context.Context, w http.ResponseWriter, resp proto.Message) error {
+	// 1. Check if upstream service explicitly requested an HTTP status code via gRPC metadata
+	if md, ok := runtime.ServerMetadataFromContext(ctx); ok {
+		for _, key := range []string{"x-http-code", "x-http-status"} {
+			if vals := md.HeaderMD.Get(key); len(vals) > 0 {
+				if code, err := strconv.Atoi(vals[0]); err == nil && code >= 200 && code < 600 {
+					w.WriteHeader(code)
+					return nil
+				}
+			}
+		}
+	}
+
+	// 2. Dynamic proto convention: any Create* or Add* resource response returns 201 Created
+	if resp != nil {
+		msgName := string(resp.ProtoReflect().Descriptor().Name())
+		if isCreationResponse(msgName) {
+			w.WriteHeader(http.StatusCreated)
+			return nil
+		}
+	}
+
+	return nil
+}
+
+func isCreationResponse(name string) bool {
+	return strings.HasPrefix(name, "Create") ||
+		strings.HasPrefix(name, "Add") ||
+		name == "RegisterResponse" ||
+		name == "CompleteGitHubInstallationResponse"
 }
 
 // GatewayMetadataAnnotator converts HTTP context, client IP, and Principal into outgoing gRPC metadata.
@@ -56,7 +80,7 @@ func GatewayMetadataAnnotator(trustedProxies []*net.IPNet) func(ctx context.Cont
 		if reqID := middleware.RequestIDFromContext(r.Context()); reqID != "" {
 			md.Set("x-request-id", reqID)
 		}
-		if ip := ExtractClientIP(r); ip != "" {
+		if ip := ExtractClientIP(r, trustedProxies); ip != "" {
 			md.Set("x-client-ip", ip)
 			md.Set("x-forwarded-for", ip)
 		}
@@ -91,4 +115,3 @@ func GatewayErrorHandler(ctx context.Context, mux *runtime.ServeMux, m runtime.M
 	statusCode, msg, errorCode := TranslateGRPCStatus(err)
 	WriteErrorJSON(ctx, w, statusCode, msg, errorCode)
 }
-

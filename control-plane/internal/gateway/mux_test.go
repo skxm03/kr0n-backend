@@ -3,12 +3,14 @@ package gateway
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -60,6 +62,24 @@ func TestGatewayMetadataAnnotator(t *testing.T) {
 	}
 }
 
+func TestGatewayMetadataAnnotator_TrustedProxyClientIP(t *testing.T) {
+	_, lbNet, _ := net.ParseCIDR("10.0.0.0/8")
+	annotator := GatewayMetadataAnnotator([]*net.IPNet{lbNet})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/test", nil)
+	req.RemoteAddr = "10.0.0.1:54321" // Trusted proxy load balancer peer
+	req.Header.Set("X-Forwarded-For", "203.0.113.195")
+
+	md := annotator(req.Context(), req)
+
+	if got := md.Get("x-client-ip"); len(got) != 1 || got[0] != "203.0.113.195" {
+		t.Fatalf("expected x-client-ip to be 203.0.113.195, got %v", got)
+	}
+	if got := md.Get("x-forwarded-for"); len(got) != 1 || got[0] != "203.0.113.195" {
+		t.Fatalf("expected x-forwarded-for to be 203.0.113.195, got %v", got)
+	}
+}
+
 func TestGatewayErrorHandler(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -108,7 +128,25 @@ func TestGatewayErrorHandler(t *testing.T) {
 			err:        status.Error(codes.Unavailable, "backend down"),
 			wantStatus: http.StatusServiceUnavailable,
 			wantCode:   "SERVICE_UNAVAILABLE",
-			wantMsg:    "authentication service unavailable",
+			wantMsg:    "upstream service unavailable",
+		},
+		{
+			name:       "already exists generic slug",
+			err:        status.Error(codes.AlreadyExists, "organization slug already exists"),
+			wantStatus: http.StatusConflict,
+			wantCode:   "ALREADY_EXISTS",
+			wantMsg:    "organization slug already exists",
+		},
+		{
+			name: "custom upstream error detail reason",
+			err: func() error {
+				st := status.New(codes.FailedPrecondition, "payment source required")
+				stWithDetails, _ := st.WithDetails(&errdetails.ErrorInfo{Reason: "PAYMENT_METHOD_REQUIRED"})
+				return stWithDetails.Err()
+			}(),
+			wantStatus: http.StatusBadRequest,
+			wantCode:   "PAYMENT_METHOD_REQUIRED",
+			wantMsg:    "payment source required",
 		},
 	}
 
@@ -184,4 +222,28 @@ func TestNewGatewayServeMux_SnakeCaseMarshaler(t *testing.T) {
 	if userMap["display_name"] != "Alice" {
 		t.Fatalf("expected user.display_name='Alice', got %v", userMap["display_name"])
 	}
+}
+
+func TestGatewayResponseModifier(t *testing.T) {
+	t.Run("creation response returns 201 Created", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		regResp := &authv1.RegisterResponse{UserId: "u-123"}
+		if err := GatewayResponseModifier(context.Background(), rec, regResp); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("expected 201 Created, got %d", rec.Code)
+		}
+	})
+
+	t.Run("non-creation response leaves status code unset for default 200", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		loginResp := &authv1.LoginResponse{AccessToken: "token"}
+		if err := GatewayResponseModifier(context.Background(), rec, loginResp); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected default 200 OK, got %d", rec.Code)
+		}
+	})
 }

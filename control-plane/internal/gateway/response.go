@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
@@ -50,53 +52,68 @@ func TranslateGRPCStatus(err error) (statusCode int, message, code string) {
 		return http.StatusInternalServerError, "internal server error", "INTERNAL_ERROR"
 	}
 
-	msg := st.Message()
-	switch st.Code() {
-	case codes.InvalidArgument:
-		lowerMsg := strings.ToLower(msg)
-		if strings.Contains(lowerMsg, "syntax") || strings.Contains(lowerMsg, "invalid character") ||
-			strings.Contains(lowerMsg, "unexpected") || strings.Contains(lowerMsg, "malformed") {
-			return http.StatusBadRequest, msg, "MALFORMED_JSON"
+	// 1. Check for rich error details returned by upstream (e.g. errdetails.ErrorInfo)
+	for _, detail := range st.Details() {
+		if info, ok := detail.(*errdetails.ErrorInfo); ok && info.Reason != "" {
+			code = info.Reason
+			break
 		}
-		return http.StatusBadRequest, msg, "INVALID_ARGUMENT"
-
-	case codes.Unauthenticated:
-		return http.StatusUnauthorized, msg, "UNAUTHORIZED"
-
-	case codes.PermissionDenied:
-		return http.StatusForbidden, msg, "FORBIDDEN"
-
-	case codes.NotFound:
-		return http.StatusNotFound, msg, "NOT_FOUND"
-
-	case codes.AlreadyExists:
-		return http.StatusConflict, msg, "EMAIL_ALREADY_EXISTS"
-
-	case codes.FailedPrecondition:
-		if strings.Contains(strings.ToLower(msg), "not configured") {
-			return http.StatusServiceUnavailable, msg, "not_configured"
-		}
-		return http.StatusConflict, msg, "FAILED_PRECONDITION"
-
-	case codes.DeadlineExceeded:
-		return http.StatusGatewayTimeout, "authentication service timeout", "GATEWAY_TIMEOUT"
-
-	case codes.Unavailable:
-		return http.StatusServiceUnavailable, "authentication service unavailable", "SERVICE_UNAVAILABLE"
-
-	default:
-		return http.StatusInternalServerError, "internal server error", "INTERNAL_ERROR"
 	}
+
+	// 2. Gateway/network level timeouts and unavailabilities
+	switch st.Code() {
+	case codes.DeadlineExceeded:
+		return http.StatusGatewayTimeout, "upstream service timeout", "GATEWAY_TIMEOUT"
+	case codes.Unavailable:
+		return http.StatusServiceUnavailable, "upstream service unavailable", "SERVICE_UNAVAILABLE"
+	}
+
+	msg := st.Message()
+
+	// 3. Dynamic error code fallback
+	if code == "" {
+		switch st.Code() {
+		case codes.Unauthenticated:
+			code = "UNAUTHORIZED"
+		case codes.PermissionDenied:
+			code = "FORBIDDEN"
+		case codes.AlreadyExists:
+			if strings.Contains(strings.ToLower(msg), "email") {
+				code = "EMAIL_ALREADY_EXISTS"
+			} else {
+				code = "ALREADY_EXISTS"
+			}
+		default:
+			code = toUpperSnake(st.Code().String())
+		}
+	}
+
+	// 4. Map gRPC status to standard HTTP status code (RFC compliant)
+	statusCode = runtime.HTTPStatusFromCode(st.Code())
+
+	// 5. Dynamic message straight from the upstream service
+	return statusCode, msg, code
+}
+
+func toUpperSnake(s string) string {
+	var b strings.Builder
+	for i, r := range s {
+		if i > 0 && r >= 'A' && r <= 'Z' {
+			b.WriteByte('_')
+		}
+		b.WriteRune(r)
+	}
+	return strings.ToUpper(b.String())
 }
 
 // ExtractClientIP extracts the client IP address from request context or remote address.
-func ExtractClientIP(r *http.Request) string {
+func ExtractClientIP(r *http.Request, trustedProxies ...[]*net.IPNet) string {
 	if ip := middleware.ClientIPFromContext(r.Context()); ip != "" {
 		return ip
 	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err == nil && host != "" {
-		return host
+	var tp []*net.IPNet
+	if len(trustedProxies) > 0 {
+		tp = trustedProxies[0]
 	}
-	return r.RemoteAddr
+	return middleware.ClientIP(r, tp)
 }
