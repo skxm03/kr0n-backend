@@ -34,7 +34,6 @@ type Config struct {
 	AuthGRPCTLSKeyFile             string        `env:"AUTH_GRPC_TLS_KEY_FILE"`
 	AuthGRPCClientCAFile           string        `env:"AUTH_GRPC_CLIENT_CA_FILE"`
 	AuthGRPCAllowedClients         []string      `env:"AUTH_GRPC_ALLOWED_CLIENTS"`
-	AuthServiceToken               string        `env:"AUTH_SERVICE_TOKEN"`
 }
 
 func LoadConfig() (*Config, error) {

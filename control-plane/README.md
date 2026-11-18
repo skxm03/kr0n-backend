@@ -1,7 +1,7 @@
 # kr0n Control Plane — API Gateway & Auth Service
 
 ## Architecture
-- **API Gateway (`cmd/gateway`)**: HTTP reverse proxy (`:8080`) routing dynamically to upstream gRPC microservices via `gateway.yaml` and grpc-gateway. Handles JWT verification (cached Ed25519 JWKS), API token validation, 4-tier middleware pipeline, and context/metadata propagation (`x-caller-*`). For detailed architecture and step-by-step guide for registering new microservices, see [Gateway Developer Guide](../docs/gateway.md).
+- **API Gateway (`cmd/gateway`)**: HTTP reverse proxy (`:8080`) routing dynamically to upstream gRPC microservices via `gateway.yaml` and grpc-gateway. Handles JWT verification (cached Ed25519 JWKS), API token validation, 4-tier middleware pipeline, and context/metadata propagation (`x-caller-*`).
 - **Auth Service (`cmd/auth`)**: gRPC server (`:50051`) backed by PostgreSQL. Handles registration, login throttling & temporary lockout, refresh-token rotation with reuse detection, email verification, password reset/change, GitHub OAuth 2.0 + PKCE, organizations, RBAC (`Can(principal, orgID, permission)`), API tokens, and append-only `audit_events`.
 - **Rate Limiter (`internal/ratelimit`)**: Atomic Redis Lua leaky-bucket meter. Fails open on general routes and fails closed (`503`) on credential endpoints if Redis is unreachable.
 

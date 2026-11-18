@@ -124,12 +124,10 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 
 	isDev := cfg.Env == "dev" || cfg.Env == "development"
 	serviceAuthConfig := handlers.ServiceAuthConfig{
-		Enabled:             !isDev || cfg.AuthGRPCClientCAFile != "" || cfg.AuthServiceToken != "",
-		RequireClientCert:   !isDev || cfg.AuthGRPCClientCAFile != "",
-		RequireServiceToken: cfg.AuthServiceToken != "",
-		AllowedClientNames:  cfg.AuthGRPCAllowedClients,
-		ServiceToken:        cfg.AuthServiceToken,
-		AllowInsecureDev:    isDev && cfg.AuthGRPCClientCAFile == "" && cfg.AuthServiceToken == "",
+		Enabled:            !isDev || cfg.AuthGRPCClientCAFile != "",
+		RequireClientCert:  !isDev || cfg.AuthGRPCClientCAFile != "",
+		AllowedClientNames: cfg.AuthGRPCAllowedClients,
+		AllowInsecureDev:   isDev && cfg.AuthGRPCClientCAFile == "",
 	}
 
 	grpcHandler := handlers.NewServer(

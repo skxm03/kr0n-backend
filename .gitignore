@@ -1,5 +1,9 @@
 # Binaries & build artifacts
 bin/
+auth
+migrate
+gateway
+kr0n-*
 *.exe
 *.dll
 *.so
