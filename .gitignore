@@ -1,8 +1,11 @@
 # Binaries & build artifacts
 bin/
-auth
-migrate
-gateway
+/auth
+/migrate
+/gateway
+/control-plane/auth
+/control-plane/migrate
+/control-plane/gateway
 kr0n-*
 *.exe
 *.dll

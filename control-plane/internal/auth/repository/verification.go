@@ -15,29 +15,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var (
-	// ErrInvalidToken indicates the verification token is invalid, malformed, or missing.
-	ErrInvalidToken = errors.New("invalid or expired verification token")
-
-	// ErrTokenExpired indicates the verification token has expired.
-	// Wraps ErrInvalidToken to allow callers to match generically.
-	ErrTokenExpired = fmt.Errorf("%w: token expired", ErrInvalidToken)
-
-	// ErrTokenAlreadyConsumed indicates the verification token was previously consumed.
-	// Wraps ErrInvalidToken to prevent revealing token usage history.
-	ErrTokenAlreadyConsumed = fmt.Errorf("%w: token already consumed", ErrInvalidToken)
-)
-
-// Token represents an email verification or password reset token entity.
-type Token struct {
-	ID         uuid.UUID
-	UserID     uuid.UUID
-	TokenHash  string
-	ExpiresAt  time.Time
-	ConsumedAt *time.Time
-	CreatedAt  time.Time
-}
-
 // GenerateToken generates a cryptographically secure 32-byte (256-bit entropy)
 // random string encoded in hexadecimal. The raw token exists only in memory
 // and must never be persisted or logged.

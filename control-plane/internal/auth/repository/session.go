@@ -16,30 +16,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var (
-	// ErrSessionNotFound indicates the requested session does not exist.
-	ErrSessionNotFound = errors.New("session not found")
-	// ErrSessionExpired indicates the session is past its expiration time.
-	ErrSessionExpired = errors.New("session expired")
-	// ErrSessionRevoked indicates the session has been revoked.
-	ErrSessionRevoked = errors.New("session revoked")
-	// ErrInvalidRefreshToken indicates the provided refresh token is invalid.
-	ErrInvalidRefreshToken = errors.New("invalid refresh token")
-)
-
-// Session represents an authenticated user session in the auth domain.
-type Session struct {
-	ID         uuid.UUID
-	UserID     uuid.UUID
-	TokenHash  string
-	UserAgent  *string
-	IPAddress  *net.IP
-	ExpiresAt  time.Time
-	RevokedAt  *time.Time
-	CreatedAt  time.Time
-	LastSeenAt time.Time
-}
-
 // HashRefreshToken computes the SHA-256 hex digest of a raw refresh token.
 // Raw tokens are never persisted to PostgreSQL.
 func HashRefreshToken(rawToken string) string {

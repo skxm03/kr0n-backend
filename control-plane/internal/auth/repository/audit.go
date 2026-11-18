@@ -6,32 +6,10 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
-
-const (
-	ActorTypeUser     = "user"
-	ActorTypeAPIToken = "api_token"
-	ActorTypeSystem   = "system"
-)
-
-// AuditEvent represents an immutable audit log entry in `audit_events`.
-type AuditEvent struct {
-	ID             uuid.UUID
-	OrganizationID *uuid.UUID
-	ActorUserID    *uuid.UUID
-	ActorType      string
-	Action         string
-	ResourceType   string
-	ResourceID     string
-	IPAddress      *net.IP
-	UserAgent      *string
-	Metadata       map[string]any
-	CreatedAt      time.Time
-}
 
 // AuditRepository defines storage operations for append-only audit events.
 type AuditRepository interface {
