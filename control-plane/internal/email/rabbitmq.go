@@ -93,7 +93,7 @@ func (s *RabbitMQSender) Close() error {
 	defer s.mu.Unlock()
 	var firstErr error
 	if s.ch != nil {
-		if err := s.ch.Close(); err != nil && firstErr == nil {
+		if err := s.ch.Close(); err != nil {
 			firstErr = err
 		}
 	}
