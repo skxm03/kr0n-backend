@@ -2,10 +2,6 @@ package repository
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"crypto/subtle"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"net"
@@ -14,28 +10,23 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/domain"
 )
 
 // HashRefreshToken computes the SHA-256 hex digest of a raw refresh token.
-// Raw tokens are never persisted to PostgreSQL.
 func HashRefreshToken(rawToken string) string {
-	h := sha256.Sum256([]byte(rawToken))
-	return hex.EncodeToString(h[:])
+	return domain.HashRefreshToken(rawToken)
 }
 
 // VerifyRefreshToken performs a constant-time comparison of a candidate raw token against a stored hash.
 func VerifyRefreshToken(rawToken, storedHash string) bool {
-	candidateHash := HashRefreshToken(rawToken)
-	return subtle.ConstantTimeCompare([]byte(candidateHash), []byte(storedHash)) == 1
+	return domain.VerifyRefreshToken(rawToken, storedHash)
 }
 
 // GenerateRefreshToken creates a cryptographically secure 32-byte opaque random string.
 func GenerateRefreshToken() (string, error) {
-	bytes := make([]byte, 32)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", fmt.Errorf("generate random bytes: %w", err)
-	}
-	return hex.EncodeToString(bytes), nil
+	return domain.GenerateRefreshToken()
 }
 
 // RotateFn defines the callback executed within a session rotation transaction.
@@ -51,6 +42,8 @@ type SessionRepository interface {
 	RevokeByTokenHash(ctx context.Context, tokenHash string, revokedAt time.Time) error
 	ListActiveByUserID(ctx context.Context, userID uuid.UUID, now time.Time) ([]Session, error)
 	RevokeByID(ctx context.Context, userID, sessionID uuid.UUID, revokedAt time.Time) error
+	RevokeAllByUserID(ctx context.Context, userID uuid.UUID, revokedAt time.Time) error
+	RevokeAllExcept(ctx context.Context, userID, exceptSessionID uuid.UUID, revokedAt time.Time) error
 }
 
 // PostgresSessionRepository implements SessionRepository using PostgreSQL.
@@ -314,6 +307,32 @@ func (r *PostgresSessionRepository) RevokeByID(ctx context.Context, userID, sess
 	}
 	if tag.RowsAffected() == 0 {
 		return ErrSessionNotFound
+	}
+	return nil
+}
+
+// RevokeAllByUserID revokes all active sessions for a given user.
+func (r *PostgresSessionRepository) RevokeAllByUserID(ctx context.Context, userID uuid.UUID, revokedAt time.Time) error {
+	const updateSQL = `
+		UPDATE sessions
+		SET revoked_at = $1
+		WHERE user_id = $2 AND revoked_at IS NULL;
+	`
+	if _, err := r.pool.Exec(ctx, updateSQL, revokedAt, userID); err != nil {
+		return fmt.Errorf("revoke all sessions for user: %w", err)
+	}
+	return nil
+}
+
+// RevokeAllExcept revokes all active sessions for a given user except the specified session.
+func (r *PostgresSessionRepository) RevokeAllExcept(ctx context.Context, userID, exceptSessionID uuid.UUID, revokedAt time.Time) error {
+	const updateSQL = `
+		UPDATE sessions
+		SET revoked_at = $1
+		WHERE user_id = $2 AND id <> $3 AND revoked_at IS NULL;
+	`
+	if _, err := r.pool.Exec(ctx, updateSQL, revokedAt, userID, exceptSessionID); err != nil {
+		return fmt.Errorf("revoke other sessions for user: %w", err)
 	}
 	return nil
 }

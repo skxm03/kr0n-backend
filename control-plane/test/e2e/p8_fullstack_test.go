@@ -15,7 +15,6 @@ import (
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/handlers"
@@ -82,10 +81,12 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 	}()
 
 	userRepo := repository.NewPostgresUserRepository(dbPool)
+	sessionRepo := repository.NewPostgresSessionRepository(dbPool)
 	hasher := service.NewBcryptHasher(4)
 	userService := service.NewUserService(
 		userRepo,
 		hasher,
+		service.WithSessionRepository(sessionRepo),
 		service.WithEmailSender(emailSender),
 		service.WithOutboxNotifier(outboxWorker),
 		service.WithTokenLifetime(24*time.Hour),
@@ -99,7 +100,7 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 	}
 	sessionService := service.NewSessionService(
 		userService,
-		repository.NewPostgresSessionRepository(dbPool),
+		sessionRepo,
 		service.NewDefaultTokenIssuer(jwtSigner),
 		30*24*time.Hour,
 	)

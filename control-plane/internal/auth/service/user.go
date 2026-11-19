@@ -78,6 +78,13 @@ func WithRequireVerifiedEmail(require bool) UserOption {
 	}
 }
 
+// WithSessionRepository wires a session repository to UserService for aggregate coordination.
+func WithSessionRepository(sessionRepo repository.SessionRepository) UserOption {
+	return func(s *UserService) {
+		s.sessionRepo = sessionRepo
+	}
+}
+
 // WithLockoutPolicy configures the failed login attempt threshold and lockout duration.
 func WithLockoutPolicy(maxAttempts int, lockoutDuration time.Duration) UserOption {
 	return func(s *UserService) {
@@ -93,6 +100,7 @@ func WithLockoutPolicy(maxAttempts int, lockoutDuration time.Duration) UserOptio
 // UserService orchestrates user-related domain capabilities.
 type UserService struct {
 	repo                 repository.UserRepository
+	sessionRepo          repository.SessionRepository
 	hasher               PasswordHasher
 	emailSender          EmailSender
 	notifier             OutboxNotifier
@@ -360,7 +368,7 @@ func (s *UserService) RequestPasswordReset(ctx context.Context, rawEmail string)
 }
 
 // ConfirmPasswordReset validates the new password policy, consumes the reset token, updates
-// the user's password hash, resets login lockout state, and revokes all active sessions.
+// the user's password hash, resets login lockout state, and coordinates revoking all active sessions.
 func (s *UserService) ConfirmPasswordReset(ctx context.Context, rawToken, newPassword string) (uuid.UUID, error) {
 	if rawToken == "" {
 		return uuid.Nil, repository.ErrInvalidResetToken
@@ -375,11 +383,23 @@ func (s *UserService) ConfirmPasswordReset(ctx context.Context, rawToken, newPas
 	}
 
 	tokenHash := repository.HashToken(rawToken)
-	return s.repo.ConsumePasswordResetAndUpdatePassword(ctx, tokenHash, newHash, time.Now().UTC())
+	now := time.Now().UTC()
+	userID, err := s.repo.ConsumePasswordResetAndUpdatePassword(ctx, tokenHash, newHash, now)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	if s.sessionRepo != nil {
+		if err := s.sessionRepo.RevokeAllByUserID(ctx, userID, now); err != nil {
+			return uuid.Nil, fmt.Errorf("revoke user sessions after reset: %w", err)
+		}
+	}
+
+	return userID, nil
 }
 
 // ChangePassword verifies the user's current password, validates and hashes the new password,
-// updates credentials, and revokes all other active sessions.
+// updates credentials via UserRepository, and coordinates revoking other active sessions via SessionRepository.
 func (s *UserService) ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string, currentSessionID *uuid.UUID) error {
 	if userID == uuid.Nil {
 		return repository.ErrUserNotFound
@@ -404,7 +424,19 @@ func (s *UserService) ChangePassword(ctx context.Context, userID uuid.UUID, curr
 		return fmt.Errorf("hash new password: %w", err)
 	}
 
-	return s.repo.UpdatePassword(ctx, userID, newHash, currentSessionID, time.Now().UTC())
+	now := time.Now().UTC()
+	if err := s.repo.UpdatePassword(ctx, userID, newHash, now); err != nil {
+		return err
+	}
+
+	if s.sessionRepo != nil {
+		if currentSessionID != nil && *currentSessionID != uuid.Nil {
+			return s.sessionRepo.RevokeAllExcept(ctx, userID, *currentSessionID, now)
+		}
+		return s.sessionRepo.RevokeAllByUserID(ctx, userID, now)
+	}
+
+	return nil
 }
 
 // GetProfile retrieves a user's profile by ID.

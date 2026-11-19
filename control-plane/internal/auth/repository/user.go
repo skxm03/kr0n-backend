@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/mail"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,65 +12,18 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/domain"
 )
 
-// CanonicalizeEmail normalizes and validates an email address according to system invariants.
+// CanonicalizeEmail normalizes and validates an email address according to domain invariants.
 func CanonicalizeEmail(raw string) (string, error) {
-	trimmed := strings.TrimSpace(raw)
-	if trimmed == "" {
-		return "", fmt.Errorf("%w: email cannot be empty", ErrInvalidEmail)
-	}
-
-	if strings.ContainsAny(trimmed, "\r\n\t") {
-		return "", fmt.Errorf("%w: email contains invalid control characters", ErrInvalidEmail)
-	}
-
-	parsed, err := mail.ParseAddress(trimmed)
-	if err != nil {
-		return "", fmt.Errorf("%w: %v", ErrInvalidEmail, err)
-	}
-
-	if parsed.Address != trimmed {
-		return "", fmt.Errorf("%w: formatted email addresses are not permitted", ErrInvalidEmail)
-	}
-
-	canonical := strings.ToLower(trimmed)
-
-	if len(canonical) < 3 || len(canonical) > 254 {
-		return "", fmt.Errorf("%w: email length out of bounds (3-254 bytes)", ErrInvalidEmail)
-	}
-
-	return canonical, nil
+	return domain.CanonicalizeEmail(raw)
 }
 
 // NewUser validates domain invariants and creates a new User entity.
 func NewUser(rawEmail, rawDisplayName string) (*User, error) {
-	email, err := CanonicalizeEmail(rawEmail)
-	if err != nil {
-		return nil, err
-	}
-
-	displayName := strings.TrimSpace(rawDisplayName)
-	if len(displayName) < 1 {
-		return nil, ErrInvalidDisplayName
-	}
-	if len(displayName) > 100 {
-		return nil, fmt.Errorf("%w: display name exceeds 100 characters", ErrInvalidDisplayName)
-	}
-
-	now := time.Now().UTC()
-	id, err := uuid.NewV7()
-	if err != nil {
-		id = uuid.New()
-	}
-	return &User{
-		ID:          id,
-		Email:       email,
-		DisplayName: displayName,
-		Status:      StatusActive,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-	}, nil
+	return domain.NewUser(rawEmail, rawDisplayName)
 }
 
 // UserRepository defines persistence operations required by the user domain.
@@ -86,7 +37,7 @@ type UserRepository interface {
 	CreateVerificationToken(ctx context.Context, token *Token, outbox ...*OutboxEvent) error
 	CreatePasswordResetToken(ctx context.Context, token *Token, outbox ...*OutboxEvent) error
 	ConsumePasswordResetAndUpdatePassword(ctx context.Context, tokenHash, newPasswordHash string, now time.Time) (uuid.UUID, error)
-	UpdatePassword(ctx context.Context, userID uuid.UUID, newPasswordHash string, revokeSessionExcept *uuid.UUID, now time.Time) error
+	UpdatePassword(ctx context.Context, userID uuid.UUID, newPasswordHash string, now time.Time) error
 	ResolveOAuthUser(ctx context.Context, profile OAuthProfile, now time.Time) (*User, error)
 }
 
@@ -548,65 +499,27 @@ func (r *PostgresUserRepository) ConsumePasswordResetAndUpdatePassword(ctx conte
 		return uuid.Nil, fmt.Errorf("reset lockout state: %w", err)
 	}
 
-	const revokeSessionsSQL = `
-		UPDATE sessions
-		SET revoked_at = $1
-		WHERE user_id = $2 AND revoked_at IS NULL;
-	`
-	if _, err := tx.Exec(ctx, revokeSessionsSQL, now, userID); err != nil {
-		return uuid.Nil, fmt.Errorf("revoke user sessions: %w", err)
-	}
-
 	if err := tx.Commit(ctx); err != nil {
 		return uuid.Nil, fmt.Errorf("commit transaction: %w", err)
 	}
 	return userID, nil
 }
 
-// UpdatePassword updates the user's password hash and revokes active sessions (except revokeSessionExcept when provided).
-func (r *PostgresUserRepository) UpdatePassword(ctx context.Context, userID uuid.UUID, newPasswordHash string, revokeSessionExcept *uuid.UUID, now time.Time) error {
-	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
-	if err != nil {
-		return fmt.Errorf("begin transaction: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
+// UpdatePassword updates the user's password hash in password_credentials.
+// Session revocation across aggregates is coordinated at the domain service layer.
+func (r *PostgresUserRepository) UpdatePassword(ctx context.Context, userID uuid.UUID, newPasswordHash string, now time.Time) error {
 	const updateCredSQL = `
 		UPDATE password_credentials
 		SET password_hash = $1,
 		    updated_at = $2
 		WHERE user_id = $3;
 	`
-	tag, err := tx.Exec(ctx, updateCredSQL, newPasswordHash, now, userID)
+	tag, err := r.pool.Exec(ctx, updateCredSQL, newPasswordHash, now, userID)
 	if err != nil {
 		return fmt.Errorf("update password credentials: %w", err)
 	}
 	if tag.RowsAffected() != 1 {
 		return ErrUserNotFound
-	}
-
-	if revokeSessionExcept != nil && *revokeSessionExcept != uuid.Nil {
-		const revokeOtherSQL = `
-			UPDATE sessions
-			SET revoked_at = $1
-			WHERE user_id = $2 AND id <> $3 AND revoked_at IS NULL;
-		`
-		if _, err := tx.Exec(ctx, revokeOtherSQL, now, userID, *revokeSessionExcept); err != nil {
-			return fmt.Errorf("revoke other sessions: %w", err)
-		}
-	} else {
-		const revokeAllSQL = `
-			UPDATE sessions
-			SET revoked_at = $1
-			WHERE user_id = $2 AND revoked_at IS NULL;
-		`
-		if _, err := tx.Exec(ctx, revokeAllSQL, now, userID); err != nil {
-			return fmt.Errorf("revoke sessions: %w", err)
-		}
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit transaction: %w", err)
 	}
 	return nil
 }

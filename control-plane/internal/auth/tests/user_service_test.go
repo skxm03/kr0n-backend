@@ -24,7 +24,7 @@ type mockUserRepository struct {
 	recordFailFunc   func(ctx context.Context, userID uuid.UUID, maxAttempts int, lockoutDuration time.Duration, now time.Time) error
 	resetFailFunc    func(ctx context.Context, userID uuid.UUID) error
 	consumeResetFunc func(ctx context.Context, tokenHash, newPasswordHash string, now time.Time) (uuid.UUID, error)
-	updatePwFunc     func(ctx context.Context, userID uuid.UUID, newPasswordHash string, revokeSessionExcept *uuid.UUID, now time.Time) error
+	updatePwFunc     func(ctx context.Context, userID uuid.UUID, newPasswordHash string, now time.Time) error
 	resolveOAuthFunc func(ctx context.Context, profile repository.OAuthProfile, now time.Time) (*repository.User, error)
 	created          []*repository.User
 	createdTokens    []*repository.Token
@@ -108,9 +108,9 @@ func (m *mockUserRepository) ConsumePasswordResetAndUpdatePassword(ctx context.C
 	return uuid.Nil, nil
 }
 
-func (m *mockUserRepository) UpdatePassword(ctx context.Context, userID uuid.UUID, newPasswordHash string, revokeSessionExcept *uuid.UUID, now time.Time) error {
+func (m *mockUserRepository) UpdatePassword(ctx context.Context, userID uuid.UUID, newPasswordHash string, now time.Time) error {
 	if m.updatePwFunc != nil {
-		return m.updatePwFunc(ctx, userID, newPasswordHash, revokeSessionExcept, now)
+		return m.updatePwFunc(ctx, userID, newPasswordHash, now)
 	}
 	return nil
 }
@@ -666,7 +666,7 @@ func TestUserService_PasswordResetAndChangePassword(t *testing.T) {
 			updatedHash = newPasswordHash
 			return u.ID, nil
 		},
-		updatePwFunc: func(ctx context.Context, userID uuid.UUID, newPasswordHash string, revokeSessionExcept *uuid.UUID, now time.Time) error {
+		updatePwFunc: func(ctx context.Context, userID uuid.UUID, newPasswordHash string, now time.Time) error {
 			updatedHash = newPasswordHash
 			return nil
 		},
@@ -754,5 +754,70 @@ func TestUserService_ResolveOAuthUser(t *testing.T) {
 	})
 	if err != nil || u.Email != "octo@kr0n.dev" || gotProfile.Email != "octo@kr0n.dev" {
 		t.Fatalf("unexpected result: err=%v u=%+v gotProfile=%+v", err, u, gotProfile)
+	}
+}
+
+func TestUserService_SessionRevocationOnPasswordOperations(t *testing.T) {
+	ctx := context.Background()
+	userID := uuid.New()
+	u := &repository.User{ID: userID, Email: "user@kr0n.dev", Status: repository.StatusActive}
+
+	repo := &mockUserRepository{
+		getByIDPwFunc: func(ctx context.Context, id uuid.UUID) (*repository.User, string, error) {
+			return u, "current_hash", nil
+		},
+		consumeResetFunc: func(ctx context.Context, tokenHash, newPasswordHash string, now time.Time) (uuid.UUID, error) {
+			return userID, nil
+		},
+		updatePwFunc: func(ctx context.Context, id uuid.UUID, newPasswordHash string, now time.Time) error {
+			return nil
+		},
+	}
+
+	sessRepo := newMockSessionRepo()
+	sess1 := &repository.Session{ID: uuid.New(), UserID: userID, TokenHash: "h1"}
+	sess2 := &repository.Session{ID: uuid.New(), UserID: userID, TokenHash: "h2"}
+	sess3 := &repository.Session{ID: uuid.New(), UserID: userID, TokenHash: "h3"}
+	_ = sessRepo.Create(ctx, sess1)
+	_ = sessRepo.Create(ctx, sess2)
+	_ = sessRepo.Create(ctx, sess3)
+
+	hasher := &mockHasher{
+		hashResult: "new_hash",
+		compareFunc: func(hash, password string) error {
+			if password == "correct_pw" {
+				return nil
+			}
+			return repository.ErrInvalidCredentials
+		},
+	}
+
+	svc := service.NewUserService(repo, hasher, service.WithSessionRepository(sessRepo))
+
+	// 1. Change password keeping sess1 active, revoking others
+	if err := svc.ChangePassword(ctx, userID, "correct_pw", "NewPassword123!", &sess1.ID); err != nil {
+		t.Fatalf("ChangePassword failed: %v", err)
+	}
+
+	if sess1.RevokedAt != nil {
+		t.Fatal("sess1 should not have been revoked")
+	}
+	if sess2.RevokedAt == nil || sess3.RevokedAt == nil {
+		t.Fatal("sess2 and sess3 should have been revoked")
+	}
+
+	// 2. Reset sessions for next test
+	sess1.RevokedAt = nil
+	sess2.RevokedAt = nil
+	sess3.RevokedAt = nil
+
+	// 3. ConfirmPasswordReset should revoke ALL sessions for this user
+	rawToken := "reset_token_xyz"
+	if _, err := svc.ConfirmPasswordReset(ctx, rawToken, "AnotherPassword123!"); err != nil {
+		t.Fatalf("ConfirmPasswordReset failed: %v", err)
+	}
+
+	if sess1.RevokedAt == nil || sess2.RevokedAt == nil || sess3.RevokedAt == nil {
+		t.Fatal("all sessions must be revoked on ConfirmPasswordReset")
 	}
 }

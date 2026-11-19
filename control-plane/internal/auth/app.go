@@ -63,10 +63,12 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 	outboxWorker := outbox.NewWorker(outboxRepo, outboxPublisher, outbox.DefaultConfig())
 
 	userRepo := repository.NewPostgresUserRepository(dbPool)
+	sessionRepo := repository.NewPostgresSessionRepository(dbPool)
 	hasher := service.NewBcryptHasher(12)
 	userService := service.NewUserService(
 		userRepo,
 		hasher,
+		service.WithSessionRepository(sessionRepo),
 		service.WithEmailSender(emailSender),
 		service.WithOutboxNotifier(outboxWorker),
 		service.WithTokenLifetime(cfg.EmailVerificationTokenLifetime),
@@ -99,7 +101,6 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, err
 	}
 	tokenIssuer := service.NewDefaultTokenIssuer(jwtSigner)
-	sessionRepo := repository.NewPostgresSessionRepository(dbPool)
 	sessionService := service.NewSessionService(userService, sessionRepo, tokenIssuer, cfg.RefreshTokenLifetime)
 
 	githubOAuth := oauth.NewGitHubProvider(oauth.GitHubConfig{

@@ -15,7 +15,6 @@ import (
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/handlers"
@@ -23,6 +22,7 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/service"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/email"
 )
 

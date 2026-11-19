@@ -2,10 +2,6 @@ package repository
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"crypto/subtle"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"time"
@@ -13,31 +9,23 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/domain"
 )
 
-// GenerateToken generates a cryptographically secure 32-byte (256-bit entropy)
-// random string encoded in hexadecimal. The raw token exists only in memory
-// and must never be persisted or logged.
+// GenerateToken generates a cryptographically secure 32-byte hex token.
 func GenerateToken() (string, error) {
-	bytes := make([]byte, 32)
-	if _, err := rand.Read(bytes); err != nil {
-		return "", fmt.Errorf("generate random verification token bytes: %w", err)
-	}
-	return hex.EncodeToString(bytes), nil
+	return domain.GenerateToken()
 }
 
 // HashToken computes the SHA-256 hexadecimal digest of a raw verification token.
-// Only this cryptographic hash is persisted to PostgreSQL.
 func HashToken(rawToken string) string {
-	h := sha256.Sum256([]byte(rawToken))
-	return hex.EncodeToString(h[:])
+	return domain.HashToken(rawToken)
 }
 
-// VerifyTokenHash compares a candidate raw token against a stored hash in constant time
-// to prevent timing side-channel attacks.
+// VerifyTokenHash compares a candidate raw token against a stored hash in constant time.
 func VerifyTokenHash(rawToken, storedHash string) bool {
-	candidateHash := HashToken(rawToken)
-	return subtle.ConstantTimeCompare([]byte(candidateHash), []byte(storedHash)) == 1
+	return domain.VerifyToken(rawToken, storedHash)
 }
 
 // VerificationRepository defines persistence operations for email verification tokens.

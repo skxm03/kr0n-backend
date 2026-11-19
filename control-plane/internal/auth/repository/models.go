@@ -1,189 +1,44 @@
 package repository
 
 import (
-	"net"
-	"time"
-
-	"github.com/google/uuid"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/domain"
 )
 
-// Status represents the operational state of a user account.
-type Status string
+// Domain model type aliases re-exported from internal/auth/domain.
+type Status = domain.Status
 
 const (
-	StatusActive      Status = "active"
-	StatusSuspended   Status = "suspended"
-	StatusDeactivated Status = "deactivated"
+	StatusActive      = domain.StatusActive
+	StatusSuspended   = domain.StatusSuspended
+	StatusDeactivated = domain.StatusDeactivated
 )
 
-// User represents the authoritative user entity.
-type User struct {
-	ID                  uuid.UUID
-	Email               string
-	DisplayName         string
-	AvatarURL           *string
-	Status              Status
-	EmailVerifiedAt     *time.Time
-	FailedLoginAttempts int
-	LockedUntil         *time.Time
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
-}
-
-// OAuthProfile represents a verified identity returned by an OAuth provider (e.g., GitHub).
-type OAuthProfile struct {
-	Provider       string
-	ProviderUserID string
-	Email          string
-	EmailVerified  bool
-	DisplayName    string
-	AvatarURL      *string
-}
-
-// Session represents an authenticated user session in the sessions table.
-type Session struct {
-	ID         uuid.UUID
-	UserID     uuid.UUID
-	TokenHash  string
-	UserAgent  *string
-	IPAddress  *net.IP
-	ExpiresAt  time.Time
-	RevokedAt  *time.Time
-	CreatedAt  time.Time
-	LastSeenAt time.Time
-}
-
-// Token represents an email verification or password reset token entity.
-type Token struct {
-	ID         uuid.UUID
-	UserID     uuid.UUID
-	TokenHash  string
-	ExpiresAt  time.Time
-	ConsumedAt *time.Time
-	CreatedAt  time.Time
-}
-
-// Principal represents an authenticated caller evaluated by the authorization service.
-type Principal struct {
-	UserID           uuid.UUID
-	Kind             string // "session" or "api_token"
-	TokenOrgID       *uuid.UUID
-	TokenPermissions []string
-	SessionID        *uuid.UUID
-}
-
-// Organization represents a tenant organization.
-type Organization struct {
-	ID        uuid.UUID
-	Name      string
-	Slug      string
-	RoleID    string
-	CreatedAt time.Time
-	UpdatedAt time.Time
-}
-
-// Member represents a user's membership in an organization.
-type Member struct {
-	UserID      uuid.UUID
-	Email       string
-	DisplayName string
-	RoleID      string
-	CreatedAt   time.Time
-}
-
-// Invite represents a pending or consumed organization invitation.
-type Invite struct {
-	ID              uuid.UUID
-	OrganizationID  uuid.UUID
-	Email           string
-	RoleID          string
-	InvitedByUserID uuid.UUID
-	TokenHash       string
-	ExpiresAt       time.Time
-	AcceptedAt      *time.Time
-	RevokedAt       *time.Time
-	CreatedAt       time.Time
-}
-
-// Role represents a named RBAC role and its granted permissions.
-type Role struct {
-	ID          string
-	Name        string
-	Description string
-	Permissions []string
-}
-
-// APIToken represents an organization-scoped API token (`kr0n_pat_...`).
-type APIToken struct {
-	ID              uuid.UUID
-	OrganizationID  uuid.UUID
-	CreatedByUserID uuid.UUID
-	Name            string
-	TokenPrefix     string
-	TokenHash       string
-	Permissions     []string
-	ExpiresAt       *time.Time
-	LastUsedAt      *time.Time
-	RevokedAt       *time.Time
-	CreatedAt       time.Time
-}
-
-// GitHubInstallation represents a GitHub App installation bound to a kr0n Organization.
-type GitHubInstallation struct {
-	ID                  uuid.UUID
-	OrganizationID      uuid.UUID
-	InstallationID      int64
-	AccountLogin        string
-	AccountType         string
-	RepositorySelection string
-	Status              string
-	CreatedByUserID     uuid.UUID
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
-}
+type User = domain.User
+type OAuthProfile = domain.OAuthProfile
+type Session = domain.Session
+type Token = domain.Token
+type Principal = domain.Principal
+type Organization = domain.Organization
+type Member = domain.Member
+type Invite = domain.Invite
+type Role = domain.Role
+type APIToken = domain.APIToken
+type GitHubInstallation = domain.GitHubInstallation
 
 const (
-	ActorTypeUser     = "user"
-	ActorTypeAPIToken = "api_token"
-	ActorTypeSystem   = "system"
+	ActorTypeUser     = domain.ActorTypeUser
+	ActorTypeAPIToken = domain.ActorTypeAPIToken
+	ActorTypeSystem   = domain.ActorTypeSystem
 
-	OutboxStatusPending    = "pending"
-	OutboxStatusProcessing = "processing"
-	OutboxStatusPublished  = "published"
-	OutboxStatusFailed     = "failed"
+	OutboxStatusPending    = domain.OutboxStatusPending
+	OutboxStatusProcessing = domain.OutboxStatusProcessing
+	OutboxStatusPublished  = domain.OutboxStatusPublished
+	OutboxStatusFailed     = domain.OutboxStatusFailed
 
-	EventTypeEmailVerification = "email.verify_email"
-	EventTypePasswordReset     = "email.password_reset"
-	EventTypeOrgInvite         = "email.org_invite"
+	EventTypeEmailVerification = domain.EventTypeEmailVerification
+	EventTypePasswordReset     = domain.EventTypePasswordReset
+	EventTypeOrgInvite         = domain.EventTypeOrgInvite
 )
 
-// AuditEvent represents an immutable audit log entry in `audit_events`.
-type AuditEvent struct {
-	ID             uuid.UUID
-	OrganizationID *uuid.UUID
-	ActorUserID    *uuid.UUID
-	ActorType      string
-	Action         string
-	ResourceType   string
-	ResourceID     string
-	IPAddress      *net.IP
-	UserAgent      *string
-	Metadata       map[string]any
-	CreatedAt      time.Time
-}
-
-// OutboxEvent represents an atomic outbox message pending asynchronous delivery.
-type OutboxEvent struct {
-	ID            uuid.UUID
-	EventType     string
-	AggregateType string
-	AggregateID   uuid.UUID
-	Payload       map[string]any
-	Headers       map[string]any
-	Status        string
-	RetryCount    int
-	LastError     *string
-	CreatedAt     time.Time
-	ScheduledAt   time.Time
-	PublishedAt   *time.Time
-}
+type AuditEvent = domain.AuditEvent
+type OutboxEvent = domain.OutboxEvent

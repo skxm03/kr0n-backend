@@ -159,6 +159,30 @@ func (m *mockSessionRepo) RevokeByID(ctx context.Context, userID, sessionID uuid
 	return repository.ErrSessionNotFound
 }
 
+func (m *mockSessionRepo) RevokeAllByUserID(ctx context.Context, userID uuid.UUID, revokedAt time.Time) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, s := range m.sessions {
+		if s.UserID == userID && s.RevokedAt == nil {
+			rev := revokedAt
+			s.RevokedAt = &rev
+		}
+	}
+	return nil
+}
+
+func (m *mockSessionRepo) RevokeAllExcept(ctx context.Context, userID, exceptSessionID uuid.UUID, revokedAt time.Time) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, s := range m.sessions {
+		if s.UserID == userID && s.ID != exceptSessionID && s.RevokedAt == nil {
+			rev := revokedAt
+			s.RevokedAt = &rev
+		}
+	}
+	return nil
+}
+
 type mockTokenIssuer struct {
 	issueFunc func(userID uuid.UUID, sessionID uuid.UUID, now time.Time) (accessToken, rawRefreshToken, tokenHash string, expiresIn time.Duration, err error)
 }
