@@ -5,8 +5,10 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync/atomic"
@@ -196,5 +198,62 @@ func TestGitHubAppProvider_StateAndExplorer(t *testing.T) {
 	// Token should have been minted only once across all 3 installation-scoped calls
 	if got := tokenMints.Load(); got != 1 {
 		t.Fatalf("expected 1 installation token mint (cached), got %d", got)
+	}
+}
+
+func TestGitHubAppProvider_ExplorerPagination(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /app/installations/123/access_tokens", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(map[string]any{"token": "test-token", "expires_at": time.Now().Add(time.Hour).Format(time.RFC3339)})
+	})
+	mux.HandleFunc("GET /installation/repositories", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer test-token" {
+			t.Error("missing installation auth")
+		}
+		count := 100
+		if r.URL.Query().Get("page") == "2" {
+			count = 1
+		} else if r.URL.Query().Get("page") != "1" {
+			t.Error("unexpected page")
+			count = 0
+		}
+		repos := make([]oauth.GitHubRepository, count)
+		for i := range repos {
+			repos[i] = oauth.GitHubRepository{ID: int64(i + 1), FullName: fmt.Sprintf("acme/repo-%s-%d", r.URL.Query().Get("page"), i)}
+		}
+		json.NewEncoder(w).Encode(map[string]any{"repositories": repos})
+	})
+	mux.HandleFunc("GET /repos/acme/api/branches", func(w http.ResponseWriter, r *http.Request) {
+		count := 100
+		if r.URL.Query().Get("page") == "2" {
+			count = 1
+		} else if r.URL.Query().Get("page") != "1" {
+			t.Error("unexpected page")
+			count = 0
+		}
+		branches := make([]map[string]any, count)
+		for i := range branches {
+			branches[i] = map[string]any{"name": fmt.Sprintf("branch-%s-%d", r.URL.Query().Get("page"), i), "commit": map[string]string{"sha": "abc"}}
+		}
+		json.NewEncoder(w).Encode(branches)
+	})
+	provider, err := oauth.NewGitHubAppProvider(oauth.GitHubAppConfig{AppID: "123", AppSlug: "kr0n", PrivateKeyPEM: generateTestRSAPEM(t), StateSecret: "test-state-secret", APIURL: "http://github.local", HTTPClient: newHandlerClient(mux)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	repos, err := provider.ListRepositories(context.Background(), 123)
+	if err != nil || len(repos) != 101 {
+		t.Fatalf("repos=%d, err=%v", len(repos), err)
+	}
+	if repos[100].FullName != "acme/repo-2-0" {
+		t.Fatalf("missing second repository page: %v", repos[100])
+	}
+	branches, err := provider.ListBranches(context.Background(), 123, "acme", "api")
+	if err != nil || len(branches) != 101 {
+		t.Fatalf("branches=%d, err=%v", len(branches), err)
+	}
+	if branches[100].Name != "branch-2-0" || branches[100].CommitSHA != "abc" {
+		t.Fatalf("missing second branch page: %v", branches[100])
 	}
 }

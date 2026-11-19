@@ -332,14 +332,20 @@ func (p *GitHubAppProvider) ListRepositories(ctx context.Context, installationID
 	if err != nil {
 		return nil, err
 	}
-	endpoint := strings.TrimRight(p.cfg.APIURL, "/") + "/installation/repositories?per_page=100"
-	var raw struct {
-		Repositories []GitHubRepository `json:"repositories"`
+	var out []GitHubRepository
+	for page := 1; ; page++ {
+		endpoint := fmt.Sprintf("%s/installation/repositories?per_page=100&page=%d", strings.TrimRight(p.cfg.APIURL, "/"), page)
+		var raw struct {
+			Repositories []GitHubRepository `json:"repositories"`
+		}
+		if err := p.doGetJSON(ctx, endpoint, tok, &raw); err != nil {
+			return nil, err
+		}
+		out = append(out, raw.Repositories...)
+		if len(raw.Repositories) < 100 {
+			return out, nil
+		}
 	}
-	if err := p.doGetJSON(ctx, endpoint, tok, &raw); err != nil {
-		return nil, err
-	}
-	return raw.Repositories, nil
 }
 
 // ListBranches returns branches for owner/repo using installationID's token.
@@ -351,30 +357,26 @@ func (p *GitHubAppProvider) ListBranches(ctx context.Context, installationID int
 	if err != nil {
 		return nil, err
 	}
-	endpoint := fmt.Sprintf("%s/repos/%s/%s/branches?per_page=100",
-		strings.TrimRight(p.cfg.APIURL, "/"),
-		url.PathEscape(strings.TrimSpace(owner)),
-		url.PathEscape(strings.TrimSpace(repo)),
-	)
-	var raw []struct {
-		Name      string `json:"name"`
-		Protected bool   `json:"protected"`
-		Commit    struct {
-			SHA string `json:"sha"`
-		} `json:"commit"`
+	var out []GitHubBranch
+	for page := 1; ; page++ {
+		endpoint := fmt.Sprintf("%s/repos/%s/%s/branches?per_page=100&page=%d", strings.TrimRight(p.cfg.APIURL, "/"), url.PathEscape(strings.TrimSpace(owner)), url.PathEscape(strings.TrimSpace(repo)), page)
+		var raw []struct {
+			Name      string `json:"name"`
+			Protected bool   `json:"protected"`
+			Commit    struct {
+				SHA string `json:"sha"`
+			} `json:"commit"`
+		}
+		if err := p.doGetJSON(ctx, endpoint, tok, &raw); err != nil {
+			return nil, err
+		}
+		for _, b := range raw {
+			out = append(out, GitHubBranch{Name: b.Name, CommitSHA: b.Commit.SHA, Protected: b.Protected})
+		}
+		if len(raw) < 100 {
+			return out, nil
+		}
 	}
-	if err := p.doGetJSON(ctx, endpoint, tok, &raw); err != nil {
-		return nil, err
-	}
-	out := make([]GitHubBranch, 0, len(raw))
-	for _, b := range raw {
-		out = append(out, GitHubBranch{
-			Name:      b.Name,
-			CommitSHA: b.Commit.SHA,
-			Protected: b.Protected,
-		})
-	}
-	return out, nil
 }
 
 // ListDirectories returns canonical Root Directory paths ("/", "/apps/api", etc.) for owner/repo at ref.
