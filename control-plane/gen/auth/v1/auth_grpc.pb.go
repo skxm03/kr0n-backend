@@ -57,9 +57,7 @@ const (
 	AuthService_CompleteGitHubInstallation_FullMethodName   = "/auth.v1.AuthService/CompleteGitHubInstallation"
 	AuthService_ListGitHubInstallations_FullMethodName      = "/auth.v1.AuthService/ListGitHubInstallations"
 	AuthService_DisconnectGitHubInstallation_FullMethodName = "/auth.v1.AuthService/DisconnectGitHubInstallation"
-	AuthService_ListGitHubRepositories_FullMethodName       = "/auth.v1.AuthService/ListGitHubRepositories"
-	AuthService_ListGitHubBranches_FullMethodName           = "/auth.v1.AuthService/ListGitHubBranches"
-	AuthService_ListGitHubDirectories_FullMethodName        = "/auth.v1.AuthService/ListGitHubDirectories"
+	AuthService_GetGitHubInstallationToken_FullMethodName   = "/auth.v1.AuthService/GetGitHubInstallationToken"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -144,12 +142,9 @@ type AuthServiceClient interface {
 	ListGitHubInstallations(ctx context.Context, in *ListGitHubInstallationsRequest, opts ...grpc.CallOption) (*ListGitHubInstallationsResponse, error)
 	// DisconnectGitHubInstallation unlinks a GitHub App installation from the organization.
 	DisconnectGitHubInstallation(ctx context.Context, in *DisconnectGitHubInstallationRequest, opts ...grpc.CallOption) (*DisconnectGitHubInstallationResponse, error)
-	// ListGitHubRepositories lists GitHub repositories accessible to an organization installation.
-	ListGitHubRepositories(ctx context.Context, in *ListGitHubRepositoriesRequest, opts ...grpc.CallOption) (*ListGitHubRepositoriesResponse, error)
-	// ListGitHubBranches lists branches in a GitHub repository accessible to an organization installation.
-	ListGitHubBranches(ctx context.Context, in *ListGitHubBranchesRequest, opts ...grpc.CallOption) (*ListGitHubBranchesResponse, error)
-	// ListGitHubDirectories lists canonical root directory paths (e.g. "/", "/apps/api") in a GitHub repository ref.
-	ListGitHubDirectories(ctx context.Context, in *ListGitHubDirectoriesRequest, opts ...grpc.CallOption) (*ListGitHubDirectoriesResponse, error)
+	// GetGitHubInstallationToken exchanges organization permissions and caller principal for a scoped GitHub App installation token.
+	// Internal service-to-service RPC used by satellite services (e.g. GitHub microservice).
+	GetGitHubInstallationToken(ctx context.Context, in *GetGitHubInstallationTokenRequest, opts ...grpc.CallOption) (*GetGitHubInstallationTokenResponse, error)
 }
 
 type authServiceClient struct {
@@ -540,30 +535,10 @@ func (c *authServiceClient) DisconnectGitHubInstallation(ctx context.Context, in
 	return out, nil
 }
 
-func (c *authServiceClient) ListGitHubRepositories(ctx context.Context, in *ListGitHubRepositoriesRequest, opts ...grpc.CallOption) (*ListGitHubRepositoriesResponse, error) {
+func (c *authServiceClient) GetGitHubInstallationToken(ctx context.Context, in *GetGitHubInstallationTokenRequest, opts ...grpc.CallOption) (*GetGitHubInstallationTokenResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ListGitHubRepositoriesResponse)
-	err := c.cc.Invoke(ctx, AuthService_ListGitHubRepositories_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *authServiceClient) ListGitHubBranches(ctx context.Context, in *ListGitHubBranchesRequest, opts ...grpc.CallOption) (*ListGitHubBranchesResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ListGitHubBranchesResponse)
-	err := c.cc.Invoke(ctx, AuthService_ListGitHubBranches_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *authServiceClient) ListGitHubDirectories(ctx context.Context, in *ListGitHubDirectoriesRequest, opts ...grpc.CallOption) (*ListGitHubDirectoriesResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ListGitHubDirectoriesResponse)
-	err := c.cc.Invoke(ctx, AuthService_ListGitHubDirectories_FullMethodName, in, out, cOpts...)
+	out := new(GetGitHubInstallationTokenResponse)
+	err := c.cc.Invoke(ctx, AuthService_GetGitHubInstallationToken_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -652,12 +627,9 @@ type AuthServiceServer interface {
 	ListGitHubInstallations(context.Context, *ListGitHubInstallationsRequest) (*ListGitHubInstallationsResponse, error)
 	// DisconnectGitHubInstallation unlinks a GitHub App installation from the organization.
 	DisconnectGitHubInstallation(context.Context, *DisconnectGitHubInstallationRequest) (*DisconnectGitHubInstallationResponse, error)
-	// ListGitHubRepositories lists GitHub repositories accessible to an organization installation.
-	ListGitHubRepositories(context.Context, *ListGitHubRepositoriesRequest) (*ListGitHubRepositoriesResponse, error)
-	// ListGitHubBranches lists branches in a GitHub repository accessible to an organization installation.
-	ListGitHubBranches(context.Context, *ListGitHubBranchesRequest) (*ListGitHubBranchesResponse, error)
-	// ListGitHubDirectories lists canonical root directory paths (e.g. "/", "/apps/api") in a GitHub repository ref.
-	ListGitHubDirectories(context.Context, *ListGitHubDirectoriesRequest) (*ListGitHubDirectoriesResponse, error)
+	// GetGitHubInstallationToken exchanges organization permissions and caller principal for a scoped GitHub App installation token.
+	// Internal service-to-service RPC used by satellite services (e.g. GitHub microservice).
+	GetGitHubInstallationToken(context.Context, *GetGitHubInstallationTokenRequest) (*GetGitHubInstallationTokenResponse, error)
 	mustEmbedUnimplementedAuthServiceServer()
 }
 
@@ -782,14 +754,8 @@ func (UnimplementedAuthServiceServer) ListGitHubInstallations(context.Context, *
 func (UnimplementedAuthServiceServer) DisconnectGitHubInstallation(context.Context, *DisconnectGitHubInstallationRequest) (*DisconnectGitHubInstallationResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DisconnectGitHubInstallation not implemented")
 }
-func (UnimplementedAuthServiceServer) ListGitHubRepositories(context.Context, *ListGitHubRepositoriesRequest) (*ListGitHubRepositoriesResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method ListGitHubRepositories not implemented")
-}
-func (UnimplementedAuthServiceServer) ListGitHubBranches(context.Context, *ListGitHubBranchesRequest) (*ListGitHubBranchesResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method ListGitHubBranches not implemented")
-}
-func (UnimplementedAuthServiceServer) ListGitHubDirectories(context.Context, *ListGitHubDirectoriesRequest) (*ListGitHubDirectoriesResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method ListGitHubDirectories not implemented")
+func (UnimplementedAuthServiceServer) GetGitHubInstallationToken(context.Context, *GetGitHubInstallationTokenRequest) (*GetGitHubInstallationTokenResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetGitHubInstallationToken not implemented")
 }
 func (UnimplementedAuthServiceServer) mustEmbedUnimplementedAuthServiceServer() {}
 func (UnimplementedAuthServiceServer) testEmbeddedByValue()                     {}
@@ -1496,56 +1462,20 @@ func _AuthService_DisconnectGitHubInstallation_Handler(srv interface{}, ctx cont
 	return interceptor(ctx, in, info, handler)
 }
 
-func _AuthService_ListGitHubRepositories_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListGitHubRepositoriesRequest)
+func _AuthService_GetGitHubInstallationToken_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetGitHubInstallationTokenRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AuthServiceServer).ListGitHubRepositories(ctx, in)
+		return srv.(AuthServiceServer).GetGitHubInstallationToken(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: AuthService_ListGitHubRepositories_FullMethodName,
+		FullMethod: AuthService_GetGitHubInstallationToken_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuthServiceServer).ListGitHubRepositories(ctx, req.(*ListGitHubRepositoriesRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _AuthService_ListGitHubBranches_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListGitHubBranchesRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AuthServiceServer).ListGitHubBranches(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: AuthService_ListGitHubBranches_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuthServiceServer).ListGitHubBranches(ctx, req.(*ListGitHubBranchesRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _AuthService_ListGitHubDirectories_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListGitHubDirectoriesRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AuthServiceServer).ListGitHubDirectories(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: AuthService_ListGitHubDirectories_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuthServiceServer).ListGitHubDirectories(ctx, req.(*ListGitHubDirectoriesRequest))
+		return srv.(AuthServiceServer).GetGitHubInstallationToken(ctx, req.(*GetGitHubInstallationTokenRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1710,16 +1640,8 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _AuthService_DisconnectGitHubInstallation_Handler,
 		},
 		{
-			MethodName: "ListGitHubRepositories",
-			Handler:    _AuthService_ListGitHubRepositories_Handler,
-		},
-		{
-			MethodName: "ListGitHubBranches",
-			Handler:    _AuthService_ListGitHubBranches_Handler,
-		},
-		{
-			MethodName: "ListGitHubDirectories",
-			Handler:    _AuthService_ListGitHubDirectories_Handler,
+			MethodName: "GetGitHubInstallationToken",
+			Handler:    _AuthService_GetGitHubInstallationToken_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

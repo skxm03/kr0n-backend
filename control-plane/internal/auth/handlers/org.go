@@ -802,62 +802,19 @@ func (s *Server) DisconnectGitHubInstallation(ctx context.Context, req *authv1.D
 	}, nil
 }
 
-// ListGitHubRepositories lists GitHub repositories accessible to an organization installation.
-func (s *Server) ListGitHubRepositories(ctx context.Context, req *authv1.ListGitHubRepositoriesRequest) (*authv1.ListGitHubRepositoriesResponse, error) {
+// GetGitHubInstallationToken exchanges organization permissions and caller principal for a scoped GitHub App installation token.
+func (s *Server) GetGitHubInstallationToken(ctx context.Context, req *authv1.GetGitHubInstallationTokenRequest) (*authv1.GetGitHubInstallationTokenResponse, error) {
 	p, orgID, err := s.parseOrgCall(ctx, req.GetCaller(), req.GetOrgId())
 	if err != nil {
 		return nil, err
 	}
-	repos, err := s.orgService.ListGitHubRepositories(ctx, p, orgID, req.GetInstallationId())
+	tok, instID, exp, err := s.orgService.GetInstallationToken(ctx, p, orgID, req.GetInstallationId())
 	if err != nil {
 		return nil, mapOrgError(err)
 	}
-	out := make([]*authv1.GitHubRepositoryInfo, 0, len(repos))
-	for _, r := range repos {
-		owner, _, _ := strings.Cut(r.FullName, "/")
-		out = append(out, &authv1.GitHubRepositoryInfo{
-			Id:            r.ID,
-			Owner:         owner,
-			Name:          r.Name,
-			FullName:      r.FullName,
-			Private:       r.Private,
-			DefaultBranch: r.DefaultBranch,
-			HtmlUrl:       r.HTMLURL,
-		})
-	}
-	return &authv1.ListGitHubRepositoriesResponse{Repositories: out}, nil
-}
-
-// ListGitHubBranches lists branches in a GitHub repository accessible to an organization installation.
-func (s *Server) ListGitHubBranches(ctx context.Context, req *authv1.ListGitHubBranchesRequest) (*authv1.ListGitHubBranchesResponse, error) {
-	p, orgID, err := s.parseOrgCall(ctx, req.GetCaller(), req.GetOrgId())
-	if err != nil {
-		return nil, err
-	}
-	branches, err := s.orgService.ListGitHubBranches(ctx, p, orgID, req.GetInstallationId(), req.GetOwner(), req.GetRepo())
-	if err != nil {
-		return nil, mapOrgError(err)
-	}
-	out := make([]*authv1.GitHubBranchInfo, 0, len(branches))
-	for _, b := range branches {
-		out = append(out, &authv1.GitHubBranchInfo{
-			Name:      b.Name,
-			CommitSha: b.CommitSHA,
-			Protected: b.Protected,
-		})
-	}
-	return &authv1.ListGitHubBranchesResponse{Branches: out}, nil
-}
-
-// ListGitHubDirectories lists canonical root directory paths in a GitHub repository ref.
-func (s *Server) ListGitHubDirectories(ctx context.Context, req *authv1.ListGitHubDirectoriesRequest) (*authv1.ListGitHubDirectoriesResponse, error) {
-	p, orgID, err := s.parseOrgCall(ctx, req.GetCaller(), req.GetOrgId())
-	if err != nil {
-		return nil, err
-	}
-	dirs, err := s.orgService.ListGitHubDirectories(ctx, p, orgID, req.GetInstallationId(), req.GetOwner(), req.GetRepo(), req.GetRef())
-	if err != nil {
-		return nil, mapOrgError(err)
-	}
-	return &authv1.ListGitHubDirectoriesResponse{Directories: dirs}, nil
+	return &authv1.GetGitHubInstallationTokenResponse{
+		Token:          tok,
+		InstallationId: instID,
+		ExpiresAtUnix:  exp.Unix(),
+	}, nil
 }

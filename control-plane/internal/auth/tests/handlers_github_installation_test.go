@@ -206,8 +206,8 @@ func TestHandlers_GitHubInstallationAndRepoExplorer(t *testing.T) {
 		t.Fatalf("ListGitHubInstallations: err=%v, resp=%+v", err, listInstResp)
 	}
 
-	// 4. Repository Explorer (repositories, branches, directories) allowed for member (service:read), scoped to org installation
-	if _, err := srv.ListGitHubRepositories(ctx, &authv1.ListGitHubRepositoriesRequest{
+	// 4. GetGitHubInstallationToken allowed for member (service:read), scoped to org installation
+	if _, err := srv.GetGitHubInstallationToken(ctx, &authv1.GetGitHubInstallationTokenRequest{
 		Caller:         outsiderPrincipal,
 		OrgId:          otherOrg.ID.String(),
 		InstallationId: 77001, // belongs to `org`, not `otherOrg`
@@ -215,40 +215,13 @@ func TestHandlers_GitHubInstallationAndRepoExplorer(t *testing.T) {
 		t.Fatalf("expected NotFound when querying installation not linked to org, got %v", err)
 	}
 
-	reposResp, err := srv.ListGitHubRepositories(ctx, &authv1.ListGitHubRepositoriesRequest{
+	tokResp, err := srv.GetGitHubInstallationToken(ctx, &authv1.GetGitHubInstallationTokenRequest{
 		Caller:         memberPrincipal,
 		OrgId:          org.ID.String(),
 		InstallationId: 77001,
 	})
-	if err != nil || len(reposResp.GetRepositories()) != 1 || reposResp.GetRepositories()[0].GetFullName() != "acme-gh/monorepo" {
-		t.Fatalf("ListGitHubRepositories: err=%v, resp=%+v", err, reposResp)
-	}
-
-	branchesResp, err := srv.ListGitHubBranches(ctx, &authv1.ListGitHubBranchesRequest{
-		Caller:         memberPrincipal,
-		OrgId:          org.ID.String(),
-		InstallationId: 77001,
-		Owner:          "acme-gh",
-		Repo:           "monorepo",
-	})
-	if err != nil || len(branchesResp.GetBranches()) != 1 || branchesResp.GetBranches()[0].GetName() != "main" {
-		t.Fatalf("ListGitHubBranches: err=%v, resp=%+v", err, branchesResp)
-	}
-
-	dirsResp, err := srv.ListGitHubDirectories(ctx, &authv1.ListGitHubDirectoriesRequest{
-		Caller:         memberPrincipal,
-		OrgId:          org.ID.String(),
-		InstallationId: 77001,
-		Owner:          "acme-gh",
-		Repo:           "monorepo",
-		Ref:            "main",
-	})
-	if err != nil {
-		t.Fatalf("ListGitHubDirectories: %v", err)
-	}
-	wantDirs := []string{"/", "/apps", "/apps/api", "/apps/web"}
-	if len(dirsResp.GetDirectories()) != len(wantDirs) {
-		t.Fatalf("expected directories %v, got %v", wantDirs, dirsResp.GetDirectories())
+	if err != nil || tokResp.GetToken() != "ghs_install_token_77001" || tokResp.GetInstallationId() != 77001 || tokResp.GetExpiresAtUnix() <= 0 {
+		t.Fatalf("GetGitHubInstallationToken: err=%v, resp=%+v", err, tokResp)
 	}
 
 	// 5. DisconnectGitHubInstallation requires org:update and emits audit event

@@ -75,3 +75,17 @@ services:
             methods: [POST, PUT, PATCH, DELETE]
         use:
           - sensitive_api
+
+  github:
+    address: "${GITHUB_GRPC_ADDR:-127.0.0.1:50052}"
+    enabled: true
+    timeout: 10s
+    default_profile: authenticated_api
+    tls:
+      ca_file: "${GITHUB_GRPC_TLS_CA_FILE:-}"
+      cert_file: "${GATEWAY_GRPC_TLS_CERT_FILE:-}"
+      key_file: "${GATEWAY_GRPC_TLS_KEY_FILE:-}"
+      server_name: "${GITHUB_GRPC_SERVER_NAME:-github.internal}"
+
+    middleware:
+      - cors

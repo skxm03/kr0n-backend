@@ -282,26 +282,9 @@ service AuthService {
     };
   }
 
-  // ListGitHubRepositories lists GitHub repositories accessible to an organization installation.
-  rpc ListGitHubRepositories(ListGitHubRepositoriesRequest) returns (ListGitHubRepositoriesResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/orgs/{org_id}/github/repositories"
-    };
-  }
-
-  // ListGitHubBranches lists branches in a GitHub repository accessible to an organization installation.
-  rpc ListGitHubBranches(ListGitHubBranchesRequest) returns (ListGitHubBranchesResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/orgs/{org_id}/github/repositories/{owner}/{repo}/branches"
-    };
-  }
-
-  // ListGitHubDirectories lists canonical root directory paths (e.g. "/", "/apps/api") in a GitHub repository ref.
-  rpc ListGitHubDirectories(ListGitHubDirectoriesRequest) returns (ListGitHubDirectoriesResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/orgs/{org_id}/github/repositories/{owner}/{repo}/directories"
-    };
-  }
+  // GetGitHubInstallationToken exchanges organization permissions and caller principal for a scoped GitHub App installation token.
+  // Internal service-to-service RPC used by satellite services (e.g. GitHub microservice).
+  rpc GetGitHubInstallationToken(GetGitHubInstallationTokenRequest) returns (GetGitHubInstallationTokenResponse);
 }
 
 message RegisterRequest {
@@ -819,53 +802,14 @@ message DisconnectGitHubInstallationResponse {
   string message = 1;
 }
 
-message GitHubRepositoryInfo {
-  int64 id = 1;
-  string owner = 2;
-  string name = 3;
-  string full_name = 4;
-  bool private = 5;
-  string default_branch = 6;
-  string html_url = 7;
-}
-
-message ListGitHubRepositoriesRequest {
+message GetGitHubInstallationTokenRequest {
   CallerPrincipal caller = 1;
   string org_id = 2;
   int64 installation_id = 3;
 }
 
-message ListGitHubRepositoriesResponse {
-  repeated GitHubRepositoryInfo repositories = 1;
-}
-
-message GitHubBranchInfo {
-  string name = 1;
-  string commit_sha = 2;
-  bool protected = 3;
-}
-
-message ListGitHubBranchesRequest {
-  CallerPrincipal caller = 1;
-  string org_id = 2;
-  int64 installation_id = 3;
-  string owner = 4;
-  string repo = 5;
-}
-
-message ListGitHubBranchesResponse {
-  repeated GitHubBranchInfo branches = 1;
-}
-
-message ListGitHubDirectoriesRequest {
-  CallerPrincipal caller = 1;
-  string org_id = 2;
-  int64 installation_id = 3;
-  string owner = 4;
-  string repo = 5;
-  string ref = 6;
-}
-
-message ListGitHubDirectoriesResponse {
-  repeated string directories = 1;
+message GetGitHubInstallationTokenResponse {
+  string token = 1;
+  int64 installation_id = 2;
+  int64 expires_at_unix = 3;
 }

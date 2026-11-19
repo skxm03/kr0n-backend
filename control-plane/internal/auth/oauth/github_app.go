@@ -16,7 +16,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -41,23 +40,6 @@ type GitHubAppInstallation struct {
 	AccountType         string
 	RepositorySelection string
 	Status              string
-}
-
-// GitHubRepository represents a source repository accessible to a GitHub Installation.
-type GitHubRepository struct {
-	ID            int64  `json:"id"`
-	Name          string `json:"name"`
-	FullName      string `json:"full_name"`
-	Private       bool   `json:"private"`
-	DefaultBranch string `json:"default_branch"`
-	HTMLURL       string `json:"html_url"`
-}
-
-// GitHubBranch represents a branch in a GitHub repository.
-type GitHubBranch struct {
-	Name      string `json:"name"`
-	CommitSHA string `json:"commit_sha"`
-	Protected bool   `json:"protected"`
 }
 
 // GitHubAppConfig configures the GitHub App provider.
@@ -224,36 +206,46 @@ func (p *GitHubAppProvider) signAppJWT() (string, error) {
 	return signingInput + "." + base64.RawURLEncoding.EncodeToString(sig), nil
 }
 
-func (p *GitHubAppProvider) installationToken(ctx context.Context, installationID int64) (string, error) {
+// GetInstallationToken retrieves or mints an ephemeral installation access token for installationID.
+func (p *GitHubAppProvider) GetInstallationToken(ctx context.Context, installationID int64) (string, time.Time, error) {
+	if !p.Configured() {
+		return "", time.Time{}, ErrGitHubAppNotConfigured
+	}
+	if installationID <= 0 {
+		return "", time.Time{}, ErrGitHubAppAPI
+	}
+
 	now := time.Now().UTC()
 	p.mu.Lock()
 	if cached, ok := p.tokens[installationID]; ok && now.Add(2*time.Minute).Before(cached.expiresAt) {
+		tok := cached.token
+		exp := cached.expiresAt
 		p.mu.Unlock()
-		return cached.token, nil
+		return tok, exp, nil
 	}
 	p.mu.Unlock()
 
 	appJWT, err := p.signAppJWT()
 	if err != nil {
-		return "", fmt.Errorf("%w: sign app jwt: %v", ErrGitHubAppAPI, err)
+		return "", time.Time{}, fmt.Errorf("%w: sign app jwt: %v", ErrGitHubAppAPI, err)
 	}
 
 	endpoint := fmt.Sprintf("%s/app/installations/%d/access_tokens", strings.TrimRight(p.cfg.APIURL, "/"), installationID)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, nil)
 	if err != nil {
-		return "", fmt.Errorf("%w: %v", ErrGitHubAppAPI, err)
+		return "", time.Time{}, fmt.Errorf("%w: %v", ErrGitHubAppAPI, err)
 	}
 	req.Header.Set("Authorization", "Bearer "+appJWT)
 	req.Header.Set("Accept", "application/vnd.github+json")
 
 	resp, err := p.cfg.HTTPClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("%w: %v", ErrGitHubAppAPI, err)
+		return "", time.Time{}, fmt.Errorf("%w: %v", ErrGitHubAppAPI, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("%w: mint installation token status %d", ErrGitHubAppAPI, resp.StatusCode)
+		return "", time.Time{}, fmt.Errorf("%w: mint installation token status %d", ErrGitHubAppAPI, resp.StatusCode)
 	}
 
 	var tokResp struct {
@@ -261,7 +253,7 @@ func (p *GitHubAppProvider) installationToken(ctx context.Context, installationI
 		ExpiresAt time.Time `json:"expires_at"`
 	}
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<16)).Decode(&tokResp); err != nil || strings.TrimSpace(tokResp.Token) == "" {
-		return "", ErrGitHubAppAPI
+		return "", time.Time{}, ErrGitHubAppAPI
 	}
 	if tokResp.ExpiresAt.IsZero() {
 		tokResp.ExpiresAt = now.Add(55 * time.Minute)
@@ -271,7 +263,7 @@ func (p *GitHubAppProvider) installationToken(ctx context.Context, installationI
 	p.tokens[installationID] = cachedInstToken{token: tokResp.Token, expiresAt: tokResp.ExpiresAt}
 	p.mu.Unlock()
 
-	return tokResp.Token, nil
+	return tokResp.Token, tokResp.ExpiresAt, nil
 }
 
 // GetInstallation fetches installation metadata from GitHub using the App JWT.
@@ -321,117 +313,6 @@ func (p *GitHubAppProvider) GetInstallation(ctx context.Context, installationID 
 		RepositorySelection: sel,
 		Status:              status,
 	}, nil
-}
-
-// ListRepositories returns repositories accessible to installationID.
-func (p *GitHubAppProvider) ListRepositories(ctx context.Context, installationID int64) ([]GitHubRepository, error) {
-	if !p.Configured() {
-		return nil, ErrGitHubAppNotConfigured
-	}
-	tok, err := p.installationToken(ctx, installationID)
-	if err != nil {
-		return nil, err
-	}
-	endpoint := strings.TrimRight(p.cfg.APIURL, "/") + "/installation/repositories?per_page=100"
-	var raw struct {
-		Repositories []GitHubRepository `json:"repositories"`
-	}
-	if err := p.doGetJSON(ctx, endpoint, tok, &raw); err != nil {
-		return nil, err
-	}
-	return raw.Repositories, nil
-}
-
-// ListBranches returns branches for owner/repo using installationID's token.
-func (p *GitHubAppProvider) ListBranches(ctx context.Context, installationID int64, owner, repo string) ([]GitHubBranch, error) {
-	if !p.Configured() {
-		return nil, ErrGitHubAppNotConfigured
-	}
-	tok, err := p.installationToken(ctx, installationID)
-	if err != nil {
-		return nil, err
-	}
-	endpoint := fmt.Sprintf("%s/repos/%s/%s/branches?per_page=100",
-		strings.TrimRight(p.cfg.APIURL, "/"),
-		url.PathEscape(strings.TrimSpace(owner)),
-		url.PathEscape(strings.TrimSpace(repo)),
-	)
-	var raw []struct {
-		Name      string `json:"name"`
-		Protected bool   `json:"protected"`
-		Commit    struct {
-			SHA string `json:"sha"`
-		} `json:"commit"`
-	}
-	if err := p.doGetJSON(ctx, endpoint, tok, &raw); err != nil {
-		return nil, err
-	}
-	out := make([]GitHubBranch, 0, len(raw))
-	for _, b := range raw {
-		out = append(out, GitHubBranch{
-			Name:      b.Name,
-			CommitSHA: b.Commit.SHA,
-			Protected: b.Protected,
-		})
-	}
-	return out, nil
-}
-
-// ListDirectories returns canonical Root Directory paths ("/", "/apps/api", etc.) for owner/repo at ref.
-func (p *GitHubAppProvider) ListDirectories(ctx context.Context, installationID int64, owner, repo, ref string) ([]string, error) {
-	if !p.Configured() {
-		return nil, ErrGitHubAppNotConfigured
-	}
-	if strings.TrimSpace(ref) == "" {
-		ref = "HEAD"
-	}
-	tok, err := p.installationToken(ctx, installationID)
-	if err != nil {
-		return nil, err
-	}
-	endpoint := fmt.Sprintf("%s/repos/%s/%s/git/trees/%s?recursive=1",
-		strings.TrimRight(p.cfg.APIURL, "/"),
-		url.PathEscape(strings.TrimSpace(owner)),
-		url.PathEscape(strings.TrimSpace(repo)),
-		url.PathEscape(strings.TrimSpace(ref)),
-	)
-	var raw struct {
-		Tree []struct {
-			Path string `json:"path"`
-			Type string `json:"type"`
-		} `json:"tree"`
-	}
-	if err := p.doGetJSON(ctx, endpoint, tok, &raw); err != nil {
-		return nil, err
-	}
-
-	dirs := []string{"/"}
-	seen := map[string]bool{"/": true}
-	for _, entry := range raw.Tree {
-		if entry.Type != "tree" {
-			continue
-		}
-		clean := strings.Trim(entry.Path, "/")
-		if clean == "" || hasHiddenSegment(clean) {
-			continue
-		}
-		dir := "/" + clean
-		if !seen[dir] {
-			seen[dir] = true
-			dirs = append(dirs, dir)
-		}
-	}
-	sort.Strings(dirs[1:])
-	return dirs, nil
-}
-
-func hasHiddenSegment(path string) bool {
-	for _, seg := range strings.Split(path, "/") {
-		if strings.HasPrefix(seg, ".") || seg == "node_modules" || seg == "vendor" {
-			return true
-		}
-	}
-	return false
 }
 
 func (p *GitHubAppProvider) doGetJSON(ctx context.Context, endpoint, bearerToken string, dst any) error {

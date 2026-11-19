@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc"
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
+	githubv1 "github.com/skxm03/kr0n-backend/control-plane/gen/github/v1"
 )
 
 // ServiceRegistrar binds a gRPC client connection to a grpc-gateway ServeMux.
@@ -131,12 +132,16 @@ var DefaultAuthEndpoints = []EndpointDescriptor{
 	{Method: "POST", Path: "/api/v1/orgs/{org_id}/github/installations"},
 	{Method: "GET", Path: "/api/v1/orgs/{org_id}/github/installations"},
 	{Method: "DELETE", Path: "/api/v1/orgs/{org_id}/github/installations/{installation_id}"},
-	{Method: "GET", Path: "/api/v1/orgs/{org_id}/github/repositories"},
-	{Method: "GET", Path: "/api/v1/orgs/{org_id}/github/repositories/{owner}/{repo}/branches"},
-	{Method: "GET", Path: "/api/v1/orgs/{org_id}/github/repositories/{owner}/{repo}/directories"},
 	{Method: "GET", Path: "/api/v1/auth/jwks"},
 	{Method: "GET", Path: "/api/v1/auth/github/start"},
 	{Method: "GET", Path: "/api/v1/auth/github/callback"},
+}
+
+// DefaultGitHubEndpoints provides the complete list of REST routes defined in github.proto.
+var DefaultGitHubEndpoints = []EndpointDescriptor{
+	{Method: "GET", Path: "/api/v1/orgs/{org_id}/github/repositories"},
+	{Method: "GET", Path: "/api/v1/orgs/{org_id}/github/repositories/{owner}/{repo}/branches"},
+	{Method: "GET", Path: "/api/v1/orgs/{org_id}/github/repositories/{owner}/{repo}/directories"},
 }
 
 // DefaultRegistry creates and returns a Registry pre-populated with standard kr0n services.
@@ -148,6 +153,13 @@ func DefaultRegistry() *Registry {
 			return authv1.RegisterAuthServiceHandlerClient(ctx, mux, client)
 		},
 		Endpoints: DefaultAuthEndpoints,
+	})
+	_ = reg.RegisterService("github", ServiceRegistration{
+		Registrar: func(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
+			client := githubv1.NewGitHubServiceClient(conn)
+			return githubv1.RegisterGitHubServiceHandlerClient(ctx, mux, client)
+		},
+		Endpoints: DefaultGitHubEndpoints,
 	})
 	return reg
 }

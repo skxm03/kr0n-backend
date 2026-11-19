@@ -162,38 +162,23 @@ func TestGitHubAppProvider_StateAndExplorer(t *testing.T) {
 		t.Fatalf("unexpected installation: %+v", inst)
 	}
 
-	repos, err := p.ListRepositories(ctx, 849204)
+	tok, exp, err := p.GetInstallationToken(ctx, 849204)
 	if err != nil {
-		t.Fatalf("ListRepositories: %v", err)
+		t.Fatalf("GetInstallationToken: %v", err)
 	}
-	if len(repos) != 2 || repos[0].FullName != "kr0n-org/orvea-core" || !repos[0].Private || repos[1].DefaultBranch != "develop" {
-		t.Fatalf("unexpected repos: %+v", repos)
+	if tok != "ghs_inst_secret_123" || exp.IsZero() {
+		t.Fatalf("unexpected token=%q, exp=%v", tok, exp)
 	}
 
-	branches, err := p.ListBranches(ctx, 849204, "kr0n-org", "orvea-core")
+	// Calling GetInstallationToken again within cache TTL should hit cache without issuing new HTTP mint
+	tok2, _, err := p.GetInstallationToken(ctx, 849204)
 	if err != nil {
-		t.Fatalf("ListBranches: %v", err)
+		t.Fatalf("GetInstallationToken cached: %v", err)
 	}
-	if len(branches) != 2 || branches[0].Name != "main" || branches[0].CommitSHA != "a83f2c1" || !branches[0].Protected {
-		t.Fatalf("unexpected branches: %+v", branches)
+	if tok2 != tok {
+		t.Fatalf("expected token %q, got %q", tok, tok2)
 	}
 
-	dirs, err := p.ListDirectories(ctx, 849204, "kr0n-org", "orvea-core", "main")
-	if err != nil {
-		t.Fatalf("ListDirectories: %v", err)
-	}
-	// Root "/" plus non-hidden directories ("/apps", "/apps/api", "/apps/web")
-	wantDirs := []string{"/", "/apps", "/apps/api", "/apps/web"}
-	if len(dirs) != len(wantDirs) {
-		t.Fatalf("expected dirs %v, got %v", wantDirs, dirs)
-	}
-	for i := range wantDirs {
-		if dirs[i] != wantDirs[i] {
-			t.Fatalf("expected dir[%d]=%q, got %q", i, wantDirs[i], dirs[i])
-		}
-	}
-
-	// Token should have been minted only once across all 3 installation-scoped calls
 	if got := tokenMints.Load(); got != 1 {
 		t.Fatalf("expected 1 installation token mint (cached), got %d", got)
 	}
