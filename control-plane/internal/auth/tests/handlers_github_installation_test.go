@@ -268,7 +268,7 @@ func TestHandlers_GitHubInstallationAndRepoExplorer(t *testing.T) {
 		t.Fatalf("DisconnectGitHubInstallation: %v", err)
 	}
 
-	events, _ := auditRepo.ListByOrg(ctx, org.ID, 10, 0)
+	events, _ := auditRepo.ListByOrg(ctx, org.ID, "", 10, 0)
 	var actions []string
 	for _, ev := range events {
 		actions = append(actions, ev.Action)

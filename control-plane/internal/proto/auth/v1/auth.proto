@@ -743,6 +743,8 @@ message ListAuditEventsRequest {
   string org_id = 2;
   int32 limit = 3;
   int32 offset = 4;
+  // Exact action match; empty returns all actions.
+  string action = 5;
 }
 
 message AuditEventInfo {
