@@ -43,11 +43,7 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, err
 	}
 
-	type unifiedEmailSender interface {
-		service.EmailSender
-		service.InviteEmailSender
-	}
-	var emailSender unifiedEmailSender = email.NewLogSender(nil)
+	var emailEnqueuer email.Enqueuer = email.NewLogSender(nil)
 	var rmqSender *email.RabbitMQSender
 	if cfg.RabbitMQURL != "" {
 		rmqSender, err = email.NewRabbitMQSender(cfg.RabbitMQURL, cfg.EmailQueueName)
@@ -55,11 +51,11 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 			dbPool.Close()
 			return nil, fmt.Errorf("connect rabbitmq email sender: %w", err)
 		}
-		emailSender = rmqSender
+		emailEnqueuer = rmqSender
 	}
 
 	outboxRepo := repository.NewPostgresOutboxRepository(dbPool)
-	outboxPublisher := outbox.NewEmailPublisher(emailSender)
+	outboxPublisher := outbox.NewEmailPublisher(emailEnqueuer)
 	outboxWorker := outbox.NewWorker(outboxRepo, outboxPublisher, outbox.DefaultConfig())
 
 	userRepo := repository.NewPostgresUserRepository(dbPool)
@@ -69,7 +65,6 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 		userRepo,
 		hasher,
 		service.WithSessionRepository(sessionRepo),
-		service.WithEmailSender(emailSender),
 		service.WithOutboxNotifier(outboxWorker),
 		service.WithTokenLifetime(cfg.EmailVerificationTokenLifetime),
 		service.WithPasswordResetTokenLifetime(cfg.PasswordResetTokenLifetime),
@@ -123,7 +118,6 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 	orgRepo := repository.NewPostgresOrgRepository(dbPool)
 	orgService := service.NewOrgService(
 		orgRepo,
-		service.WithInviteEmailSender(emailSender),
 		service.WithOrgOutboxNotifier(outboxWorker),
 		service.WithGitHubApp(githubApp),
 	)

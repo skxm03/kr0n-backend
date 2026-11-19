@@ -153,8 +153,8 @@ func TestBatchProcessor_SizeAndTimeoutFlushWithBoundedConcurrency(t *testing.T) 
 			t.Errorf("delivery %d was not Acked", tag)
 		}
 	}
-	if !ack.nacked[5] || !ack.requeue[5] {
-		t.Errorf("delivery 5 expected Nack with requeue=true on first failure, got nacked=%v requeue=%v", ack.nacked[5], ack.requeue[5])
+	if !ack.nacked[5] || ack.requeue[5] {
+		t.Errorf("delivery 5 expected Nack with requeue=false (DLQ), got nacked=%v requeue=%v", ack.nacked[5], ack.requeue[5])
 	}
 	if !ack.nacked[6] || ack.requeue[6] {
 		t.Errorf("delivery 6 (malformed JSON) expected Nack with requeue=false (DLQ), got nacked=%v requeue=%v", ack.nacked[6], ack.requeue[6])

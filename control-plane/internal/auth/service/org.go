@@ -16,11 +16,6 @@ import (
 
 var slugRegex = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 
-// InviteEmailSender dispatches organization invitation emails.
-type InviteEmailSender interface {
-	SendOrgInviteEmail(ctx context.Context, recipient, orgName, roleID, rawToken string) error
-}
-
 // GitHubAppClient defines the GitHub App installation and token operations required by OrgService.
 type GitHubAppClient interface {
 	Configured() bool
@@ -32,13 +27,6 @@ type GitHubAppClient interface {
 
 // OrgOption configures OrgService.
 type OrgOption func(*OrgService)
-
-// WithInviteEmailSender configures an optional email sender (retained for backward compatibility).
-func WithInviteEmailSender(sender InviteEmailSender) OrgOption {
-	return func(s *OrgService) {
-		s.emailSender = sender
-	}
-}
 
 // WithOrgOutboxNotifier wires an outbox notifier to OrgService.
 func WithOrgOutboxNotifier(notifier OutboxNotifier) OrgOption {
@@ -56,10 +44,9 @@ func WithGitHubApp(gh GitHubAppClient) OrgOption {
 
 // OrgService orchestrates organizations, memberships, invites, RBAC checks, and API tokens.
 type OrgService struct {
-	repo        repository.OrgRepository
-	emailSender InviteEmailSender
-	notifier    OutboxNotifier
-	githubApp   GitHubAppClient
+	repo      repository.OrgRepository
+	notifier  OutboxNotifier
+	githubApp GitHubAppClient
 }
 
 // NewOrgService constructs an OrgService.

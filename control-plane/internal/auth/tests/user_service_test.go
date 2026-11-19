@@ -374,7 +374,6 @@ func TestUserService_Register_CreatesVerificationTokenAndDispatchesEmail(t *test
 	emailSender := email.NewInMemorySender()
 
 	svc := service.NewUserService(repo, hasher,
-		service.WithEmailSender(emailSender),
 		service.WithTokenLifetime(24*time.Hour),
 	)
 
@@ -453,9 +452,7 @@ func TestUserService_Register_EmailSenderFailureDoesNotRollbackRegistration(t *t
 	emailSender := email.NewInMemorySender()
 	emailSender.SetFailNext(errors.New("mail server unreachable"))
 
-	svc := service.NewUserService(repo, hasher,
-		service.WithEmailSender(emailSender),
-	)
+	svc := service.NewUserService(repo, hasher)
 
 	u, err := svc.Register(context.Background(), service.RegisterParams{
 		Email:       "survivor@kr0n.dev",
@@ -489,9 +486,7 @@ func TestUserService_Register_DoesNotLogRawToken(t *testing.T) {
 	// Simulate email failure so error logging is triggered
 	emailSender.SetFailNext(errors.New("smtp timeout"))
 
-	svc := service.NewUserService(repo, hasher,
-		service.WithEmailSender(emailSender),
-	)
+	svc := service.NewUserService(repo, hasher)
 
 	_, err := svc.Register(context.Background(), service.RegisterParams{
 		Email:       "logging_test@kr0n.dev",
@@ -604,7 +599,7 @@ func TestUserService_ResendVerification(t *testing.T) {
 		},
 	}
 	sender := email.NewInMemorySender()
-	svc := service.NewUserService(repo, &mockHasher{}, service.WithEmailSender(sender))
+	svc := service.NewUserService(repo, &mockHasher{})
 
 	// Non-existent user -> nil, no email sent
 	if err := svc.ResendVerification(context.Background(), "nobody@kr0n.dev"); err != nil {
@@ -673,7 +668,7 @@ func TestUserService_PasswordResetAndChangePassword(t *testing.T) {
 	}
 	sender := email.NewInMemorySender()
 	hasher := &mockHasher{hashResult: "new_hashed_pw"}
-	svc := service.NewUserService(repo, hasher, service.WithEmailSender(sender), service.WithPasswordResetTokenLifetime(30*time.Minute))
+	svc := service.NewUserService(repo, hasher, service.WithPasswordResetTokenLifetime(30*time.Minute))
 
 	// 1. RequestPasswordReset for unknown user -> nil, no email
 	if err := svc.RequestPasswordReset(context.Background(), "unknown@kr0n.dev"); err != nil {

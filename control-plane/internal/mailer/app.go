@@ -60,7 +60,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("set rabbitmq qos: %w", err)
 	}
 
-	smtpSender := email.NewSMTPSender(email.SMTPConfig{
+	smtpSender := NewSMTPSender(SMTPConfig{
 		Addr:     cfg.SMTPAddr,
 		From:     cfg.SMTPFrom,
 		Username: cfg.SMTPUsername,

@@ -12,12 +12,6 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/email"
 )
 
-// EmailSender defines the contract for dispatching auth-related transactional emails.
-type EmailSender interface {
-	SendVerificationEmail(ctx context.Context, recipient, rawToken string) error
-	SendPasswordResetEmail(ctx context.Context, recipient, rawToken string) error
-}
-
 // OutboxNotifier notifies background workers when a new outbox event is persisted.
 type OutboxNotifier interface {
 	Notify()
@@ -38,13 +32,6 @@ type AuthenticateParams struct {
 
 // UserOption defines a functional option for configuring UserService.
 type UserOption func(*UserService)
-
-// WithEmailSender configures the email sender (retained for backward compatibility).
-func WithEmailSender(sender EmailSender) UserOption {
-	return func(s *UserService) {
-		s.emailSender = sender
-	}
-}
 
 // WithOutboxNotifier wires an outbox notifier to UserService.
 func WithOutboxNotifier(notifier OutboxNotifier) UserOption {
@@ -102,7 +89,6 @@ type UserService struct {
 	repo                 repository.UserRepository
 	sessionRepo          repository.SessionRepository
 	hasher               PasswordHasher
-	emailSender          EmailSender
 	notifier             OutboxNotifier
 	tokenLifetime        time.Duration
 	resetTokenLifetime   time.Duration

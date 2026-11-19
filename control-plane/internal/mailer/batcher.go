@@ -132,9 +132,8 @@ func (bp *BatchProcessor) handleDelivery(ctx context.Context, msg amqp.Delivery)
 	}
 
 	if err := bp.dispatcher.DispatchMIME(ctx, rendered.Recipient, rendered.Subject, rendered.TextBody, rendered.HTMLBody); err != nil {
-		requeue := !msg.Redelivered
-		log.Printf("[mailer] failed to send email job %q to %s (requeue=%t): %v", job.ID, rendered.Recipient, requeue, err)
-		_ = msg.Nack(false, requeue)
+		log.Printf("[mailer] failed to send email job %q to %s (routed to dlq): %v", job.ID, rendered.Recipient, err)
+		_ = msg.Nack(false, false) // route to DLQ
 		return
 	}
 
