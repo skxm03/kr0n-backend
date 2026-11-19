@@ -46,12 +46,12 @@ func (s *AuditService) Record(ctx context.Context, ev repository.AuditEvent) err
 }
 
 // ListByOrg returns audit events for an organization ordered newest-first.
-func (s *AuditService) ListByOrg(ctx context.Context, orgID uuid.UUID, limit, offset int) ([]repository.AuditEvent, error) {
+func (s *AuditService) ListByOrg(ctx context.Context, orgID uuid.UUID, action string, limit, offset int) ([]repository.AuditEvent, error) {
 	if limit <= 0 || limit > 200 {
 		limit = 50
 	}
 	if offset < 0 {
 		offset = 0
 	}
-	return s.repo.ListByOrg(ctx, orgID, limit, offset)
+	return s.repo.ListByOrg(ctx, orgID, action, limit, offset)
 }

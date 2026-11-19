@@ -4384,11 +4384,13 @@ func (x *ValidateAPITokenResponse) GetPermissions() []string {
 }
 
 type ListAuditEventsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Caller        *CallerPrincipal       `protobuf:"bytes,1,opt,name=caller,proto3" json:"caller,omitempty"`
-	OrgId         string                 `protobuf:"bytes,2,opt,name=org_id,json=orgId,proto3" json:"org_id,omitempty"`
-	Limit         int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
-	Offset        int32                  `protobuf:"varint,4,opt,name=offset,proto3" json:"offset,omitempty"`
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Caller *CallerPrincipal       `protobuf:"bytes,1,opt,name=caller,proto3" json:"caller,omitempty"`
+	OrgId  string                 `protobuf:"bytes,2,opt,name=org_id,json=orgId,proto3" json:"org_id,omitempty"`
+	Limit  int32                  `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+	Offset int32                  `protobuf:"varint,4,opt,name=offset,proto3" json:"offset,omitempty"`
+	// Exact action match; empty returns all actions.
+	Action        string `protobuf:"bytes,5,opt,name=action,proto3" json:"action,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4449,6 +4451,13 @@ func (x *ListAuditEventsRequest) GetOffset() int32 {
 		return x.Offset
 	}
 	return 0
+}
+
+func (x *ListAuditEventsRequest) GetAction() string {
+	if x != nil {
+		return x.Action
+	}
+	return ""
 }
 
 type AuditEventInfo struct {
@@ -5986,12 +5995,13 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\btoken_id\x18\x01 \x01(\tR\atokenId\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12\x17\n" +
 	"\auser_id\x18\x03 \x01(\tR\x06userId\x12 \n" +
-	"\vpermissions\x18\x04 \x03(\tR\vpermissions\"\x8f\x01\n" +
+	"\vpermissions\x18\x04 \x03(\tR\vpermissions\"\xa7\x01\n" +
 	"\x16ListAuditEventsRequest\x120\n" +
 	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12\x14\n" +
 	"\x05limit\x18\x03 \x01(\x05R\x05limit\x12\x16\n" +
-	"\x06offset\x18\x04 \x01(\x05R\x06offset\"\xf6\x02\n" +
+	"\x06offset\x18\x04 \x01(\x05R\x06offset\x12\x16\n" +
+	"\x06action\x18\x05 \x01(\tR\x06action\"\xf6\x02\n" +
 	"\x0eAuditEventInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12\"\n" +

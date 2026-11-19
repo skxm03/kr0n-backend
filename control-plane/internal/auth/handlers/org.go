@@ -17,6 +17,7 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/oauth"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
 )
+
 func mapOrgError(err error) error {
 	switch {
 	case errors.Is(err, repository.ErrForbidden):
@@ -646,7 +647,7 @@ func (s *Server) ListAuditEvents(ctx context.Context, req *authv1.ListAuditEvent
 	if !allowed {
 		return nil, status.Error(codes.PermissionDenied, "permission denied")
 	}
-	events, err := s.auditService.ListByOrg(ctx, orgID, int(req.GetLimit()), int(req.GetOffset()))
+	events, err := s.auditService.ListByOrg(ctx, orgID, req.GetAction(), int(req.GetLimit()), int(req.GetOffset()))
 	if err != nil {
 		log.Printf("internal list audit events error: %v", err)
 		return nil, status.Error(codes.Internal, "internal server error")

@@ -14,7 +14,7 @@ import (
 // AuditRepository defines storage operations for append-only audit events.
 type AuditRepository interface {
 	Insert(ctx context.Context, ev AuditEvent) error
-	ListByOrg(ctx context.Context, orgID uuid.UUID, limit, offset int) ([]AuditEvent, error)
+	ListByOrg(ctx context.Context, orgID uuid.UUID, action string, limit, offset int) ([]AuditEvent, error)
 }
 
 // PostgresAuditRepository implements AuditRepository using PostgreSQL (`audit_events` append-only table).
@@ -56,15 +56,15 @@ func (r *PostgresAuditRepository) Insert(ctx context.Context, ev AuditEvent) err
 }
 
 // ListByOrg queries organization audit events ordered by created_at DESC.
-func (r *PostgresAuditRepository) ListByOrg(ctx context.Context, orgID uuid.UUID, limit, offset int) ([]AuditEvent, error) {
+func (r *PostgresAuditRepository) ListByOrg(ctx context.Context, orgID uuid.UUID, action string, limit, offset int) ([]AuditEvent, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, organization_id, actor_user_id, actor_type, action,
 		       resource_type, COALESCE(resource_id, ''), host(ip_address), user_agent, metadata, created_at
 		FROM audit_events
-		WHERE organization_id = $1
+		WHERE organization_id = $1 AND ($2::text = '' OR action = $2)
 		ORDER BY created_at DESC
-		LIMIT $2 OFFSET $3
-	`, orgID, limit, offset)
+		LIMIT $3 OFFSET $4
+	`, orgID, action, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("list audit events: %w", err)
 	}
