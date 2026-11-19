@@ -2,12 +2,16 @@ package tests
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/google/uuid"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
@@ -53,8 +57,29 @@ func TestHandlers_ListAuditEventsHTTP(t *testing.T) {
 	srv := handlers.NewServer(nil, nil,
 		handlers.WithOrgService(service.NewOrgService(orgRepo)),
 		handlers.WithAuditService(auditSvc))
+
+	lis := bufconn.Listen(1024 * 1024)
+	grpcServer := grpc.NewServer()
+	authv1.RegisterAuthServiceServer(grpcServer, srv)
+	go func() {
+		_ = grpcServer.Serve(lis)
+	}()
+	defer grpcServer.Stop()
+
+	clientConn, err := grpc.NewClient("passthrough:///bufnet",
+		grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
+			return lis.DialContext(ctx)
+		}),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithChainUnaryInterceptor(gateway.PassportUnaryClientInterceptor()),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clientConn.Close()
+
 	mux := runtime.NewServeMux(runtime.WithMetadata(gateway.GatewayMetadataAnnotator(nil)))
-	if err := authv1.RegisterAuthServiceHandlerServer(ctx, mux, srv); err != nil {
+	if err := authv1.RegisterAuthServiceHandler(ctx, mux, clientConn); err != nil {
 		t.Fatal(err)
 	}
 	admin := &middleware.Principal{UserID: adminID.String(), Kind: middleware.PrincipalKindSession}

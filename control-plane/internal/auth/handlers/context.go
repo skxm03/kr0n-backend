@@ -63,100 +63,35 @@ func extractUserAgent(ctx context.Context, fallback string) *string {
 	return &ua
 }
 
-// extractUserID extracts and parses the caller user ID from metadata or explicit fallback.
-func (s *Server) extractUserID(ctx context.Context, explicit ...string) (uuid.UUID, error) {
-	raw := ""
-	if len(explicit) > 0 && strings.TrimSpace(explicit[0]) != "" {
-		raw = strings.TrimSpace(explicit[0])
-	} else {
-		raw = metadataValue(ctx, "x-caller-user-id")
-	}
-
-	if raw == "" {
-		return uuid.Nil, status.Error(codes.Unauthenticated, "authentication required: user_id missing")
-	}
-
-	uid, err := uuid.Parse(raw)
-	if err != nil {
-		return uuid.Nil, status.Error(codes.InvalidArgument, "invalid user_id")
-	}
-	return uid, nil
-}
-
-// extractSessionID extracts and parses the session ID from metadata or explicit fallback.
-func (s *Server) extractSessionID(ctx context.Context, explicit ...string) (*uuid.UUID, error) {
-	raw := ""
-	if len(explicit) > 0 && strings.TrimSpace(explicit[0]) != "" {
-		raw = strings.TrimSpace(explicit[0])
-	} else {
-		raw = metadataValue(ctx, "x-caller-session-id")
-	}
-
-	if raw == "" {
-		return nil, nil
-	}
-
-	uid, err := uuid.Parse(raw)
-	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, "invalid session_id")
-	}
-	return &uid, nil
-}
-
-// ParseCallerPrincipal resolves the authenticated caller principal from explicit proto or gRPC metadata.
+// ParseCallerPrincipal resolves the authenticated caller principal strictly from the request's CallerPrincipal passport.
+// Caller identity must never be extracted from insecure gRPC transport metadata headers.
 func (s *Server) ParseCallerPrincipal(ctx context.Context, c *authv1.CallerPrincipal) (repository.Principal, error) {
 	if s.serviceAuth.Enabled && !IsTrustedService(ctx) {
 		return repository.Principal{}, status.Error(codes.Unauthenticated, "caller principal rejected: untrusted service boundary")
 	}
 
-	// 1. Explicit proto principal (internal service-to-service calls like CheckPermission)
-	if c != nil && strings.TrimSpace(c.GetUserId()) != "" {
-		uid, err := uuid.Parse(strings.TrimSpace(c.GetUserId()))
-		if err != nil {
-			return repository.Principal{}, status.Error(codes.InvalidArgument, "invalid caller user_id")
-		}
-		p := repository.Principal{
-			UserID:           uid,
-			Kind:             c.GetKind(),
-			TokenPermissions: c.GetTokenPermissions(),
-		}
-		if rawOrg := strings.TrimSpace(c.GetTokenOrgId()); rawOrg != "" {
-			if oid, err := uuid.Parse(rawOrg); err == nil {
-				p.TokenOrgID = &oid
-			}
-		}
-		return p, nil
+	if c == nil || strings.TrimSpace(c.GetUserId()) == "" {
+		return repository.Principal{}, status.Error(codes.Unauthenticated, "authentication required: missing caller passport")
 	}
 
-	// 2. Injected gRPC metadata headers (from API Gateway)
-	rawUID := metadataValue(ctx, "x-caller-user-id")
-	if rawUID == "" {
-		return repository.Principal{}, status.Error(codes.Unauthenticated, "authentication required")
-	}
-
-	uid, err := uuid.Parse(rawUID)
+	uid, err := uuid.Parse(strings.TrimSpace(c.GetUserId()))
 	if err != nil {
-		return repository.Principal{}, status.Error(codes.InvalidArgument, "invalid caller user_id in metadata")
+		return repository.Principal{}, status.Error(codes.InvalidArgument, "invalid caller user_id")
 	}
 
 	p := repository.Principal{
-		UserID: uid,
-		Kind:   metadataValue(ctx, "x-caller-kind"),
+		UserID:           uid,
+		Kind:             c.GetKind(),
+		TokenPermissions: c.GetTokenPermissions(),
 	}
-
-	if rawOrg := metadataValue(ctx, "x-caller-token-org-id"); rawOrg != "" {
+	if rawOrg := strings.TrimSpace(c.GetTokenOrgId()); rawOrg != "" {
 		if oid, err := uuid.Parse(rawOrg); err == nil {
 			p.TokenOrgID = &oid
 		}
 	}
-
-	if md, ok := getMetadata(ctx); ok {
-		for _, perm := range md.Get("x-caller-token-permissions") {
-			for _, part := range strings.Split(perm, ",") {
-				if trimmed := strings.TrimSpace(part); trimmed != "" {
-					p.TokenPermissions = append(p.TokenPermissions, trimmed)
-				}
-			}
+	if rawSess := strings.TrimSpace(c.GetSessionId()); rawSess != "" {
+		if sid, err := uuid.Parse(rawSess); err == nil {
+			p.SessionID = &sid
 		}
 	}
 

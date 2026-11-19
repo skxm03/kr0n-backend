@@ -352,7 +352,8 @@ message RefreshResponse {
 }
 
 message LogoutRequest {
-  string refresh_token = 1;
+  CallerPrincipal caller = 1;
+  string refresh_token = 2;
 }
 
 message LogoutResponse {
@@ -409,10 +410,9 @@ message ConfirmPasswordResetResponse {
 }
 
 message ChangePasswordRequest {
-  string user_id = 1;
-  string session_id = 2;
-  string current_password = 3;
-  string new_password = 4;
+  CallerPrincipal caller = 1;
+  string current_password = 2;
+  string new_password = 3;
 }
 
 message ChangePasswordResponse {
@@ -420,7 +420,7 @@ message ChangePasswordResponse {
 }
 
 message GetMeRequest {
-  string user_id = 1;
+  CallerPrincipal caller = 1;
 }
 
 message GetMeResponse {
@@ -438,7 +438,7 @@ message GetMeResponse {
 }
 
 message ListSessionsRequest {
-  string user_id = 1;
+  CallerPrincipal caller = 1;
 }
 
 message SessionInfo {
@@ -456,7 +456,7 @@ message ListSessionsResponse {
 }
 
 message RevokeSessionRequest {
-  string user_id = 1;
+  CallerPrincipal caller = 1;
   string session_id = 2;
 }
 
@@ -493,6 +493,7 @@ message CallerPrincipal {
   string kind = 2;
   string token_org_id = 3;
   repeated string token_permissions = 4;
+  string session_id = 5;
 }
 
 message CheckPermissionRequest {
@@ -520,7 +521,7 @@ message ListRolesResponse {
 }
 
 message CreateOrganizationRequest {
-  string user_id = 1;
+  CallerPrincipal caller = 1;
   string name = 2;
   string slug = 3;
 }
@@ -544,7 +545,7 @@ message OrganizationResponse {
 }
 
 message ListOrganizationsRequest {
-  string user_id = 1;
+  CallerPrincipal caller = 1;
 }
 
 message ListOrganizationsResponse {
@@ -660,7 +661,7 @@ message CreateInviteResponse {
 }
 
 message AcceptInviteRequest {
-  string user_id = 1;
+  CallerPrincipal caller = 1;
   string token = 2;
 }
 

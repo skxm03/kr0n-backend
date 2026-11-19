@@ -77,7 +77,7 @@ func TestE2E_UserRegistration(t *testing.T) {
 	authGRPCAddr := grpcListener.Addr().String()
 
 	// 3. Start API Gateway on dynamic loopback port
-	authConn, err := grpc.NewClient(authGRPCAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	authConn, err := gateway.DialUpstream(authGRPCAddr, gateway.DialUpstreamTLSConfig{Insecure: true}, "")
 	if err != nil {
 		t.Fatalf("failed to dial auth gRPC: %v", err)
 	}

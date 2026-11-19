@@ -876,29 +876,35 @@ func TestServer_P4AccountAndSessionRPCs(t *testing.T) {
 		t.Fatalf("ConfirmPasswordReset: %v", err)
 	}
 
+	caller := &authv1.CallerPrincipal{
+		UserId:    uid.String(),
+		SessionId: sid.String(),
+		Kind:      "session",
+	}
+
 	// ChangePassword
-	if _, err := server.ChangePassword(ctx, &authv1.ChangePasswordRequest{UserId: uid.String(), CurrentPassword: "wrong", NewPassword: "ValidPassword123!"}); status.Code(err) != codes.Unauthenticated {
+	if _, err := server.ChangePassword(ctx, &authv1.ChangePasswordRequest{Caller: caller, CurrentPassword: "wrong", NewPassword: "ValidPassword123!"}); status.Code(err) != codes.Unauthenticated {
 		t.Fatalf("expected Unauthenticated on wrong current password, got %v", err)
 	}
-	if _, err := server.ChangePassword(ctx, &authv1.ChangePasswordRequest{UserId: uid.String(), SessionId: sid.String(), CurrentPassword: "ok", NewPassword: "ValidPassword123!"}); err != nil {
+	if _, err := server.ChangePassword(ctx, &authv1.ChangePasswordRequest{Caller: caller, CurrentPassword: "ok", NewPassword: "ValidPassword123!"}); err != nil {
 		t.Fatalf("ChangePassword: %v", err)
 	}
 
 	// GetMe
-	meResp, err := server.GetMe(ctx, &authv1.GetMeRequest{UserId: uid.String()})
+	meResp, err := server.GetMe(ctx, &authv1.GetMeRequest{Caller: caller})
 	if err != nil || meResp.GetEmail() != "me@kr0n.dev" || !meResp.GetEmailVerified() {
 		t.Fatalf("GetMe failed: %v, %+v", err, meResp)
 	}
 
 	// ListSessions & RevokeSession
-	listResp, err := server.ListSessions(ctx, &authv1.ListSessionsRequest{UserId: uid.String()})
+	listResp, err := server.ListSessions(ctx, &authv1.ListSessionsRequest{Caller: caller})
 	if err != nil || len(listResp.GetSessions()) != 1 || listResp.GetSessions()[0].GetId() != sid.String() {
 		t.Fatalf("ListSessions failed: %v, %+v", err, listResp)
 	}
-	if _, err := server.RevokeSession(ctx, &authv1.RevokeSessionRequest{UserId: uid.String(), SessionId: uuid.New().String()}); status.Code(err) != codes.NotFound {
+	if _, err := server.RevokeSession(ctx, &authv1.RevokeSessionRequest{Caller: caller, SessionId: uuid.New().String()}); status.Code(err) != codes.NotFound {
 		t.Fatalf("expected NotFound, got %v", err)
 	}
-	if _, err := server.RevokeSession(ctx, &authv1.RevokeSessionRequest{UserId: uid.String(), SessionId: sid.String()}); err != nil {
+	if _, err := server.RevokeSession(ctx, &authv1.RevokeSessionRequest{Caller: caller, SessionId: sid.String()}); err != nil {
 		t.Fatalf("RevokeSession: %v", err)
 	}
 }

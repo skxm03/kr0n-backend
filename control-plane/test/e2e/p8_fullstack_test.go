@@ -137,7 +137,7 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 	go func() { _ = grpcServer.Serve(grpcLis) }()
 	defer grpcServer.GracefulStop()
 
-	authConn, err := grpc.NewClient(grpcLis.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	authConn, err := gateway.DialUpstream(grpcLis.Addr().String(), gateway.DialUpstreamTLSConfig{Insecure: true}, "")
 	if err != nil {
 		t.Fatalf("dial gRPC: %v", err)
 	}

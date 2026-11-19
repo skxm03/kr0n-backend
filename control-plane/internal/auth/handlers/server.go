@@ -9,7 +9,6 @@ import (
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -466,19 +465,19 @@ func (s *Server) ChangePassword(ctx context.Context, req *authv1.ChangePasswordR
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request body cannot be empty")
 	}
-	userID, err := s.extractUserID(ctx, req.GetUserId())
+	p, err := s.ParseCallerPrincipal(ctx, req.GetCaller())
 	if err != nil {
 		return nil, err
 	}
 	if req.GetCurrentPassword() == "" || req.GetNewPassword() == "" {
 		return nil, status.Error(codes.InvalidArgument, "current_password and new_password are required")
 	}
-	currentSessID, _ := s.extractSessionID(ctx, req.GetSessionId())
+	currentSessID := p.SessionID
 
 	if s.regService == nil {
 		return nil, status.Error(codes.Unimplemented, "registration service not configured")
 	}
-	if err := s.regService.ChangePassword(ctx, userID, req.GetCurrentPassword(), req.GetNewPassword(), currentSessID); err != nil {
+	if err := s.regService.ChangePassword(ctx, p.UserID, req.GetCurrentPassword(), req.GetNewPassword(), currentSessID); err != nil {
 		switch {
 		case errors.Is(err, repository.ErrInvalidCredentials):
 			return nil, status.Error(codes.Unauthenticated, "invalid current password")
@@ -494,11 +493,11 @@ func (s *Server) ChangePassword(ctx context.Context, req *authv1.ChangePasswordR
 		}
 	}
 	s.recordAudit(ctx, repository.AuditEvent{
-		ActorUserID:  &userID,
-		ActorType:    repository.ActorTypeUser,
+		ActorUserID:  &p.UserID,
+		ActorType:    actorTypeFromPrincipal(p),
 		Action:       "auth.password_changed",
 		ResourceType: "user",
-		ResourceID:   userID.String(),
+		ResourceID:   p.UserID.String(),
 	})
 	return &authv1.ChangePasswordResponse{Message: "password changed successfully"}, nil
 }
@@ -511,14 +510,14 @@ func (s *Server) GetMe(ctx context.Context, req *authv1.GetMeRequest) (*authv1.G
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request body cannot be empty")
 	}
-	userID, err := s.extractUserID(ctx, req.GetUserId())
+	p, err := s.ParseCallerPrincipal(ctx, req.GetCaller())
 	if err != nil {
 		return nil, err
 	}
 	if s.regService == nil {
 		return nil, status.Error(codes.Unimplemented, "registration service not configured")
 	}
-	u, err := s.regService.GetProfile(ctx, userID)
+	u, err := s.regService.GetProfile(ctx, p.UserID)
 	if err != nil {
 		if errors.Is(err, repository.ErrUserNotFound) {
 			return nil, status.Error(codes.NotFound, "user not found")
@@ -535,15 +534,13 @@ func (s *Server) GetMe(ctx context.Context, req *authv1.GetMeRequest) (*authv1.G
 		Status:        string(u.Status),
 		EmailVerified: u.EmailVerifiedAt != nil,
 		CreatedAt:     timestamppb.New(u.CreatedAt),
-		Kind:          "session",
+		Kind:          p.Kind,
 	}
-	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		if kinds := md.Get("x-caller-kind"); len(kinds) > 0 && kinds[0] != "" {
-			resp.Kind = kinds[0]
-		}
-		if sess := md.Get("x-caller-session-id"); len(sess) > 0 {
-			resp.SessionId = sess[0]
-		}
+	if resp.Kind == "" {
+		resp.Kind = "session"
+	}
+	if p.SessionID != nil {
+		resp.SessionId = p.SessionID.String()
 	}
 	if u.AvatarURL != nil {
 		resp.AvatarUrl = *u.AvatarURL
@@ -562,19 +559,18 @@ func (s *Server) ListSessions(ctx context.Context, req *authv1.ListSessionsReque
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request body cannot be empty")
 	}
-	userID, err := s.extractUserID(ctx, req.GetUserId())
+	p, err := s.ParseCallerPrincipal(ctx, req.GetCaller())
 	if err != nil {
 		return nil, err
 	}
 	if s.sessionService == nil {
 		return nil, status.Error(codes.Unimplemented, "session service not configured")
 	}
-	sessions, err := s.sessionService.ListSessions(ctx, userID)
+	sessions, err := s.sessionService.ListSessions(ctx, p.UserID)
 	if err != nil {
 		log.Printf("internal list sessions error: %v", err)
 		return nil, status.Error(codes.Internal, "internal server error")
 	}
-	currentSessID, _ := s.extractSessionID(ctx, "")
 	out := make([]*authv1.SessionInfo, 0, len(sessions))
 	for _, sess := range sessions {
 		info := &authv1.SessionInfo{
@@ -582,7 +578,7 @@ func (s *Server) ListSessions(ctx context.Context, req *authv1.ListSessionsReque
 			CreatedAt:  timestamppb.New(sess.CreatedAt),
 			LastSeenAt: timestamppb.New(sess.LastSeenAt),
 			ExpiresAt:  timestamppb.New(sess.ExpiresAt),
-			Current:    currentSessID != nil && *currentSessID == sess.ID,
+			Current:    p.SessionID != nil && *p.SessionID == sess.ID,
 		}
 		if sess.UserAgent != nil {
 			info.UserAgent = *sess.UserAgent
@@ -603,7 +599,7 @@ func (s *Server) RevokeSession(ctx context.Context, req *authv1.RevokeSessionReq
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request body cannot be empty")
 	}
-	userID, err := s.extractUserID(ctx, req.GetUserId())
+	p, err := s.ParseCallerPrincipal(ctx, req.GetCaller())
 	if err != nil {
 		return nil, err
 	}
@@ -614,7 +610,7 @@ func (s *Server) RevokeSession(ctx context.Context, req *authv1.RevokeSessionReq
 	if s.sessionService == nil {
 		return nil, status.Error(codes.Unimplemented, "session service not configured")
 	}
-	if err := s.sessionService.RevokeSession(ctx, userID, sessionID); err != nil {
+	if err := s.sessionService.RevokeSession(ctx, p.UserID, sessionID); err != nil {
 		if errors.Is(err, repository.ErrSessionNotFound) {
 			return nil, status.Error(codes.NotFound, "session not found")
 		}

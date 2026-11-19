@@ -6,8 +6,7 @@
   },
   "tags": [
     {
-      "name": "AuthService",
-      "description": "AuthService defines RPC operations for identity and credentials."
+      "name": "AuthService"
     }
   ],
   "consumes": [
@@ -396,7 +395,35 @@
         },
         "parameters": [
           {
-            "name": "user_id",
+            "name": "caller.user_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.kind",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_org_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_permissions",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "caller.session_id",
             "in": "query",
             "required": false,
             "type": "string"
@@ -433,7 +460,35 @@
             "type": "string"
           },
           {
-            "name": "user_id",
+            "name": "caller.user_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.kind",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_org_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_permissions",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "caller.session_id",
             "in": "query",
             "required": false,
             "type": "string"
@@ -497,7 +552,35 @@
         },
         "parameters": [
           {
-            "name": "user_id",
+            "name": "caller.user_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.kind",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_org_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_permissions",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "caller.session_id",
             "in": "query",
             "required": false,
             "type": "string"
@@ -528,7 +611,35 @@
         },
         "parameters": [
           {
-            "name": "user_id",
+            "name": "caller.user_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.kind",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_org_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_permissions",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "caller.session_id",
             "in": "query",
             "required": false,
             "type": "string"
@@ -655,6 +766,12 @@
               "type": "string"
             },
             "collectionFormat": "multi"
+          },
+          {
+            "name": "caller.session_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
           }
         ],
         "tags": [
@@ -712,6 +829,12 @@
               "type": "string"
             },
             "collectionFormat": "multi"
+          },
+          {
+            "name": "caller.session_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
           }
         ],
         "tags": [
@@ -810,6 +933,12 @@
             "collectionFormat": "multi"
           },
           {
+            "name": "caller.session_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
             "name": "limit",
             "in": "query",
             "required": false,
@@ -888,6 +1017,12 @@
               "type": "string"
             },
             "collectionFormat": "multi"
+          },
+          {
+            "name": "caller.session_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
           }
         ],
         "tags": [
@@ -984,6 +1119,12 @@
               "type": "string"
             },
             "collectionFormat": "multi"
+          },
+          {
+            "name": "caller.session_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
           }
         ],
         "tags": [
@@ -1050,6 +1191,12 @@
               "type": "string"
             },
             "collectionFormat": "multi"
+          },
+          {
+            "name": "caller.session_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
           }
         ],
         "tags": [
@@ -1109,6 +1256,12 @@
               "type": "string"
             },
             "collectionFormat": "multi"
+          },
+          {
+            "name": "caller.session_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
           },
           {
             "name": "installation_id",
@@ -1189,6 +1342,12 @@
             "collectionFormat": "multi"
           },
           {
+            "name": "caller.session_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
             "name": "installation_id",
             "in": "query",
             "required": false,
@@ -1265,6 +1424,12 @@
               "type": "string"
             },
             "collectionFormat": "multi"
+          },
+          {
+            "name": "caller.session_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
           },
           {
             "name": "installation_id",
@@ -1382,6 +1547,12 @@
               "type": "string"
             },
             "collectionFormat": "multi"
+          },
+          {
+            "name": "caller.session_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
           }
         ],
         "tags": [
@@ -1441,6 +1612,12 @@
               "type": "string"
             },
             "collectionFormat": "multi"
+          },
+          {
+            "name": "caller.session_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
           }
         ],
         "tags": [
@@ -1543,6 +1720,12 @@
               "type": "string"
             },
             "collectionFormat": "multi"
+          },
+          {
+            "name": "caller.session_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
           }
         ],
         "tags": [
@@ -1645,6 +1828,12 @@
               "type": "string"
             },
             "collectionFormat": "multi"
+          },
+          {
+            "name": "caller.session_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
           }
         ],
         "tags": [
@@ -1747,6 +1936,12 @@
               "type": "string"
             },
             "collectionFormat": "multi"
+          },
+          {
+            "name": "caller.session_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
           }
         ],
         "tags": [
@@ -1872,7 +2067,7 @@
           "type": "string"
         }
       },
-      "additionalProperties": true
+      "additionalProperties": {}
     },
     "rpcStatus": {
       "type": "object",
@@ -1934,8 +2129,8 @@
     "v1AcceptInviteRequest": {
       "type": "object",
       "properties": {
-        "user_id": {
-          "type": "string"
+        "caller": {
+          "$ref": "#/definitions/v1CallerPrincipal"
         },
         "token": {
           "type": "string"
@@ -2044,17 +2239,17 @@
           "items": {
             "type": "string"
           }
+        },
+        "session_id": {
+          "type": "string"
         }
       }
     },
     "v1ChangePasswordRequest": {
       "type": "object",
       "properties": {
-        "user_id": {
-          "type": "string"
-        },
-        "session_id": {
-          "type": "string"
+        "caller": {
+          "$ref": "#/definitions/v1CallerPrincipal"
         },
         "current_password": {
           "type": "string"
@@ -2069,6 +2264,14 @@
       "properties": {
         "message": {
           "type": "string"
+        }
+      }
+    },
+    "v1CheckPermissionResponse": {
+      "type": "object",
+      "properties": {
+        "allowed": {
+          "type": "boolean"
         }
       }
     },
@@ -2162,8 +2365,8 @@
     "v1CreateOrganizationRequest": {
       "type": "object",
       "properties": {
-        "user_id": {
-          "type": "string"
+        "caller": {
+          "$ref": "#/definitions/v1CallerPrincipal"
         },
         "name": {
           "type": "string"
@@ -2570,6 +2773,9 @@
     "v1LogoutRequest": {
       "type": "object",
       "properties": {
+        "caller": {
+          "$ref": "#/definitions/v1CallerPrincipal"
+        },
         "refresh_token": {
           "type": "string"
         }
@@ -2858,6 +3064,26 @@
         "updated_at": {
           "type": "string",
           "format": "date-time"
+        }
+      }
+    },
+    "v1ValidateAPITokenResponse": {
+      "type": "object",
+      "properties": {
+        "token_id": {
+          "type": "string"
+        },
+        "org_id": {
+          "type": "string"
+        },
+        "user_id": {
+          "type": "string"
+        },
+        "permissions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },

@@ -576,10 +576,12 @@ func TestServiceAuth_SensitiveRPC_TrustBoundary(t *testing.T) {
 	}))
 	untrustedCtx := context.Background()
 
-	// Every sensitive RPC accepting user_id, session_id, or caller principal must reject untrustedCtx
+	caller := &authv1.CallerPrincipal{UserId: uuid.New().String(), Kind: "user"}
+
+	// Every sensitive RPC accepting caller passport must reject untrustedCtx
 	t.Run("ChangePassword rejects untrusted service caller", func(t *testing.T) {
 		_, err := s.ChangePassword(untrustedCtx, &authv1.ChangePasswordRequest{
-			UserId:          uuid.New().String(),
+			Caller:          caller,
 			CurrentPassword: "pass",
 			NewPassword:     "newpass",
 		})
@@ -589,14 +591,14 @@ func TestServiceAuth_SensitiveRPC_TrustBoundary(t *testing.T) {
 	})
 
 	t.Run("GetMe rejects untrusted service caller", func(t *testing.T) {
-		_, err := s.GetMe(untrustedCtx, &authv1.GetMeRequest{UserId: uuid.New().String()})
+		_, err := s.GetMe(untrustedCtx, &authv1.GetMeRequest{Caller: caller})
 		if status.Code(err) != codes.Unauthenticated {
 			t.Fatalf("expected Unauthenticated, got %v", err)
 		}
 	})
 
 	t.Run("ListSessions rejects untrusted service caller", func(t *testing.T) {
-		_, err := s.ListSessions(untrustedCtx, &authv1.ListSessionsRequest{UserId: uuid.New().String()})
+		_, err := s.ListSessions(untrustedCtx, &authv1.ListSessionsRequest{Caller: caller})
 		if status.Code(err) != codes.Unauthenticated {
 			t.Fatalf("expected Unauthenticated, got %v", err)
 		}
@@ -604,7 +606,7 @@ func TestServiceAuth_SensitiveRPC_TrustBoundary(t *testing.T) {
 
 	t.Run("RevokeSession rejects untrusted service caller", func(t *testing.T) {
 		_, err := s.RevokeSession(untrustedCtx, &authv1.RevokeSessionRequest{
-			UserId:    uuid.New().String(),
+			Caller:    caller,
 			SessionId: uuid.New().String(),
 		})
 		if status.Code(err) != codes.Unauthenticated {
@@ -624,7 +626,7 @@ func TestServiceAuth_SensitiveRPC_TrustBoundary(t *testing.T) {
 
 	t.Run("CreateOrganization rejects untrusted service caller", func(t *testing.T) {
 		_, err := s.CreateOrganization(untrustedCtx, &authv1.CreateOrganizationRequest{
-			UserId: uuid.New().String(),
+			Caller: caller,
 			Name:   "Acme",
 			Slug:   "acme",
 		})
@@ -635,7 +637,7 @@ func TestServiceAuth_SensitiveRPC_TrustBoundary(t *testing.T) {
 
 	t.Run("ListOrganizations rejects untrusted service caller", func(t *testing.T) {
 		_, err := s.ListOrganizations(untrustedCtx, &authv1.ListOrganizationsRequest{
-			UserId: uuid.New().String(),
+			Caller: caller,
 		})
 		if status.Code(err) != codes.Unauthenticated {
 			t.Fatalf("expected Unauthenticated, got %v", err)
@@ -644,7 +646,7 @@ func TestServiceAuth_SensitiveRPC_TrustBoundary(t *testing.T) {
 
 	t.Run("AcceptInvite rejects untrusted service caller", func(t *testing.T) {
 		_, err := s.AcceptInvite(untrustedCtx, &authv1.AcceptInviteRequest{
-			UserId: uuid.New().String(),
+			Caller: caller,
 			Token:  "invite-tok",
 		})
 		if status.Code(err) != codes.Unauthenticated {

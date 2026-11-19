@@ -113,7 +113,7 @@ func TestE2E_EmailVerification_Lifecycle(t *testing.T) {
 	authGRPCAddr := grpcListener.Addr().String()
 
 	// 4. Start API Gateway on dynamic loopback port
-	authConn, err := grpc.NewClient(authGRPCAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	authConn, err := gateway.DialUpstream(authGRPCAddr, gateway.DialUpstreamTLSConfig{Insecure: true}, "")
 	if err != nil {
 		t.Fatalf("failed to dial auth gRPC: %v", err)
 	}
@@ -498,7 +498,7 @@ func TestE2E_EmailVerification_Manual10StepsVerification(t *testing.T) {
 	go func() { _ = grpcServer.Serve(grpcListener) }()
 	defer grpcServer.GracefulStop()
 
-	authConn, err := grpc.NewClient(grpcListener.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	authConn, err := gateway.DialUpstream(grpcListener.Addr().String(), gateway.DialUpstreamTLSConfig{Insecure: true}, "")
 	if err != nil {
 		t.Fatalf("dial gRPC failed: %v", err)
 	}

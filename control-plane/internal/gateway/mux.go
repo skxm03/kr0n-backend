@@ -72,7 +72,8 @@ func isCreationResponse(name string) bool {
 		name == "CompleteGitHubInstallationResponse"
 }
 
-// GatewayMetadataAnnotator converts HTTP context, client IP, and Principal into outgoing gRPC metadata.
+// GatewayMetadataAnnotator converts HTTP context, client IP, and request tracing into outgoing gRPC metadata.
+// Caller identity is propagated exclusively via typed protobuf passports (CallerPrincipal) in gRPC payload.
 func GatewayMetadataAnnotator(trustedProxies []*net.IPNet) func(ctx context.Context, r *http.Request) metadata.MD {
 	return func(ctx context.Context, r *http.Request) metadata.MD {
 		md := metadata.MD{}
@@ -86,24 +87,6 @@ func GatewayMetadataAnnotator(trustedProxies []*net.IPNet) func(ctx context.Cont
 		}
 		if ua := r.UserAgent(); ua != "" {
 			md.Set("x-user-agent", ua)
-		}
-
-		if p, ok := middleware.PrincipalFromContext(r.Context()); ok {
-			if p.UserID != "" {
-				md.Set("x-caller-user-id", p.UserID)
-			}
-			if p.Kind != "" {
-				md.Set("x-caller-kind", p.Kind)
-			}
-			if p.OrgID != "" {
-				md.Set("x-caller-token-org-id", p.OrgID)
-			}
-			if len(p.Permissions) > 0 {
-				md.Set("x-caller-token-permissions", strings.Join(p.Permissions, ","))
-			}
-			if p.SessionID != "" {
-				md.Set("x-caller-session-id", p.SessionID)
-			}
 		}
 
 		return md

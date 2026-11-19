@@ -135,19 +135,19 @@ func (s *Server) CreateOrganization(ctx context.Context, req *authv1.CreateOrgan
 	if s.orgService == nil {
 		return nil, status.Error(codes.Unimplemented, "org service not configured")
 	}
-	userID, err := s.extractUserID(ctx, req.GetUserId())
+	p, err := s.ParseCallerPrincipal(ctx, req.GetCaller())
 	if err != nil {
 		return nil, err
 	}
-	o, err := s.orgService.CreateOrg(ctx, userID, req.GetName(), req.GetSlug())
+	o, err := s.orgService.CreateOrg(ctx, p.UserID, req.GetName(), req.GetSlug())
 	if err != nil {
 		return nil, mapOrgError(err)
 	}
 	oid := o.ID
 	s.recordAudit(ctx, repository.AuditEvent{
 		OrganizationID: &oid,
-		ActorUserID:    &userID,
-		ActorType:      repository.ActorTypeUser,
+		ActorUserID:    &p.UserID,
+		ActorType:      actorTypeFromPrincipal(p),
 		Action:         "org.created",
 		ResourceType:   "organization",
 		ResourceID:     o.ID.String(),
@@ -171,11 +171,11 @@ func (s *Server) ListOrganizations(ctx context.Context, req *authv1.ListOrganiza
 	if s.orgService == nil {
 		return nil, status.Error(codes.Unimplemented, "org service not configured")
 	}
-	userID, err := s.extractUserID(ctx, req.GetUserId())
+	p, err := s.ParseCallerPrincipal(ctx, req.GetCaller())
 	if err != nil {
 		return nil, err
 	}
-	orgs, err := s.orgService.ListUserOrgs(ctx, userID)
+	orgs, err := s.orgService.ListUserOrgs(ctx, p.UserID)
 	if err != nil {
 		return nil, mapOrgError(err)
 	}
@@ -455,22 +455,22 @@ func (s *Server) AcceptInvite(ctx context.Context, req *authv1.AcceptInviteReque
 	if s.orgService == nil {
 		return nil, status.Error(codes.Unimplemented, "org service not configured")
 	}
-	userID, err := s.extractUserID(ctx, req.GetUserId())
+	p, err := s.ParseCallerPrincipal(ctx, req.GetCaller())
 	if err != nil {
 		return nil, err
 	}
-	o, err := s.orgService.AcceptInvite(ctx, userID, req.GetToken())
+	o, err := s.orgService.AcceptInvite(ctx, p.UserID, req.GetToken())
 	if err != nil {
 		return nil, mapOrgError(err)
 	}
 	oid := o.ID
 	s.recordAudit(ctx, repository.AuditEvent{
 		OrganizationID: &oid,
-		ActorUserID:    &userID,
-		ActorType:      repository.ActorTypeUser,
+		ActorUserID:    &p.UserID,
+		ActorType:      actorTypeFromPrincipal(p),
 		Action:         "invite.accepted",
 		ResourceType:   "member",
-		ResourceID:     userID.String(),
+		ResourceID:     p.UserID.String(),
 		Metadata:       map[string]any{"role_id": o.RoleID},
 	})
 	return &authv1.AcceptInviteResponse{

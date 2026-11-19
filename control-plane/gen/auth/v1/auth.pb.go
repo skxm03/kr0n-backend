@@ -485,7 +485,8 @@ func (x *RefreshResponse) GetExpiresIn() int32 {
 
 type LogoutRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	RefreshToken  string                 `protobuf:"bytes,1,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
+	Caller        *CallerPrincipal       `protobuf:"bytes,1,opt,name=caller,proto3" json:"caller,omitempty"`
+	RefreshToken  string                 `protobuf:"bytes,2,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -518,6 +519,13 @@ func (x *LogoutRequest) ProtoReflect() protoreflect.Message {
 // Deprecated: Use LogoutRequest.ProtoReflect.Descriptor instead.
 func (*LogoutRequest) Descriptor() ([]byte, []int) {
 	return file_auth_v1_auth_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *LogoutRequest) GetCaller() *CallerPrincipal {
+	if x != nil {
+		return x.Caller
+	}
+	return nil
 }
 
 func (x *LogoutRequest) GetRefreshToken() string {
@@ -1097,10 +1105,9 @@ func (x *ConfirmPasswordResetResponse) GetMessage() string {
 
 type ChangePasswordRequest struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
-	UserId          string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	SessionId       string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	CurrentPassword string                 `protobuf:"bytes,3,opt,name=current_password,json=currentPassword,proto3" json:"current_password,omitempty"`
-	NewPassword     string                 `protobuf:"bytes,4,opt,name=new_password,json=newPassword,proto3" json:"new_password,omitempty"`
+	Caller          *CallerPrincipal       `protobuf:"bytes,1,opt,name=caller,proto3" json:"caller,omitempty"`
+	CurrentPassword string                 `protobuf:"bytes,2,opt,name=current_password,json=currentPassword,proto3" json:"current_password,omitempty"`
+	NewPassword     string                 `protobuf:"bytes,3,opt,name=new_password,json=newPassword,proto3" json:"new_password,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -1135,18 +1142,11 @@ func (*ChangePasswordRequest) Descriptor() ([]byte, []int) {
 	return file_auth_v1_auth_proto_rawDescGZIP(), []int{20}
 }
 
-func (x *ChangePasswordRequest) GetUserId() string {
+func (x *ChangePasswordRequest) GetCaller() *CallerPrincipal {
 	if x != nil {
-		return x.UserId
+		return x.Caller
 	}
-	return ""
-}
-
-func (x *ChangePasswordRequest) GetSessionId() string {
-	if x != nil {
-		return x.SessionId
-	}
-	return ""
+	return nil
 }
 
 func (x *ChangePasswordRequest) GetCurrentPassword() string {
@@ -1209,7 +1209,7 @@ func (x *ChangePasswordResponse) GetMessage() string {
 
 type GetMeRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Caller        *CallerPrincipal       `protobuf:"bytes,1,opt,name=caller,proto3" json:"caller,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1244,11 +1244,11 @@ func (*GetMeRequest) Descriptor() ([]byte, []int) {
 	return file_auth_v1_auth_proto_rawDescGZIP(), []int{22}
 }
 
-func (x *GetMeRequest) GetUserId() string {
+func (x *GetMeRequest) GetCaller() *CallerPrincipal {
 	if x != nil {
-		return x.UserId
+		return x.Caller
 	}
-	return ""
+	return nil
 }
 
 type GetMeResponse struct {
@@ -1377,7 +1377,7 @@ func (x *GetMeResponse) GetKind() string {
 
 type ListSessionsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Caller        *CallerPrincipal       `protobuf:"bytes,1,opt,name=caller,proto3" json:"caller,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1412,11 +1412,11 @@ func (*ListSessionsRequest) Descriptor() ([]byte, []int) {
 	return file_auth_v1_auth_proto_rawDescGZIP(), []int{24}
 }
 
-func (x *ListSessionsRequest) GetUserId() string {
+func (x *ListSessionsRequest) GetCaller() *CallerPrincipal {
 	if x != nil {
-		return x.UserId
+		return x.Caller
 	}
-	return ""
+	return nil
 }
 
 type SessionInfo struct {
@@ -1557,7 +1557,7 @@ func (x *ListSessionsResponse) GetSessions() []*SessionInfo {
 
 type RevokeSessionRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Caller        *CallerPrincipal       `protobuf:"bytes,1,opt,name=caller,proto3" json:"caller,omitempty"`
 	SessionId     string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1593,11 +1593,11 @@ func (*RevokeSessionRequest) Descriptor() ([]byte, []int) {
 	return file_auth_v1_auth_proto_rawDescGZIP(), []int{27}
 }
 
-func (x *RevokeSessionRequest) GetUserId() string {
+func (x *RevokeSessionRequest) GetCaller() *CallerPrincipal {
 	if x != nil {
-		return x.UserId
+		return x.Caller
 	}
-	return ""
+	return nil
 }
 
 func (x *RevokeSessionRequest) GetSessionId() string {
@@ -1897,6 +1897,7 @@ type CallerPrincipal struct {
 	Kind             string                 `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
 	TokenOrgId       string                 `protobuf:"bytes,3,opt,name=token_org_id,json=tokenOrgId,proto3" json:"token_org_id,omitempty"`
 	TokenPermissions []string               `protobuf:"bytes,4,rep,name=token_permissions,json=tokenPermissions,proto3" json:"token_permissions,omitempty"`
+	SessionId        string                 `protobuf:"bytes,5,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -1957,6 +1958,13 @@ func (x *CallerPrincipal) GetTokenPermissions() []string {
 		return x.TokenPermissions
 	}
 	return nil
+}
+
+func (x *CallerPrincipal) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
+	}
+	return ""
 }
 
 type CheckPermissionRequest struct {
@@ -2213,7 +2221,7 @@ func (x *ListRolesResponse) GetRoles() []*RoleInfo {
 
 type CreateOrganizationRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Caller        *CallerPrincipal       `protobuf:"bytes,1,opt,name=caller,proto3" json:"caller,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Slug          string                 `protobuf:"bytes,3,opt,name=slug,proto3" json:"slug,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -2250,11 +2258,11 @@ func (*CreateOrganizationRequest) Descriptor() ([]byte, []int) {
 	return file_auth_v1_auth_proto_rawDescGZIP(), []int{39}
 }
 
-func (x *CreateOrganizationRequest) GetUserId() string {
+func (x *CreateOrganizationRequest) GetCaller() *CallerPrincipal {
 	if x != nil {
-		return x.UserId
+		return x.Caller
 	}
-	return ""
+	return nil
 }
 
 func (x *CreateOrganizationRequest) GetName() string {
@@ -2441,7 +2449,7 @@ func (x *OrganizationResponse) GetUpdatedAt() *timestamppb.Timestamp {
 
 type ListOrganizationsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Caller        *CallerPrincipal       `protobuf:"bytes,1,opt,name=caller,proto3" json:"caller,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2476,11 +2484,11 @@ func (*ListOrganizationsRequest) Descriptor() ([]byte, []int) {
 	return file_auth_v1_auth_proto_rawDescGZIP(), []int{42}
 }
 
-func (x *ListOrganizationsRequest) GetUserId() string {
+func (x *ListOrganizationsRequest) GetCaller() *CallerPrincipal {
 	if x != nil {
-		return x.UserId
+		return x.Caller
 	}
-	return ""
+	return nil
 }
 
 type ListOrganizationsResponse struct {
@@ -3597,7 +3605,7 @@ func (x *CreateInviteResponse) GetCreatedAt() *timestamppb.Timestamp {
 
 type AcceptInviteRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Caller        *CallerPrincipal       `protobuf:"bytes,1,opt,name=caller,proto3" json:"caller,omitempty"`
 	Token         string                 `protobuf:"bytes,2,opt,name=token,proto3" json:"token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -3633,11 +3641,11 @@ func (*AcceptInviteRequest) Descriptor() ([]byte, []int) {
 	return file_auth_v1_auth_proto_rawDescGZIP(), []int{61}
 }
 
-func (x *AcceptInviteRequest) GetUserId() string {
+func (x *AcceptInviteRequest) GetCaller() *CallerPrincipal {
 	if x != nil {
-		return x.UserId
+		return x.Caller
 	}
-	return ""
+	return nil
 }
 
 func (x *AcceptInviteRequest) GetToken() string {
@@ -5707,9 +5715,10 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\n" +
 	"token_type\x18\x03 \x01(\tR\ttokenType\x12\x1d\n" +
 	"\n" +
-	"expires_in\x18\x04 \x01(\x05R\texpiresIn\"4\n" +
-	"\rLogoutRequest\x12#\n" +
-	"\rrefresh_token\x18\x01 \x01(\tR\frefreshToken\"*\n" +
+	"expires_in\x18\x04 \x01(\x05R\texpiresIn\"f\n" +
+	"\rLogoutRequest\x120\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12#\n" +
+	"\rrefresh_token\x18\x02 \x01(\tR\frefreshToken\"*\n" +
 	"\x0eLogoutResponse\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\"*\n" +
 	"\x12VerifyEmailRequest\x12\x14\n" +
@@ -5738,17 +5747,15 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12!\n" +
 	"\fnew_password\x18\x02 \x01(\tR\vnewPassword\"8\n" +
 	"\x1cConfirmPasswordResetResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\"\x9d\x01\n" +
-	"\x15ChangePasswordRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1d\n" +
-	"\n" +
-	"session_id\x18\x02 \x01(\tR\tsessionId\x12)\n" +
-	"\x10current_password\x18\x03 \x01(\tR\x0fcurrentPassword\x12!\n" +
-	"\fnew_password\x18\x04 \x01(\tR\vnewPassword\"2\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"\x97\x01\n" +
+	"\x15ChangePasswordRequest\x120\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12)\n" +
+	"\x10current_password\x18\x02 \x01(\tR\x0fcurrentPassword\x12!\n" +
+	"\fnew_password\x18\x03 \x01(\tR\vnewPassword\"2\n" +
 	"\x16ChangePasswordResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\"'\n" +
-	"\fGetMeRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\"\x85\x03\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"@\n" +
+	"\fGetMeRequest\x120\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\"\x85\x03\n" +
 	"\rGetMeResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12!\n" +
@@ -5764,9 +5771,9 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\n" +
 	"session_id\x18\n" +
 	" \x01(\tR\tsessionId\x12\x12\n" +
-	"\x04kind\x18\v \x01(\tR\x04kind\".\n" +
-	"\x13ListSessionsRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\"\xa9\x02\n" +
+	"\x04kind\x18\v \x01(\tR\x04kind\"G\n" +
+	"\x13ListSessionsRequest\x120\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\"\xa9\x02\n" +
 	"\vSessionInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -5781,9 +5788,9 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"expires_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12\x18\n" +
 	"\acurrent\x18\a \x01(\bR\acurrent\"H\n" +
 	"\x14ListSessionsResponse\x120\n" +
-	"\bsessions\x18\x01 \x03(\v2\x14.auth.v1.SessionInfoR\bsessions\"N\n" +
-	"\x14RevokeSessionRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x1d\n" +
+	"\bsessions\x18\x01 \x03(\v2\x14.auth.v1.SessionInfoR\bsessions\"g\n" +
+	"\x14RevokeSessionRequest\x120\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x02 \x01(\tR\tsessionId\"1\n" +
 	"\x15RevokeSessionResponse\x12\x18\n" +
@@ -5806,13 +5813,15 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"token_type\x18\x03 \x01(\tR\ttokenType\x12\x1d\n" +
 	"\n" +
 	"expires_in\x18\x04 \x01(\x05R\texpiresIn\x12&\n" +
-	"\x04user\x18\x05 \x01(\v2\x12.auth.v1.LoginUserR\x04user\"\x8d\x01\n" +
+	"\x04user\x18\x05 \x01(\v2\x12.auth.v1.LoginUserR\x04user\"\xac\x01\n" +
 	"\x0fCallerPrincipal\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x12 \n" +
 	"\ftoken_org_id\x18\x03 \x01(\tR\n" +
 	"tokenOrgId\x12+\n" +
-	"\x11token_permissions\x18\x04 \x03(\tR\x10tokenPermissions\"\x81\x01\n" +
+	"\x11token_permissions\x18\x04 \x03(\tR\x10tokenPermissions\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x05 \x01(\tR\tsessionId\"\x81\x01\n" +
 	"\x16CheckPermissionRequest\x120\n" +
 	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12\x1e\n" +
@@ -5828,9 +5837,9 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12 \n" +
 	"\vpermissions\x18\x04 \x03(\tR\vpermissions\"<\n" +
 	"\x11ListRolesResponse\x12'\n" +
-	"\x05roles\x18\x01 \x03(\v2\x11.auth.v1.RoleInfoR\x05roles\"\\\n" +
-	"\x19CreateOrganizationRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x12\n" +
+	"\x05roles\x18\x01 \x03(\v2\x11.auth.v1.RoleInfoR\x05roles\"u\n" +
+	"\x19CreateOrganizationRequest\x120\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
 	"\x04slug\x18\x03 \x01(\tR\x04slug\"\xe3\x01\n" +
 	"\x1aCreateOrganizationResponse\x12\x0e\n" +
@@ -5850,9 +5859,9 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"3\n" +
-	"\x18ListOrganizationsRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\"`\n" +
+	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"L\n" +
+	"\x18ListOrganizationsRequest\x120\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\"`\n" +
 	"\x19ListOrganizationsResponse\x12C\n" +
 	"\rorganizations\x18\x01 \x03(\v2\x1d.auth.v1.OrganizationResponseR\rorganizations\"a\n" +
 	"\x16GetOrganizationRequest\x120\n" +
@@ -5937,9 +5946,9 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\n" +
 	"expires_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x129\n" +
 	"\n" +
-	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"D\n" +
-	"\x13AcceptInviteRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x14\n" +
+	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"]\n" +
+	"\x13AcceptInviteRequest\x120\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x14\n" +
 	"\x05token\x18\x02 \x01(\tR\x05token\"\xdd\x01\n" +
 	"\x14AcceptInviteResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
@@ -6255,152 +6264,160 @@ var file_auth_v1_auth_proto_goTypes = []any{
 var file_auth_v1_auth_proto_depIdxs = []int32{
 	94,  // 0: auth.v1.RegisterResponse.created_at:type_name -> google.protobuf.Timestamp
 	3,   // 1: auth.v1.LoginResponse.user:type_name -> auth.v1.LoginUser
-	12,  // 2: auth.v1.GetJWKSResponse.keys:type_name -> auth.v1.JWK
-	94,  // 3: auth.v1.GetMeResponse.email_verified_at:type_name -> google.protobuf.Timestamp
-	94,  // 4: auth.v1.GetMeResponse.created_at:type_name -> google.protobuf.Timestamp
-	94,  // 5: auth.v1.SessionInfo.created_at:type_name -> google.protobuf.Timestamp
-	94,  // 6: auth.v1.SessionInfo.last_seen_at:type_name -> google.protobuf.Timestamp
-	94,  // 7: auth.v1.SessionInfo.expires_at:type_name -> google.protobuf.Timestamp
-	25,  // 8: auth.v1.ListSessionsResponse.sessions:type_name -> auth.v1.SessionInfo
-	3,   // 9: auth.v1.CompleteGitHubOAuthResponse.user:type_name -> auth.v1.LoginUser
-	33,  // 10: auth.v1.CheckPermissionRequest.caller:type_name -> auth.v1.CallerPrincipal
-	37,  // 11: auth.v1.ListRolesResponse.roles:type_name -> auth.v1.RoleInfo
-	94,  // 12: auth.v1.CreateOrganizationResponse.created_at:type_name -> google.protobuf.Timestamp
-	94,  // 13: auth.v1.CreateOrganizationResponse.updated_at:type_name -> google.protobuf.Timestamp
-	94,  // 14: auth.v1.OrganizationResponse.created_at:type_name -> google.protobuf.Timestamp
-	94,  // 15: auth.v1.OrganizationResponse.updated_at:type_name -> google.protobuf.Timestamp
-	41,  // 16: auth.v1.ListOrganizationsResponse.organizations:type_name -> auth.v1.OrganizationResponse
-	33,  // 17: auth.v1.GetOrganizationRequest.caller:type_name -> auth.v1.CallerPrincipal
-	94,  // 18: auth.v1.GetOrganizationResponse.created_at:type_name -> google.protobuf.Timestamp
-	94,  // 19: auth.v1.GetOrganizationResponse.updated_at:type_name -> google.protobuf.Timestamp
-	33,  // 20: auth.v1.UpdateOrganizationRequest.caller:type_name -> auth.v1.CallerPrincipal
-	94,  // 21: auth.v1.UpdateOrganizationResponse.created_at:type_name -> google.protobuf.Timestamp
-	94,  // 22: auth.v1.UpdateOrganizationResponse.updated_at:type_name -> google.protobuf.Timestamp
-	33,  // 23: auth.v1.DeleteOrganizationRequest.caller:type_name -> auth.v1.CallerPrincipal
-	33,  // 24: auth.v1.ListMembersRequest.caller:type_name -> auth.v1.CallerPrincipal
-	94,  // 25: auth.v1.MemberInfo.created_at:type_name -> google.protobuf.Timestamp
-	51,  // 26: auth.v1.ListMembersResponse.members:type_name -> auth.v1.MemberInfo
-	33,  // 27: auth.v1.AddMemberRequest.caller:type_name -> auth.v1.CallerPrincipal
-	94,  // 28: auth.v1.AddMemberResponse.created_at:type_name -> google.protobuf.Timestamp
-	33,  // 29: auth.v1.UpdateMemberRoleRequest.caller:type_name -> auth.v1.CallerPrincipal
-	33,  // 30: auth.v1.RemoveMemberRequest.caller:type_name -> auth.v1.CallerPrincipal
-	33,  // 31: auth.v1.CreateInviteRequest.caller:type_name -> auth.v1.CallerPrincipal
-	94,  // 32: auth.v1.CreateInviteResponse.expires_at:type_name -> google.protobuf.Timestamp
-	94,  // 33: auth.v1.CreateInviteResponse.created_at:type_name -> google.protobuf.Timestamp
-	94,  // 34: auth.v1.AcceptInviteResponse.created_at:type_name -> google.protobuf.Timestamp
-	94,  // 35: auth.v1.AcceptInviteResponse.updated_at:type_name -> google.protobuf.Timestamp
-	33,  // 36: auth.v1.RevokeInviteRequest.caller:type_name -> auth.v1.CallerPrincipal
-	33,  // 37: auth.v1.CreateAPITokenRequest.caller:type_name -> auth.v1.CallerPrincipal
-	94,  // 38: auth.v1.APITokenInfo.expires_at:type_name -> google.protobuf.Timestamp
-	94,  // 39: auth.v1.APITokenInfo.last_used_at:type_name -> google.protobuf.Timestamp
-	94,  // 40: auth.v1.APITokenInfo.created_at:type_name -> google.protobuf.Timestamp
-	66,  // 41: auth.v1.CreateAPITokenResponse.token:type_name -> auth.v1.APITokenInfo
-	33,  // 42: auth.v1.ListAPITokensRequest.caller:type_name -> auth.v1.CallerPrincipal
-	66,  // 43: auth.v1.ListAPITokensResponse.tokens:type_name -> auth.v1.APITokenInfo
-	33,  // 44: auth.v1.RevokeAPITokenRequest.caller:type_name -> auth.v1.CallerPrincipal
-	33,  // 45: auth.v1.ListAuditEventsRequest.caller:type_name -> auth.v1.CallerPrincipal
-	94,  // 46: auth.v1.AuditEventInfo.created_at:type_name -> google.protobuf.Timestamp
-	75,  // 47: auth.v1.ListAuditEventsResponse.events:type_name -> auth.v1.AuditEventInfo
-	94,  // 48: auth.v1.GitHubInstallationInfo.created_at:type_name -> google.protobuf.Timestamp
-	94,  // 49: auth.v1.GitHubInstallationInfo.updated_at:type_name -> google.protobuf.Timestamp
-	33,  // 50: auth.v1.StartGitHubInstallationRequest.caller:type_name -> auth.v1.CallerPrincipal
-	33,  // 51: auth.v1.CompleteGitHubInstallationRequest.caller:type_name -> auth.v1.CallerPrincipal
-	77,  // 52: auth.v1.CompleteGitHubInstallationResponse.installation:type_name -> auth.v1.GitHubInstallationInfo
-	33,  // 53: auth.v1.ListGitHubInstallationsRequest.caller:type_name -> auth.v1.CallerPrincipal
-	77,  // 54: auth.v1.ListGitHubInstallationsResponse.installations:type_name -> auth.v1.GitHubInstallationInfo
-	33,  // 55: auth.v1.DisconnectGitHubInstallationRequest.caller:type_name -> auth.v1.CallerPrincipal
-	33,  // 56: auth.v1.ListGitHubRepositoriesRequest.caller:type_name -> auth.v1.CallerPrincipal
-	86,  // 57: auth.v1.ListGitHubRepositoriesResponse.repositories:type_name -> auth.v1.GitHubRepositoryInfo
-	33,  // 58: auth.v1.ListGitHubBranchesRequest.caller:type_name -> auth.v1.CallerPrincipal
-	89,  // 59: auth.v1.ListGitHubBranchesResponse.branches:type_name -> auth.v1.GitHubBranchInfo
-	33,  // 60: auth.v1.ListGitHubDirectoriesRequest.caller:type_name -> auth.v1.CallerPrincipal
-	0,   // 61: auth.v1.AuthService.Register:input_type -> auth.v1.RegisterRequest
-	2,   // 62: auth.v1.AuthService.Login:input_type -> auth.v1.LoginRequest
-	5,   // 63: auth.v1.AuthService.Refresh:input_type -> auth.v1.RefreshRequest
-	7,   // 64: auth.v1.AuthService.Logout:input_type -> auth.v1.LogoutRequest
-	9,   // 65: auth.v1.AuthService.VerifyEmail:input_type -> auth.v1.VerifyEmailRequest
-	11,  // 66: auth.v1.AuthService.GetJWKS:input_type -> auth.v1.GetJWKSRequest
-	14,  // 67: auth.v1.AuthService.ResendVerification:input_type -> auth.v1.ResendVerificationRequest
-	16,  // 68: auth.v1.AuthService.RequestPasswordReset:input_type -> auth.v1.RequestPasswordResetRequest
-	18,  // 69: auth.v1.AuthService.ConfirmPasswordReset:input_type -> auth.v1.ConfirmPasswordResetRequest
-	20,  // 70: auth.v1.AuthService.ChangePassword:input_type -> auth.v1.ChangePasswordRequest
-	22,  // 71: auth.v1.AuthService.GetMe:input_type -> auth.v1.GetMeRequest
-	24,  // 72: auth.v1.AuthService.ListSessions:input_type -> auth.v1.ListSessionsRequest
-	27,  // 73: auth.v1.AuthService.RevokeSession:input_type -> auth.v1.RevokeSessionRequest
-	29,  // 74: auth.v1.AuthService.StartGitHubOAuth:input_type -> auth.v1.StartGitHubOAuthRequest
-	31,  // 75: auth.v1.AuthService.CompleteGitHubOAuth:input_type -> auth.v1.CompleteGitHubOAuthRequest
-	34,  // 76: auth.v1.AuthService.CheckPermission:input_type -> auth.v1.CheckPermissionRequest
-	36,  // 77: auth.v1.AuthService.ListRoles:input_type -> auth.v1.ListRolesRequest
-	39,  // 78: auth.v1.AuthService.CreateOrganization:input_type -> auth.v1.CreateOrganizationRequest
-	42,  // 79: auth.v1.AuthService.ListOrganizations:input_type -> auth.v1.ListOrganizationsRequest
-	44,  // 80: auth.v1.AuthService.GetOrganization:input_type -> auth.v1.GetOrganizationRequest
-	46,  // 81: auth.v1.AuthService.UpdateOrganization:input_type -> auth.v1.UpdateOrganizationRequest
-	48,  // 82: auth.v1.AuthService.DeleteOrganization:input_type -> auth.v1.DeleteOrganizationRequest
-	50,  // 83: auth.v1.AuthService.ListMembers:input_type -> auth.v1.ListMembersRequest
-	53,  // 84: auth.v1.AuthService.AddMember:input_type -> auth.v1.AddMemberRequest
-	55,  // 85: auth.v1.AuthService.UpdateMemberRole:input_type -> auth.v1.UpdateMemberRoleRequest
-	57,  // 86: auth.v1.AuthService.RemoveMember:input_type -> auth.v1.RemoveMemberRequest
-	59,  // 87: auth.v1.AuthService.CreateInvite:input_type -> auth.v1.CreateInviteRequest
-	61,  // 88: auth.v1.AuthService.AcceptInvite:input_type -> auth.v1.AcceptInviteRequest
-	63,  // 89: auth.v1.AuthService.RevokeInvite:input_type -> auth.v1.RevokeInviteRequest
-	65,  // 90: auth.v1.AuthService.CreateAPIToken:input_type -> auth.v1.CreateAPITokenRequest
-	68,  // 91: auth.v1.AuthService.ListAPITokens:input_type -> auth.v1.ListAPITokensRequest
-	70,  // 92: auth.v1.AuthService.RevokeAPIToken:input_type -> auth.v1.RevokeAPITokenRequest
-	72,  // 93: auth.v1.AuthService.ValidateAPIToken:input_type -> auth.v1.ValidateAPITokenRequest
-	74,  // 94: auth.v1.AuthService.ListAuditEvents:input_type -> auth.v1.ListAuditEventsRequest
-	78,  // 95: auth.v1.AuthService.StartGitHubInstallation:input_type -> auth.v1.StartGitHubInstallationRequest
-	80,  // 96: auth.v1.AuthService.CompleteGitHubInstallation:input_type -> auth.v1.CompleteGitHubInstallationRequest
-	82,  // 97: auth.v1.AuthService.ListGitHubInstallations:input_type -> auth.v1.ListGitHubInstallationsRequest
-	84,  // 98: auth.v1.AuthService.DisconnectGitHubInstallation:input_type -> auth.v1.DisconnectGitHubInstallationRequest
-	87,  // 99: auth.v1.AuthService.ListGitHubRepositories:input_type -> auth.v1.ListGitHubRepositoriesRequest
-	90,  // 100: auth.v1.AuthService.ListGitHubBranches:input_type -> auth.v1.ListGitHubBranchesRequest
-	92,  // 101: auth.v1.AuthService.ListGitHubDirectories:input_type -> auth.v1.ListGitHubDirectoriesRequest
-	1,   // 102: auth.v1.AuthService.Register:output_type -> auth.v1.RegisterResponse
-	4,   // 103: auth.v1.AuthService.Login:output_type -> auth.v1.LoginResponse
-	6,   // 104: auth.v1.AuthService.Refresh:output_type -> auth.v1.RefreshResponse
-	8,   // 105: auth.v1.AuthService.Logout:output_type -> auth.v1.LogoutResponse
-	10,  // 106: auth.v1.AuthService.VerifyEmail:output_type -> auth.v1.VerifyEmailResponse
-	13,  // 107: auth.v1.AuthService.GetJWKS:output_type -> auth.v1.GetJWKSResponse
-	15,  // 108: auth.v1.AuthService.ResendVerification:output_type -> auth.v1.ResendVerificationResponse
-	17,  // 109: auth.v1.AuthService.RequestPasswordReset:output_type -> auth.v1.RequestPasswordResetResponse
-	19,  // 110: auth.v1.AuthService.ConfirmPasswordReset:output_type -> auth.v1.ConfirmPasswordResetResponse
-	21,  // 111: auth.v1.AuthService.ChangePassword:output_type -> auth.v1.ChangePasswordResponse
-	23,  // 112: auth.v1.AuthService.GetMe:output_type -> auth.v1.GetMeResponse
-	26,  // 113: auth.v1.AuthService.ListSessions:output_type -> auth.v1.ListSessionsResponse
-	28,  // 114: auth.v1.AuthService.RevokeSession:output_type -> auth.v1.RevokeSessionResponse
-	30,  // 115: auth.v1.AuthService.StartGitHubOAuth:output_type -> auth.v1.StartGitHubOAuthResponse
-	32,  // 116: auth.v1.AuthService.CompleteGitHubOAuth:output_type -> auth.v1.CompleteGitHubOAuthResponse
-	35,  // 117: auth.v1.AuthService.CheckPermission:output_type -> auth.v1.CheckPermissionResponse
-	38,  // 118: auth.v1.AuthService.ListRoles:output_type -> auth.v1.ListRolesResponse
-	40,  // 119: auth.v1.AuthService.CreateOrganization:output_type -> auth.v1.CreateOrganizationResponse
-	43,  // 120: auth.v1.AuthService.ListOrganizations:output_type -> auth.v1.ListOrganizationsResponse
-	45,  // 121: auth.v1.AuthService.GetOrganization:output_type -> auth.v1.GetOrganizationResponse
-	47,  // 122: auth.v1.AuthService.UpdateOrganization:output_type -> auth.v1.UpdateOrganizationResponse
-	49,  // 123: auth.v1.AuthService.DeleteOrganization:output_type -> auth.v1.DeleteOrganizationResponse
-	52,  // 124: auth.v1.AuthService.ListMembers:output_type -> auth.v1.ListMembersResponse
-	54,  // 125: auth.v1.AuthService.AddMember:output_type -> auth.v1.AddMemberResponse
-	56,  // 126: auth.v1.AuthService.UpdateMemberRole:output_type -> auth.v1.UpdateMemberRoleResponse
-	58,  // 127: auth.v1.AuthService.RemoveMember:output_type -> auth.v1.RemoveMemberResponse
-	60,  // 128: auth.v1.AuthService.CreateInvite:output_type -> auth.v1.CreateInviteResponse
-	62,  // 129: auth.v1.AuthService.AcceptInvite:output_type -> auth.v1.AcceptInviteResponse
-	64,  // 130: auth.v1.AuthService.RevokeInvite:output_type -> auth.v1.RevokeInviteResponse
-	67,  // 131: auth.v1.AuthService.CreateAPIToken:output_type -> auth.v1.CreateAPITokenResponse
-	69,  // 132: auth.v1.AuthService.ListAPITokens:output_type -> auth.v1.ListAPITokensResponse
-	71,  // 133: auth.v1.AuthService.RevokeAPIToken:output_type -> auth.v1.RevokeAPITokenResponse
-	73,  // 134: auth.v1.AuthService.ValidateAPIToken:output_type -> auth.v1.ValidateAPITokenResponse
-	76,  // 135: auth.v1.AuthService.ListAuditEvents:output_type -> auth.v1.ListAuditEventsResponse
-	79,  // 136: auth.v1.AuthService.StartGitHubInstallation:output_type -> auth.v1.StartGitHubInstallationResponse
-	81,  // 137: auth.v1.AuthService.CompleteGitHubInstallation:output_type -> auth.v1.CompleteGitHubInstallationResponse
-	83,  // 138: auth.v1.AuthService.ListGitHubInstallations:output_type -> auth.v1.ListGitHubInstallationsResponse
-	85,  // 139: auth.v1.AuthService.DisconnectGitHubInstallation:output_type -> auth.v1.DisconnectGitHubInstallationResponse
-	88,  // 140: auth.v1.AuthService.ListGitHubRepositories:output_type -> auth.v1.ListGitHubRepositoriesResponse
-	91,  // 141: auth.v1.AuthService.ListGitHubBranches:output_type -> auth.v1.ListGitHubBranchesResponse
-	93,  // 142: auth.v1.AuthService.ListGitHubDirectories:output_type -> auth.v1.ListGitHubDirectoriesResponse
-	102, // [102:143] is the sub-list for method output_type
-	61,  // [61:102] is the sub-list for method input_type
-	61,  // [61:61] is the sub-list for extension type_name
-	61,  // [61:61] is the sub-list for extension extendee
-	0,   // [0:61] is the sub-list for field type_name
+	33,  // 2: auth.v1.LogoutRequest.caller:type_name -> auth.v1.CallerPrincipal
+	12,  // 3: auth.v1.GetJWKSResponse.keys:type_name -> auth.v1.JWK
+	33,  // 4: auth.v1.ChangePasswordRequest.caller:type_name -> auth.v1.CallerPrincipal
+	33,  // 5: auth.v1.GetMeRequest.caller:type_name -> auth.v1.CallerPrincipal
+	94,  // 6: auth.v1.GetMeResponse.email_verified_at:type_name -> google.protobuf.Timestamp
+	94,  // 7: auth.v1.GetMeResponse.created_at:type_name -> google.protobuf.Timestamp
+	33,  // 8: auth.v1.ListSessionsRequest.caller:type_name -> auth.v1.CallerPrincipal
+	94,  // 9: auth.v1.SessionInfo.created_at:type_name -> google.protobuf.Timestamp
+	94,  // 10: auth.v1.SessionInfo.last_seen_at:type_name -> google.protobuf.Timestamp
+	94,  // 11: auth.v1.SessionInfo.expires_at:type_name -> google.protobuf.Timestamp
+	25,  // 12: auth.v1.ListSessionsResponse.sessions:type_name -> auth.v1.SessionInfo
+	33,  // 13: auth.v1.RevokeSessionRequest.caller:type_name -> auth.v1.CallerPrincipal
+	3,   // 14: auth.v1.CompleteGitHubOAuthResponse.user:type_name -> auth.v1.LoginUser
+	33,  // 15: auth.v1.CheckPermissionRequest.caller:type_name -> auth.v1.CallerPrincipal
+	37,  // 16: auth.v1.ListRolesResponse.roles:type_name -> auth.v1.RoleInfo
+	33,  // 17: auth.v1.CreateOrganizationRequest.caller:type_name -> auth.v1.CallerPrincipal
+	94,  // 18: auth.v1.CreateOrganizationResponse.created_at:type_name -> google.protobuf.Timestamp
+	94,  // 19: auth.v1.CreateOrganizationResponse.updated_at:type_name -> google.protobuf.Timestamp
+	94,  // 20: auth.v1.OrganizationResponse.created_at:type_name -> google.protobuf.Timestamp
+	94,  // 21: auth.v1.OrganizationResponse.updated_at:type_name -> google.protobuf.Timestamp
+	33,  // 22: auth.v1.ListOrganizationsRequest.caller:type_name -> auth.v1.CallerPrincipal
+	41,  // 23: auth.v1.ListOrganizationsResponse.organizations:type_name -> auth.v1.OrganizationResponse
+	33,  // 24: auth.v1.GetOrganizationRequest.caller:type_name -> auth.v1.CallerPrincipal
+	94,  // 25: auth.v1.GetOrganizationResponse.created_at:type_name -> google.protobuf.Timestamp
+	94,  // 26: auth.v1.GetOrganizationResponse.updated_at:type_name -> google.protobuf.Timestamp
+	33,  // 27: auth.v1.UpdateOrganizationRequest.caller:type_name -> auth.v1.CallerPrincipal
+	94,  // 28: auth.v1.UpdateOrganizationResponse.created_at:type_name -> google.protobuf.Timestamp
+	94,  // 29: auth.v1.UpdateOrganizationResponse.updated_at:type_name -> google.protobuf.Timestamp
+	33,  // 30: auth.v1.DeleteOrganizationRequest.caller:type_name -> auth.v1.CallerPrincipal
+	33,  // 31: auth.v1.ListMembersRequest.caller:type_name -> auth.v1.CallerPrincipal
+	94,  // 32: auth.v1.MemberInfo.created_at:type_name -> google.protobuf.Timestamp
+	51,  // 33: auth.v1.ListMembersResponse.members:type_name -> auth.v1.MemberInfo
+	33,  // 34: auth.v1.AddMemberRequest.caller:type_name -> auth.v1.CallerPrincipal
+	94,  // 35: auth.v1.AddMemberResponse.created_at:type_name -> google.protobuf.Timestamp
+	33,  // 36: auth.v1.UpdateMemberRoleRequest.caller:type_name -> auth.v1.CallerPrincipal
+	33,  // 37: auth.v1.RemoveMemberRequest.caller:type_name -> auth.v1.CallerPrincipal
+	33,  // 38: auth.v1.CreateInviteRequest.caller:type_name -> auth.v1.CallerPrincipal
+	94,  // 39: auth.v1.CreateInviteResponse.expires_at:type_name -> google.protobuf.Timestamp
+	94,  // 40: auth.v1.CreateInviteResponse.created_at:type_name -> google.protobuf.Timestamp
+	33,  // 41: auth.v1.AcceptInviteRequest.caller:type_name -> auth.v1.CallerPrincipal
+	94,  // 42: auth.v1.AcceptInviteResponse.created_at:type_name -> google.protobuf.Timestamp
+	94,  // 43: auth.v1.AcceptInviteResponse.updated_at:type_name -> google.protobuf.Timestamp
+	33,  // 44: auth.v1.RevokeInviteRequest.caller:type_name -> auth.v1.CallerPrincipal
+	33,  // 45: auth.v1.CreateAPITokenRequest.caller:type_name -> auth.v1.CallerPrincipal
+	94,  // 46: auth.v1.APITokenInfo.expires_at:type_name -> google.protobuf.Timestamp
+	94,  // 47: auth.v1.APITokenInfo.last_used_at:type_name -> google.protobuf.Timestamp
+	94,  // 48: auth.v1.APITokenInfo.created_at:type_name -> google.protobuf.Timestamp
+	66,  // 49: auth.v1.CreateAPITokenResponse.token:type_name -> auth.v1.APITokenInfo
+	33,  // 50: auth.v1.ListAPITokensRequest.caller:type_name -> auth.v1.CallerPrincipal
+	66,  // 51: auth.v1.ListAPITokensResponse.tokens:type_name -> auth.v1.APITokenInfo
+	33,  // 52: auth.v1.RevokeAPITokenRequest.caller:type_name -> auth.v1.CallerPrincipal
+	33,  // 53: auth.v1.ListAuditEventsRequest.caller:type_name -> auth.v1.CallerPrincipal
+	94,  // 54: auth.v1.AuditEventInfo.created_at:type_name -> google.protobuf.Timestamp
+	75,  // 55: auth.v1.ListAuditEventsResponse.events:type_name -> auth.v1.AuditEventInfo
+	94,  // 56: auth.v1.GitHubInstallationInfo.created_at:type_name -> google.protobuf.Timestamp
+	94,  // 57: auth.v1.GitHubInstallationInfo.updated_at:type_name -> google.protobuf.Timestamp
+	33,  // 58: auth.v1.StartGitHubInstallationRequest.caller:type_name -> auth.v1.CallerPrincipal
+	33,  // 59: auth.v1.CompleteGitHubInstallationRequest.caller:type_name -> auth.v1.CallerPrincipal
+	77,  // 60: auth.v1.CompleteGitHubInstallationResponse.installation:type_name -> auth.v1.GitHubInstallationInfo
+	33,  // 61: auth.v1.ListGitHubInstallationsRequest.caller:type_name -> auth.v1.CallerPrincipal
+	77,  // 62: auth.v1.ListGitHubInstallationsResponse.installations:type_name -> auth.v1.GitHubInstallationInfo
+	33,  // 63: auth.v1.DisconnectGitHubInstallationRequest.caller:type_name -> auth.v1.CallerPrincipal
+	33,  // 64: auth.v1.ListGitHubRepositoriesRequest.caller:type_name -> auth.v1.CallerPrincipal
+	86,  // 65: auth.v1.ListGitHubRepositoriesResponse.repositories:type_name -> auth.v1.GitHubRepositoryInfo
+	33,  // 66: auth.v1.ListGitHubBranchesRequest.caller:type_name -> auth.v1.CallerPrincipal
+	89,  // 67: auth.v1.ListGitHubBranchesResponse.branches:type_name -> auth.v1.GitHubBranchInfo
+	33,  // 68: auth.v1.ListGitHubDirectoriesRequest.caller:type_name -> auth.v1.CallerPrincipal
+	0,   // 69: auth.v1.AuthService.Register:input_type -> auth.v1.RegisterRequest
+	2,   // 70: auth.v1.AuthService.Login:input_type -> auth.v1.LoginRequest
+	5,   // 71: auth.v1.AuthService.Refresh:input_type -> auth.v1.RefreshRequest
+	7,   // 72: auth.v1.AuthService.Logout:input_type -> auth.v1.LogoutRequest
+	9,   // 73: auth.v1.AuthService.VerifyEmail:input_type -> auth.v1.VerifyEmailRequest
+	11,  // 74: auth.v1.AuthService.GetJWKS:input_type -> auth.v1.GetJWKSRequest
+	14,  // 75: auth.v1.AuthService.ResendVerification:input_type -> auth.v1.ResendVerificationRequest
+	16,  // 76: auth.v1.AuthService.RequestPasswordReset:input_type -> auth.v1.RequestPasswordResetRequest
+	18,  // 77: auth.v1.AuthService.ConfirmPasswordReset:input_type -> auth.v1.ConfirmPasswordResetRequest
+	20,  // 78: auth.v1.AuthService.ChangePassword:input_type -> auth.v1.ChangePasswordRequest
+	22,  // 79: auth.v1.AuthService.GetMe:input_type -> auth.v1.GetMeRequest
+	24,  // 80: auth.v1.AuthService.ListSessions:input_type -> auth.v1.ListSessionsRequest
+	27,  // 81: auth.v1.AuthService.RevokeSession:input_type -> auth.v1.RevokeSessionRequest
+	29,  // 82: auth.v1.AuthService.StartGitHubOAuth:input_type -> auth.v1.StartGitHubOAuthRequest
+	31,  // 83: auth.v1.AuthService.CompleteGitHubOAuth:input_type -> auth.v1.CompleteGitHubOAuthRequest
+	34,  // 84: auth.v1.AuthService.CheckPermission:input_type -> auth.v1.CheckPermissionRequest
+	36,  // 85: auth.v1.AuthService.ListRoles:input_type -> auth.v1.ListRolesRequest
+	39,  // 86: auth.v1.AuthService.CreateOrganization:input_type -> auth.v1.CreateOrganizationRequest
+	42,  // 87: auth.v1.AuthService.ListOrganizations:input_type -> auth.v1.ListOrganizationsRequest
+	44,  // 88: auth.v1.AuthService.GetOrganization:input_type -> auth.v1.GetOrganizationRequest
+	46,  // 89: auth.v1.AuthService.UpdateOrganization:input_type -> auth.v1.UpdateOrganizationRequest
+	48,  // 90: auth.v1.AuthService.DeleteOrganization:input_type -> auth.v1.DeleteOrganizationRequest
+	50,  // 91: auth.v1.AuthService.ListMembers:input_type -> auth.v1.ListMembersRequest
+	53,  // 92: auth.v1.AuthService.AddMember:input_type -> auth.v1.AddMemberRequest
+	55,  // 93: auth.v1.AuthService.UpdateMemberRole:input_type -> auth.v1.UpdateMemberRoleRequest
+	57,  // 94: auth.v1.AuthService.RemoveMember:input_type -> auth.v1.RemoveMemberRequest
+	59,  // 95: auth.v1.AuthService.CreateInvite:input_type -> auth.v1.CreateInviteRequest
+	61,  // 96: auth.v1.AuthService.AcceptInvite:input_type -> auth.v1.AcceptInviteRequest
+	63,  // 97: auth.v1.AuthService.RevokeInvite:input_type -> auth.v1.RevokeInviteRequest
+	65,  // 98: auth.v1.AuthService.CreateAPIToken:input_type -> auth.v1.CreateAPITokenRequest
+	68,  // 99: auth.v1.AuthService.ListAPITokens:input_type -> auth.v1.ListAPITokensRequest
+	70,  // 100: auth.v1.AuthService.RevokeAPIToken:input_type -> auth.v1.RevokeAPITokenRequest
+	72,  // 101: auth.v1.AuthService.ValidateAPIToken:input_type -> auth.v1.ValidateAPITokenRequest
+	74,  // 102: auth.v1.AuthService.ListAuditEvents:input_type -> auth.v1.ListAuditEventsRequest
+	78,  // 103: auth.v1.AuthService.StartGitHubInstallation:input_type -> auth.v1.StartGitHubInstallationRequest
+	80,  // 104: auth.v1.AuthService.CompleteGitHubInstallation:input_type -> auth.v1.CompleteGitHubInstallationRequest
+	82,  // 105: auth.v1.AuthService.ListGitHubInstallations:input_type -> auth.v1.ListGitHubInstallationsRequest
+	84,  // 106: auth.v1.AuthService.DisconnectGitHubInstallation:input_type -> auth.v1.DisconnectGitHubInstallationRequest
+	87,  // 107: auth.v1.AuthService.ListGitHubRepositories:input_type -> auth.v1.ListGitHubRepositoriesRequest
+	90,  // 108: auth.v1.AuthService.ListGitHubBranches:input_type -> auth.v1.ListGitHubBranchesRequest
+	92,  // 109: auth.v1.AuthService.ListGitHubDirectories:input_type -> auth.v1.ListGitHubDirectoriesRequest
+	1,   // 110: auth.v1.AuthService.Register:output_type -> auth.v1.RegisterResponse
+	4,   // 111: auth.v1.AuthService.Login:output_type -> auth.v1.LoginResponse
+	6,   // 112: auth.v1.AuthService.Refresh:output_type -> auth.v1.RefreshResponse
+	8,   // 113: auth.v1.AuthService.Logout:output_type -> auth.v1.LogoutResponse
+	10,  // 114: auth.v1.AuthService.VerifyEmail:output_type -> auth.v1.VerifyEmailResponse
+	13,  // 115: auth.v1.AuthService.GetJWKS:output_type -> auth.v1.GetJWKSResponse
+	15,  // 116: auth.v1.AuthService.ResendVerification:output_type -> auth.v1.ResendVerificationResponse
+	17,  // 117: auth.v1.AuthService.RequestPasswordReset:output_type -> auth.v1.RequestPasswordResetResponse
+	19,  // 118: auth.v1.AuthService.ConfirmPasswordReset:output_type -> auth.v1.ConfirmPasswordResetResponse
+	21,  // 119: auth.v1.AuthService.ChangePassword:output_type -> auth.v1.ChangePasswordResponse
+	23,  // 120: auth.v1.AuthService.GetMe:output_type -> auth.v1.GetMeResponse
+	26,  // 121: auth.v1.AuthService.ListSessions:output_type -> auth.v1.ListSessionsResponse
+	28,  // 122: auth.v1.AuthService.RevokeSession:output_type -> auth.v1.RevokeSessionResponse
+	30,  // 123: auth.v1.AuthService.StartGitHubOAuth:output_type -> auth.v1.StartGitHubOAuthResponse
+	32,  // 124: auth.v1.AuthService.CompleteGitHubOAuth:output_type -> auth.v1.CompleteGitHubOAuthResponse
+	35,  // 125: auth.v1.AuthService.CheckPermission:output_type -> auth.v1.CheckPermissionResponse
+	38,  // 126: auth.v1.AuthService.ListRoles:output_type -> auth.v1.ListRolesResponse
+	40,  // 127: auth.v1.AuthService.CreateOrganization:output_type -> auth.v1.CreateOrganizationResponse
+	43,  // 128: auth.v1.AuthService.ListOrganizations:output_type -> auth.v1.ListOrganizationsResponse
+	45,  // 129: auth.v1.AuthService.GetOrganization:output_type -> auth.v1.GetOrganizationResponse
+	47,  // 130: auth.v1.AuthService.UpdateOrganization:output_type -> auth.v1.UpdateOrganizationResponse
+	49,  // 131: auth.v1.AuthService.DeleteOrganization:output_type -> auth.v1.DeleteOrganizationResponse
+	52,  // 132: auth.v1.AuthService.ListMembers:output_type -> auth.v1.ListMembersResponse
+	54,  // 133: auth.v1.AuthService.AddMember:output_type -> auth.v1.AddMemberResponse
+	56,  // 134: auth.v1.AuthService.UpdateMemberRole:output_type -> auth.v1.UpdateMemberRoleResponse
+	58,  // 135: auth.v1.AuthService.RemoveMember:output_type -> auth.v1.RemoveMemberResponse
+	60,  // 136: auth.v1.AuthService.CreateInvite:output_type -> auth.v1.CreateInviteResponse
+	62,  // 137: auth.v1.AuthService.AcceptInvite:output_type -> auth.v1.AcceptInviteResponse
+	64,  // 138: auth.v1.AuthService.RevokeInvite:output_type -> auth.v1.RevokeInviteResponse
+	67,  // 139: auth.v1.AuthService.CreateAPIToken:output_type -> auth.v1.CreateAPITokenResponse
+	69,  // 140: auth.v1.AuthService.ListAPITokens:output_type -> auth.v1.ListAPITokensResponse
+	71,  // 141: auth.v1.AuthService.RevokeAPIToken:output_type -> auth.v1.RevokeAPITokenResponse
+	73,  // 142: auth.v1.AuthService.ValidateAPIToken:output_type -> auth.v1.ValidateAPITokenResponse
+	76,  // 143: auth.v1.AuthService.ListAuditEvents:output_type -> auth.v1.ListAuditEventsResponse
+	79,  // 144: auth.v1.AuthService.StartGitHubInstallation:output_type -> auth.v1.StartGitHubInstallationResponse
+	81,  // 145: auth.v1.AuthService.CompleteGitHubInstallation:output_type -> auth.v1.CompleteGitHubInstallationResponse
+	83,  // 146: auth.v1.AuthService.ListGitHubInstallations:output_type -> auth.v1.ListGitHubInstallationsResponse
+	85,  // 147: auth.v1.AuthService.DisconnectGitHubInstallation:output_type -> auth.v1.DisconnectGitHubInstallationResponse
+	88,  // 148: auth.v1.AuthService.ListGitHubRepositories:output_type -> auth.v1.ListGitHubRepositoriesResponse
+	91,  // 149: auth.v1.AuthService.ListGitHubBranches:output_type -> auth.v1.ListGitHubBranchesResponse
+	93,  // 150: auth.v1.AuthService.ListGitHubDirectories:output_type -> auth.v1.ListGitHubDirectoriesResponse
+	110, // [110:151] is the sub-list for method output_type
+	69,  // [69:110] is the sub-list for method input_type
+	69,  // [69:69] is the sub-list for extension type_name
+	69,  // [69:69] is the sub-list for extension extendee
+	0,   // [0:69] is the sub-list for field type_name
 }
 
 func init() { file_auth_v1_auth_proto_init() }

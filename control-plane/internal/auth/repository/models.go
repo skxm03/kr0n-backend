@@ -69,6 +69,7 @@ type Principal struct {
 	Kind             string // "session" or "api_token"
 	TokenOrgID       *uuid.UUID
 	TokenPermissions []string
+	SessionID        *uuid.UUID
 }
 
 // Organization represents a tenant organization.

@@ -39,20 +39,14 @@ func TestGatewayMetadataAnnotator(t *testing.T) {
 
 	md := annotator(req.Context(), req)
 
-	if got := md.Get("x-caller-user-id"); len(got) != 1 || got[0] != principal.UserID {
-		t.Fatalf("expected x-caller-user-id=%q, got %v", principal.UserID, got)
+	if got := md.Get("x-caller-user-id"); len(got) != 0 {
+		t.Fatalf("expected no x-caller-user-id header in metadata, got %v", got)
 	}
-	if got := md.Get("x-caller-kind"); len(got) != 1 || got[0] != principal.Kind {
-		t.Fatalf("expected x-caller-kind=%q, got %v", principal.Kind, got)
+	if got := md.Get("x-caller-kind"); len(got) != 0 {
+		t.Fatalf("expected no x-caller-kind header in metadata, got %v", got)
 	}
-	if got := md.Get("x-caller-token-org-id"); len(got) != 1 || got[0] != principal.OrgID {
-		t.Fatalf("expected x-caller-token-org-id=%q, got %v", principal.OrgID, got)
-	}
-	if got := md.Get("x-caller-token-permissions"); len(got) != 1 || got[0] != "org:read,members:write" {
-		t.Fatalf("expected x-caller-token-permissions=%q, got %v", "org:read,members:write", got)
-	}
-	if got := md.Get("x-caller-session-id"); len(got) != 1 || got[0] != principal.SessionID {
-		t.Fatalf("expected x-caller-session-id=%q, got %v", principal.SessionID, got)
+	if got := md.Get("x-caller-session-id"); len(got) != 0 {
+		t.Fatalf("expected no x-caller-session-id header in metadata, got %v", got)
 	}
 	if got := md.Get("x-request-id"); len(got) != 1 || got[0] != "req-12345" {
 		t.Fatalf("expected x-request-id=req-12345, got %v", got)
