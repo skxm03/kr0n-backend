@@ -21,6 +21,7 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/handlers"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/jwtkeys"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/oauth"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/outbox"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/service"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
@@ -66,12 +67,27 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 	defer ghServer.Close()
 
 	emailSender := email.NewInMemorySender()
+	outboxRepo := repository.NewPostgresOutboxRepository(dbPool)
+	outboxPub := outbox.NewEmailPublisher(emailSender)
+	outboxWorker := outbox.NewWorker(outboxRepo, outboxPub, outbox.Config{
+		PollInterval: 20 * time.Millisecond,
+		BatchSize:    10,
+		MaxRetries:   3,
+		BaseBackoff:  50 * time.Millisecond,
+	})
+	workerCtx, cancelWorker := context.WithCancel(ctx)
+	defer cancelWorker()
+	go func() {
+		_ = outboxWorker.Start(workerCtx)
+	}()
+
 	userRepo := repository.NewPostgresUserRepository(dbPool)
 	hasher := service.NewBcryptHasher(4)
 	userService := service.NewUserService(
 		userRepo,
 		hasher,
 		service.WithEmailSender(emailSender),
+		service.WithOutboxNotifier(outboxWorker),
 		service.WithTokenLifetime(24*time.Hour),
 		service.WithPasswordResetTokenLifetime(time.Hour),
 	)
@@ -203,7 +219,7 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("password-reset/request: %d %s", resp.StatusCode, string(raw))
 	}
-	msg, ok := emailSender.LastMessage()
+	msg, ok := waitForLastMessage(emailSender, 2*time.Second)
 	if !ok || msg.RawToken == "" {
 		t.Fatal("expected password reset token in email")
 	}

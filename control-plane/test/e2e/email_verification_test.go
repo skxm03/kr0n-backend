@@ -19,11 +19,23 @@ import (
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/handlers"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/outbox"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/service"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/email"
 )
+
+func waitForLastMessage(s *email.InMemorySender, timeout time.Duration) (email.SentMessage, bool) {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if msg, ok := s.LastMessage(); ok {
+			return msg, true
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	return s.LastMessage()
+}
 
 func TestE2E_EmailVerification_Lifecycle(t *testing.T) {
 	testDBURL := getTestDatabaseURL(t)
@@ -42,6 +54,20 @@ func TestE2E_EmailVerification_Lifecycle(t *testing.T) {
 	// 2. Set up in-memory email sender to capture outgoing emails
 	emailSender := email.NewInMemorySender()
 
+	outboxRepo := repository.NewPostgresOutboxRepository(dbPool)
+	outboxPub := outbox.NewEmailPublisher(emailSender)
+	outboxWorker := outbox.NewWorker(outboxRepo, outboxPub, outbox.Config{
+		PollInterval: 20 * time.Millisecond,
+		BatchSize:    10,
+		MaxRetries:   3,
+		BaseBackoff:  50 * time.Millisecond,
+	})
+	workerCtx, cancelWorker := context.WithCancel(ctx)
+	defer cancelWorker()
+	go func() {
+		_ = outboxWorker.Start(workerCtx)
+	}()
+
 	// 3. Start Auth gRPC Service on dynamic loopback port
 	userRepo := repository.NewPostgresUserRepository(dbPool)
 	hasher := service.NewBcryptHasher(12)
@@ -49,6 +75,7 @@ func TestE2E_EmailVerification_Lifecycle(t *testing.T) {
 		userRepo,
 		hasher,
 		service.WithEmailSender(emailSender),
+		service.WithOutboxNotifier(outboxWorker),
 		service.WithTokenLifetime(24*time.Hour),
 	)
 
@@ -167,7 +194,7 @@ func TestE2E_EmailVerification_Lifecycle(t *testing.T) {
 		}
 
 		// Step C: Capture verification email using test sender
-		sentMsg, ok := emailSender.LastMessage()
+		sentMsg, ok := waitForLastMessage(emailSender, 2*time.Second)
 		if !ok {
 			t.Fatal("expected verification email to be captured by test sender")
 		}
@@ -372,7 +399,7 @@ func TestE2E_EmailVerification_Lifecycle(t *testing.T) {
 		}
 		resp.Body.Close()
 
-		sentMsg, ok := emailSender.LastMessage()
+		sentMsg, ok := waitForLastMessage(emailSender, 2*time.Second)
 		if !ok {
 			t.Fatal("expected email message")
 		}
@@ -433,9 +460,29 @@ func TestE2E_EmailVerification_Manual10StepsVerification(t *testing.T) {
 	defer dbPool.Close()
 
 	emailSender := email.NewInMemorySender()
+	outboxRepo := repository.NewPostgresOutboxRepository(dbPool)
+	outboxPub := outbox.NewEmailPublisher(emailSender)
+	outboxWorker := outbox.NewWorker(outboxRepo, outboxPub, outbox.Config{
+		PollInterval: 20 * time.Millisecond,
+		BatchSize:    10,
+		MaxRetries:   3,
+		BaseBackoff:  50 * time.Millisecond,
+	})
+	workerCtx, cancelWorker := context.WithCancel(ctx)
+	defer cancelWorker()
+	go func() {
+		_ = outboxWorker.Start(workerCtx)
+	}()
+
 	userRepo := repository.NewPostgresUserRepository(dbPool)
 	hasher := service.NewBcryptHasher(12)
-	userService := service.NewUserService(userRepo, hasher, service.WithEmailSender(emailSender), service.WithTokenLifetime(24*time.Hour))
+	userService := service.NewUserService(
+		userRepo,
+		hasher,
+		service.WithEmailSender(emailSender),
+		service.WithOutboxNotifier(outboxWorker),
+		service.WithTokenLifetime(24*time.Hour),
+	)
 	verifRepo := repository.NewPostgresVerificationRepository(dbPool)
 	verifService := service.NewVerificationService(verifRepo)
 
@@ -508,7 +555,7 @@ func TestE2E_EmailVerification_Manual10StepsVerification(t *testing.T) {
 
 	// 3. Confirm verification token hash exists in PostgreSQL
 	t.Log("Step 3: Confirming verification token hash exists in PostgreSQL...")
-	sentEmail, ok := emailSender.LastMessage()
+	sentEmail, ok := waitForLastMessage(emailSender, 2*time.Second)
 	if !ok || sentEmail.Recipient != regEmail {
 		t.Fatalf("Step 3 failed: email not captured")
 	}

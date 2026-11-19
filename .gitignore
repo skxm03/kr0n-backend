@@ -11,6 +11,7 @@ kr0n-*
 *.dll
 *.so
 *.dylib
+*.test
 
 # Certificates & Private Keys
 certs/

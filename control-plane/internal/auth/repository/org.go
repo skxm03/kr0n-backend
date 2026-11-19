@@ -65,7 +65,7 @@ type OrgRepository interface {
 	UpdateMemberRole(ctx context.Context, orgID, targetUserID uuid.UUID, roleID string, now time.Time) error
 	RemoveMember(ctx context.Context, orgID, targetUserID uuid.UUID) error
 
-	CreateInvite(ctx context.Context, inv *Invite) error
+	CreateInvite(ctx context.Context, inv *Invite, outbox ...*OutboxEvent) error
 	AcceptInvite(ctx context.Context, userID uuid.UUID, tokenHash string, now time.Time) (*Organization, error)
 	RevokeInvite(ctx context.Context, orgID, inviteID uuid.UUID, now time.Time) error
 
@@ -425,9 +425,9 @@ func ensureMultipleOwners(ctx context.Context, tx pgx.Tx, orgID uuid.UUID) error
 	return nil
 }
 
-// CreateInvite persists a new organization invite. It rejects invites for emails that already belong
+// CreateInvite persists a new organization invite and optional outbox event. It rejects invites for emails that already belong
 // to a member, and revokes any earlier pending invite for the same org+email so only one is live.
-func (r *PostgresOrgRepository) CreateInvite(ctx context.Context, inv *Invite) error {
+func (r *PostgresOrgRepository) CreateInvite(ctx context.Context, inv *Invite, outbox ...*OutboxEvent) error {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
@@ -461,6 +461,13 @@ func (r *PostgresOrgRepository) CreateInvite(ctx context.Context, inv *Invite) e
 	`, inv.ID, inv.OrganizationID, inv.Email, inv.RoleID, inv.InvitedByUserID, inv.TokenHash, inv.ExpiresAt, inv.CreatedAt); err != nil {
 		return fmt.Errorf("insert invite: %w", err)
 	}
+
+	if len(outbox) > 0 && outbox[0] != nil {
+		if err := insertOutboxEventTx(ctx, tx, outbox[0]); err != nil {
+			return err
+		}
+	}
+
 	return tx.Commit(ctx)
 }
 

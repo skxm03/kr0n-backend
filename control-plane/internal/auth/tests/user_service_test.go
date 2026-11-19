@@ -10,13 +10,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/outbox"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/service"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/email"
 )
 
 type mockUserRepository struct {
-	createTokenFunc  func(ctx context.Context, u *repository.User, passwordHash string, token *repository.Token) error
+	createTokenFunc  func(ctx context.Context, u *repository.User, passwordHash string, token *repository.Token, outbox ...*repository.OutboxEvent) error
 	getFunc          func(ctx context.Context, email string) (*repository.User, string, error)
 	getByIDFunc      func(ctx context.Context, id uuid.UUID) (*repository.User, error)
 	getByIDPwFunc    func(ctx context.Context, id uuid.UUID) (*repository.User, string, error)
@@ -27,18 +28,22 @@ type mockUserRepository struct {
 	resolveOAuthFunc func(ctx context.Context, profile repository.OAuthProfile, now time.Time) (*repository.User, error)
 	created          []*repository.User
 	createdTokens    []*repository.Token
+	createdOutbox    []*repository.OutboxEvent
 	resetTokens      []*repository.Token
 	failureRecorded  int
 	failuresReset    bool
 }
 
-func (m *mockUserRepository) CreateWithPasswordAndVerificationToken(ctx context.Context, u *repository.User, passwordHash string, token *repository.Token) error {
+func (m *mockUserRepository) CreateWithPasswordAndVerificationToken(ctx context.Context, u *repository.User, passwordHash string, token *repository.Token, outbox ...*repository.OutboxEvent) error {
 	if m.createTokenFunc != nil {
-		return m.createTokenFunc(ctx, u, passwordHash, token)
+		return m.createTokenFunc(ctx, u, passwordHash, token, outbox...)
 	}
 	m.created = append(m.created, u)
 	if token != nil {
 		m.createdTokens = append(m.createdTokens, token)
+	}
+	if len(outbox) > 0 && outbox[0] != nil {
+		m.createdOutbox = append(m.createdOutbox, outbox[0])
 	}
 	return nil
 }
@@ -80,13 +85,19 @@ func (m *mockUserRepository) ResetLoginFailures(ctx context.Context, userID uuid
 	return nil
 }
 
-func (m *mockUserRepository) CreateVerificationToken(ctx context.Context, token *repository.Token) error {
+func (m *mockUserRepository) CreateVerificationToken(ctx context.Context, token *repository.Token, outbox ...*repository.OutboxEvent) error {
 	m.createdTokens = append(m.createdTokens, token)
+	if len(outbox) > 0 && outbox[0] != nil {
+		m.createdOutbox = append(m.createdOutbox, outbox[0])
+	}
 	return nil
 }
 
-func (m *mockUserRepository) CreatePasswordResetToken(ctx context.Context, token *repository.Token) error {
+func (m *mockUserRepository) CreatePasswordResetToken(ctx context.Context, token *repository.Token, outbox ...*repository.OutboxEvent) error {
 	m.resetTokens = append(m.resetTokens, token)
+	if len(outbox) > 0 && outbox[0] != nil {
+		m.createdOutbox = append(m.createdOutbox, outbox[0])
+	}
 	return nil
 }
 
@@ -197,7 +208,7 @@ func TestUserService_Register_PolicyFailBeforeHash(t *testing.T) {
 
 func TestUserService_Register_DuplicateEmail(t *testing.T) {
 	repo := &mockUserRepository{
-		createTokenFunc: func(ctx context.Context, u *repository.User, passwordHash string, token *repository.Token) error {
+		createTokenFunc: func(ctx context.Context, u *repository.User, passwordHash string, token *repository.Token, outbox ...*repository.OutboxEvent) error {
 			return repository.ErrEmailAlreadyExists
 		},
 	}
@@ -396,7 +407,24 @@ func TestUserService_Register_CreatesVerificationTokenAndDispatchesEmail(t *test
 		t.Fatal("expected non-empty token hash")
 	}
 
-	// 3. Email sender captured verification email
+	// 3. Outbox event is created atomically in repository
+	if len(repo.createdOutbox) != 1 {
+		t.Fatalf("expected 1 outbox event created, got %d", len(repo.createdOutbox))
+	}
+	outboxEv := repo.createdOutbox[0]
+	if outboxEv.EventType != repository.EventTypeEmailVerification {
+		t.Fatalf("expected event type %s, got %s", repository.EventTypeEmailVerification, outboxEv.EventType)
+	}
+	if outboxEv.AggregateID != u.ID {
+		t.Fatalf("expected aggregate id %v, got %v", u.ID, outboxEv.AggregateID)
+	}
+
+	// 4. Dispatch outbox event via EmailPublisher to verify delivery
+	pub := outbox.NewEmailPublisher(emailSender)
+	if err := pub.Publish(context.Background(), outboxEv); err != nil {
+		t.Fatalf("failed to publish outbox event: %v", err)
+	}
+
 	msgs := emailSender.Messages()
 	if len(msgs) != 1 {
 		t.Fatalf("expected 1 email dispatched, got %d", len(msgs))
@@ -409,7 +437,7 @@ func TestUserService_Register_CreatesVerificationTokenAndDispatchesEmail(t *test
 		t.Fatal("expected non-empty raw token in email")
 	}
 
-	// 4. Stored hash corresponds to the raw token sent via email
+	// 5. Stored hash corresponds to the raw token sent via email
 	if !repository.VerifyTokenHash(msg.RawToken, tok.TokenHash) {
 		t.Fatal("persisted token hash does not match raw token sent in email")
 	}
@@ -590,9 +618,16 @@ func TestUserService_ResendVerification(t *testing.T) {
 		t.Fatalf("expected 0 emails sent so far, got %d", len(sender.Messages()))
 	}
 
-	// Unverified user -> token persisted and email sent
+	// Unverified user -> token persisted and outbox event recorded
 	if err := svc.ResendVerification(context.Background(), "unverified@kr0n.dev"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(repo.createdOutbox) != 1 {
+		t.Fatalf("expected 1 outbox event recorded, got %d", len(repo.createdOutbox))
+	}
+	pub := outbox.NewEmailPublisher(sender)
+	if err := pub.Publish(context.Background(), repo.createdOutbox[0]); err != nil {
+		t.Fatalf("failed to publish outbox event: %v", err)
 	}
 	if len(sender.Messages()) != 1 {
 		t.Fatalf("expected 1 verification email, got %d", len(sender.Messages()))
@@ -648,9 +683,16 @@ func TestUserService_PasswordResetAndChangePassword(t *testing.T) {
 		t.Fatal("expected no reset email for unknown user")
 	}
 
-	// 2. RequestPasswordReset for active user -> sends reset email
+	// 2. RequestPasswordReset for active user -> creates outbox reset event
 	if err := svc.RequestPasswordReset(context.Background(), "reset@kr0n.dev"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(repo.createdOutbox) != 1 {
+		t.Fatalf("expected 1 outbox event recorded, got %d", len(repo.createdOutbox))
+	}
+	pubReset := outbox.NewEmailPublisher(sender)
+	if err := pubReset.Publish(context.Background(), repo.createdOutbox[0]); err != nil {
+		t.Fatalf("failed to publish outbox event: %v", err)
 	}
 	resetMsgs := sender.Messages()
 	if len(resetMsgs) != 1 {

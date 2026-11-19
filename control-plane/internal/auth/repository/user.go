@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/mail"
@@ -76,14 +77,14 @@ func NewUser(rawEmail, rawDisplayName string) (*User, error) {
 
 // UserRepository defines persistence operations required by the user domain.
 type UserRepository interface {
-	CreateWithPasswordAndVerificationToken(ctx context.Context, u *User, passwordHash string, token *Token) error
+	CreateWithPasswordAndVerificationToken(ctx context.Context, u *User, passwordHash string, token *Token, outbox ...*OutboxEvent) error
 	GetByEmailWithPassword(ctx context.Context, email string) (*User, string, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
 	GetByIDWithPassword(ctx context.Context, id uuid.UUID) (*User, string, error)
 	RecordLoginFailure(ctx context.Context, userID uuid.UUID, maxAttempts int, lockoutDuration time.Duration, now time.Time) error
 	ResetLoginFailures(ctx context.Context, userID uuid.UUID) error
-	CreateVerificationToken(ctx context.Context, token *Token) error
-	CreatePasswordResetToken(ctx context.Context, token *Token) error
+	CreateVerificationToken(ctx context.Context, token *Token, outbox ...*OutboxEvent) error
+	CreatePasswordResetToken(ctx context.Context, token *Token, outbox ...*OutboxEvent) error
 	ConsumePasswordResetAndUpdatePassword(ctx context.Context, tokenHash, newPasswordHash string, now time.Time) (uuid.UUID, error)
 	UpdatePassword(ctx context.Context, userID uuid.UUID, newPasswordHash string, revokeSessionExcept *uuid.UUID, now time.Time) error
 	ResolveOAuthUser(ctx context.Context, profile OAuthProfile, now time.Time) (*User, error)
@@ -100,9 +101,9 @@ func NewPostgresUserRepository(pool *pgxpool.Pool) *PostgresUserRepository {
 }
 
 // CreateWithPasswordAndVerificationToken persists a User, PasswordCredentials, and optionally an
-// EmailVerificationToken in a single atomic database transaction. If any insert fails,
+// EmailVerificationToken and OutboxEvent in a single atomic database transaction. If any insert fails,
 // the entire transaction is rolled back, leaving behind no partially initialized account.
-func (r *PostgresUserRepository) CreateWithPasswordAndVerificationToken(ctx context.Context, u *User, passwordHash string, token *Token) error {
+func (r *PostgresUserRepository) CreateWithPasswordAndVerificationToken(ctx context.Context, u *User, passwordHash string, token *Token, outbox ...*OutboxEvent) error {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
@@ -160,6 +161,12 @@ func (r *PostgresUserRepository) CreateWithPasswordAndVerificationToken(ctx cont
 		)
 		if err != nil {
 			return fmt.Errorf("insert verification token: %w", err)
+		}
+	}
+
+	if len(outbox) > 0 && outbox[0] != nil {
+		if err := insertOutboxEventTx(ctx, tx, outbox[0]); err != nil {
+			return err
 		}
 	}
 
@@ -325,8 +332,8 @@ func (r *PostgresUserRepository) ResetLoginFailures(ctx context.Context, userID 
 }
 
 // CreateVerificationToken invalidates any prior unconsumed verification tokens for the user and
-// inserts the new email verification token in a single transaction.
-func (r *PostgresUserRepository) CreateVerificationToken(ctx context.Context, token *Token) error {
+// inserts the new email verification token (and optional outbox event) in a single transaction.
+func (r *PostgresUserRepository) CreateVerificationToken(ctx context.Context, token *Token, outbox ...*OutboxEvent) error {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
@@ -348,6 +355,13 @@ func (r *PostgresUserRepository) CreateVerificationToken(ctx context.Context, to
 	if _, err := tx.Exec(ctx, insertSQL, token.ID, token.UserID, token.TokenHash, token.ExpiresAt, token.CreatedAt); err != nil {
 		return fmt.Errorf("insert verification token: %w", err)
 	}
+
+	if len(outbox) > 0 && outbox[0] != nil {
+		if err := insertOutboxEventTx(ctx, tx, outbox[0]); err != nil {
+			return err
+		}
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit verification token: %w", err)
 	}
@@ -355,8 +369,8 @@ func (r *PostgresUserRepository) CreateVerificationToken(ctx context.Context, to
 }
 
 // CreatePasswordResetToken invalidates any prior unconsumed password reset tokens for the user and
-// inserts the new password reset token in a single transaction.
-func (r *PostgresUserRepository) CreatePasswordResetToken(ctx context.Context, token *Token) error {
+// inserts the new password reset token (and optional outbox event) in a single transaction.
+func (r *PostgresUserRepository) CreatePasswordResetToken(ctx context.Context, token *Token, outbox ...*OutboxEvent) error {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
@@ -378,8 +392,75 @@ func (r *PostgresUserRepository) CreatePasswordResetToken(ctx context.Context, t
 	if _, err := tx.Exec(ctx, insertSQL, token.ID, token.UserID, token.TokenHash, token.ExpiresAt, token.CreatedAt); err != nil {
 		return fmt.Errorf("insert password reset token: %w", err)
 	}
+
+	if len(outbox) > 0 && outbox[0] != nil {
+		if err := insertOutboxEventTx(ctx, tx, outbox[0]); err != nil {
+			return err
+		}
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit password reset token: %w", err)
+	}
+	return nil
+}
+
+func insertOutboxEventTx(ctx context.Context, tx pgx.Tx, ev *OutboxEvent) error {
+	if ev == nil {
+		return nil
+	}
+	if ev.ID == uuid.Nil {
+		id, err := uuid.NewV7()
+		if err != nil {
+			id = uuid.New()
+		}
+		ev.ID = id
+	}
+	if ev.CreatedAt.IsZero() {
+		ev.CreatedAt = time.Now().UTC()
+	}
+	if ev.ScheduledAt.IsZero() {
+		ev.ScheduledAt = ev.CreatedAt
+	}
+	if ev.Status == "" {
+		ev.Status = OutboxStatusPending
+	}
+	if ev.Payload == nil {
+		ev.Payload = map[string]any{}
+	}
+	if ev.Headers == nil {
+		ev.Headers = map[string]any{}
+	}
+
+	payloadJSON, err := json.Marshal(ev.Payload)
+	if err != nil {
+		return fmt.Errorf("marshal outbox payload: %w", err)
+	}
+	headersJSON, err := json.Marshal(ev.Headers)
+	if err != nil {
+		return fmt.Errorf("marshal outbox headers: %w", err)
+	}
+
+	const insertSQL = `
+		INSERT INTO outbox_events (
+			id, event_type, aggregate_type, aggregate_id,
+			payload, headers, status, retry_count,
+			created_at, scheduled_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
+	`
+	if _, err := tx.Exec(ctx, insertSQL,
+		ev.ID,
+		ev.EventType,
+		ev.AggregateType,
+		ev.AggregateID,
+		payloadJSON,
+		headersJSON,
+		ev.Status,
+		ev.RetryCount,
+		ev.CreatedAt,
+		ev.ScheduledAt,
+	); err != nil {
+		return fmt.Errorf("insert outbox event: %w", err)
 	}
 	return nil
 }

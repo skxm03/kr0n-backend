@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"log"
 	"regexp"
 	"strings"
 	"time"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/oauth"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
+	emailpkg "github.com/skxm03/kr0n-backend/control-plane/internal/email"
 )
 
 var slugRegex = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
@@ -35,10 +35,17 @@ type GitHubAppClient interface {
 // OrgOption configures OrgService.
 type OrgOption func(*OrgService)
 
-// WithInviteEmailSender configures an optional email sender for organization invitations.
+// WithInviteEmailSender configures an optional email sender (retained for backward compatibility).
 func WithInviteEmailSender(sender InviteEmailSender) OrgOption {
 	return func(s *OrgService) {
 		s.emailSender = sender
+	}
+}
+
+// WithOrgOutboxNotifier wires an outbox notifier to OrgService.
+func WithOrgOutboxNotifier(notifier OutboxNotifier) OrgOption {
+	return func(s *OrgService) {
+		s.notifier = notifier
 	}
 }
 
@@ -53,6 +60,7 @@ func WithGitHubApp(gh GitHubAppClient) OrgOption {
 type OrgService struct {
 	repo        repository.OrgRepository
 	emailSender InviteEmailSender
+	notifier    OutboxNotifier
 	githubApp   GitHubAppClient
 }
 
@@ -242,20 +250,40 @@ func (s *OrgService) CreateInvite(ctx context.Context, p repository.Principal, o
 		ExpiresAt:       now.Add(7 * 24 * time.Hour),
 		CreatedAt:       now,
 	}
-	if err := s.repo.CreateInvite(ctx, inv); err != nil {
+
+	orgName := "kr0n organization"
+	if o, err := s.repo.GetOrg(ctx, orgID); err == nil && o != nil {
+		orgName = o.Name
+	}
+
+	outboxEv := &repository.OutboxEvent{
+		ID:            newUUIDv7(),
+		EventType:     repository.EventTypeOrgInvite,
+		AggregateType: "organization",
+		AggregateID:   orgID,
+		Payload: map[string]any{
+			"id":        newUUIDv7().String(),
+			"type":      string(emailpkg.TemplateOrgInvite),
+			"recipient": inv.Email,
+			"data": map[string]string{
+				"org_name": orgName,
+				"role_id":  inv.RoleID,
+				"token":    rawToken,
+			},
+			"created_at": now.Format(time.RFC3339),
+		},
+		Headers:     map[string]any{},
+		Status:      repository.OutboxStatusPending,
+		CreatedAt:   now,
+		ScheduledAt: now,
+	}
+
+	if err := s.repo.CreateInvite(ctx, inv, outboxEv); err != nil {
 		return nil, "", err
 	}
 
-	if s.emailSender != nil {
-		orgName := "kr0n organization"
-		if o, err := s.repo.GetOrg(ctx, orgID); err == nil && o != nil {
-			orgName = o.Name
-		}
-		emailCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
-		defer cancel()
-		if err := s.emailSender.SendOrgInviteEmail(emailCtx, inv.Email, orgName, inv.RoleID, rawToken); err != nil {
-			log.Printf("failed to dispatch invite email to %s: %v", inv.Email, err)
-		}
+	if s.notifier != nil {
+		s.notifier.Notify()
 	}
 
 	return inv, rawToken, nil

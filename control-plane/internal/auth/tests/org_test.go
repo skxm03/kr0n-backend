@@ -186,7 +186,7 @@ func (m *memOrgRepo) ownerCount(orgID uuid.UUID) int {
 	return n
 }
 
-func (m *memOrgRepo) CreateInvite(ctx context.Context, inv *repository.Invite) error {
+func (m *memOrgRepo) CreateInvite(ctx context.Context, inv *repository.Invite, outbox ...*repository.OutboxEvent) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	cp := *inv

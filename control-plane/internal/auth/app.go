@@ -20,6 +20,7 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/handlers"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/jwtkeys"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/oauth"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/outbox"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/service"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
@@ -28,10 +29,11 @@ import (
 
 // App encapsulates the Auth gRPC service dependencies and lifecycle.
 type App struct {
-	cfg        *config.Config
-	dbPool     *pgxpool.Pool
-	rmqSender  *email.RabbitMQSender
-	grpcServer *grpc.Server
+	cfg          *config.Config
+	dbPool       *pgxpool.Pool
+	rmqSender    *email.RabbitMQSender
+	outboxWorker *outbox.Worker
+	grpcServer   *grpc.Server
 }
 
 // NewApp wires repositories, domain services, and the gRPC server for the Auth service.
@@ -56,12 +58,17 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 		emailSender = rmqSender
 	}
 
+	outboxRepo := repository.NewPostgresOutboxRepository(dbPool)
+	outboxPublisher := outbox.NewEmailPublisher(emailSender)
+	outboxWorker := outbox.NewWorker(outboxRepo, outboxPublisher, outbox.DefaultConfig())
+
 	userRepo := repository.NewPostgresUserRepository(dbPool)
 	hasher := service.NewBcryptHasher(12)
 	userService := service.NewUserService(
 		userRepo,
 		hasher,
 		service.WithEmailSender(emailSender),
+		service.WithOutboxNotifier(outboxWorker),
 		service.WithTokenLifetime(cfg.EmailVerificationTokenLifetime),
 		service.WithPasswordResetTokenLifetime(cfg.PasswordResetTokenLifetime),
 		service.WithRequireVerifiedEmail(cfg.RequireVerifiedEmail),
@@ -116,6 +123,7 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 	orgService := service.NewOrgService(
 		orgRepo,
 		service.WithInviteEmailSender(emailSender),
+		service.WithOrgOutboxNotifier(outboxWorker),
 		service.WithGitHubApp(githubApp),
 	)
 
@@ -178,19 +186,31 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 	authv1.RegisterAuthServiceServer(grpcServer, grpcHandler)
 
 	return &App{
-		cfg:        cfg,
-		dbPool:     dbPool,
-		rmqSender:  rmqSender,
-		grpcServer: grpcServer,
+		cfg:          cfg,
+		dbPool:       dbPool,
+		rmqSender:    rmqSender,
+		outboxWorker: outboxWorker,
+		grpcServer:   grpcServer,
 	}, nil
 }
 
-// Run starts the gRPC server and blocks until ctx is canceled or the server fails.
+// Run starts the gRPC server and outbox background worker, and blocks until ctx is canceled or the server fails.
 func (a *App) Run(ctx context.Context) error {
 	defer a.dbPool.Close()
 	if a.rmqSender != nil {
 		defer a.rmqSender.Close()
 	}
+
+	workerCtx, cancelWorker := context.WithCancel(ctx)
+	defer cancelWorker()
+
+	go func() {
+		log.Println("auth outbox background worker starting...")
+		if err := a.outboxWorker.Start(workerCtx); err != nil && !errors.Is(err, context.Canceled) {
+			log.Printf("auth outbox background worker error: %v", err)
+		}
+		log.Println("auth outbox background worker stopped")
+	}()
 
 	lis, err := net.Listen("tcp", a.cfg.AuthGRPCAddr)
 	if err != nil {

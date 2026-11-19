@@ -145,6 +145,15 @@ const (
 	ActorTypeUser     = "user"
 	ActorTypeAPIToken = "api_token"
 	ActorTypeSystem   = "system"
+
+	OutboxStatusPending    = "pending"
+	OutboxStatusProcessing = "processing"
+	OutboxStatusPublished  = "published"
+	OutboxStatusFailed     = "failed"
+
+	EventTypeEmailVerification = "email.verify_email"
+	EventTypePasswordReset     = "email.password_reset"
+	EventTypeOrgInvite         = "email.org_invite"
 )
 
 // AuditEvent represents an immutable audit log entry in `audit_events`.
@@ -160,4 +169,20 @@ type AuditEvent struct {
 	UserAgent      *string
 	Metadata       map[string]any
 	CreatedAt      time.Time
+}
+
+// OutboxEvent represents an atomic outbox message pending asynchronous delivery.
+type OutboxEvent struct {
+	ID            uuid.UUID
+	EventType     string
+	AggregateType string
+	AggregateID   uuid.UUID
+	Payload       map[string]any
+	Headers       map[string]any
+	Status        string
+	RetryCount    int
+	LastError     *string
+	CreatedAt     time.Time
+	ScheduledAt   time.Time
+	PublishedAt   *time.Time
 }

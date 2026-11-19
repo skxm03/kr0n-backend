@@ -4,18 +4,23 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/email"
 )
 
 // EmailSender defines the contract for dispatching auth-related transactional emails.
 type EmailSender interface {
 	SendVerificationEmail(ctx context.Context, recipient, rawToken string) error
 	SendPasswordResetEmail(ctx context.Context, recipient, rawToken string) error
+}
+
+// OutboxNotifier notifies background workers when a new outbox event is persisted.
+type OutboxNotifier interface {
+	Notify()
 }
 
 // RegisterParams contains input arguments for registering a new user.
@@ -34,10 +39,17 @@ type AuthenticateParams struct {
 // UserOption defines a functional option for configuring UserService.
 type UserOption func(*UserService)
 
-// WithEmailSender configures the email sender used to dispatch verification and password reset emails.
+// WithEmailSender configures the email sender (retained for backward compatibility).
 func WithEmailSender(sender EmailSender) UserOption {
 	return func(s *UserService) {
 		s.emailSender = sender
+	}
+}
+
+// WithOutboxNotifier wires an outbox notifier to UserService.
+func WithOutboxNotifier(notifier OutboxNotifier) UserOption {
+	return func(s *UserService) {
+		s.notifier = notifier
 	}
 }
 
@@ -83,6 +95,7 @@ type UserService struct {
 	repo                 repository.UserRepository
 	hasher               PasswordHasher
 	emailSender          EmailSender
+	notifier             OutboxNotifier
 	tokenLifetime        time.Duration
 	resetTokenLifetime   time.Duration
 	requireVerifiedEmail bool
@@ -113,11 +126,9 @@ func newUUIDv7() uuid.UUID {
 	return uuid.New()
 }
 
-const emailDispatchTimeout = 3 * time.Second
-
 // Register validates parameters, applies password policies, computes password hash,
-// generates a verification token, persists user, credentials, and verification token atomically,
-// and dispatches a verification email outside the database transaction.
+// generates a verification token, and persists user, credentials, verification token, and
+// outbox event atomically in a single database transaction.
 func (s *UserService) Register(ctx context.Context, params RegisterParams) (*repository.User, error) {
 	if err := s.hasher.ValidatePolicy(params.Password); err != nil {
 		return nil, err
@@ -148,16 +159,32 @@ func (s *UserService) Register(ctx context.Context, params RegisterParams) (*rep
 		CreatedAt: now,
 	}
 
-	if err := s.repo.CreateWithPasswordAndVerificationToken(ctx, newUser, hash, token); err != nil {
+	outboxEv := &repository.OutboxEvent{
+		ID:            newUUIDv7(),
+		EventType:     repository.EventTypeEmailVerification,
+		AggregateType: "user",
+		AggregateID:   newUser.ID,
+		Payload: map[string]any{
+			"id":        newUUIDv7().String(),
+			"type":      string(email.TemplateVerifyEmail),
+			"recipient": newUser.Email,
+			"data": map[string]string{
+				"token": rawToken,
+			},
+			"created_at": now.Format(time.RFC3339),
+		},
+		Headers:     map[string]any{},
+		Status:      repository.OutboxStatusPending,
+		CreatedAt:   now,
+		ScheduledAt: now,
+	}
+
+	if err := s.repo.CreateWithPasswordAndVerificationToken(ctx, newUser, hash, token, outboxEv); err != nil {
 		return nil, err
 	}
 
-	if s.emailSender != nil {
-		emailCtx, cancel := context.WithTimeout(ctx, emailDispatchTimeout)
-		defer cancel()
-		if err := s.emailSender.SendVerificationEmail(emailCtx, newUser.Email, rawToken); err != nil {
-			log.Printf("failed to dispatch verification email for user %s: %v", newUser.ID, err)
-		}
+	if s.notifier != nil {
+		s.notifier.Notify()
 	}
 
 	return newUser, nil
@@ -240,22 +267,37 @@ func (s *UserService) ResendVerification(ctx context.Context, rawEmail string) e
 		CreatedAt: now,
 	}
 
-	if err := s.repo.CreateVerificationToken(ctx, token); err != nil {
+	outboxEv := &repository.OutboxEvent{
+		ID:            newUUIDv7(),
+		EventType:     repository.EventTypeEmailVerification,
+		AggregateType: "user",
+		AggregateID:   u.ID,
+		Payload: map[string]any{
+			"id":        newUUIDv7().String(),
+			"type":      string(email.TemplateVerifyEmail),
+			"recipient": u.Email,
+			"data": map[string]string{
+				"token": rawToken,
+			},
+			"created_at": now.Format(time.RFC3339),
+		},
+		Headers:     map[string]any{},
+		Status:      repository.OutboxStatusPending,
+		CreatedAt:   now,
+		ScheduledAt: now,
+	}
+
+	if err := s.repo.CreateVerificationToken(ctx, token, outboxEv); err != nil {
 		return err
 	}
 
-	if s.emailSender != nil {
-		emailCtx, cancel := context.WithTimeout(ctx, emailDispatchTimeout)
-		defer cancel()
-		if err := s.emailSender.SendVerificationEmail(emailCtx, u.Email, rawToken); err != nil {
-			log.Printf("failed to dispatch verification email for user %s: %v", u.ID, err)
-		}
+	if s.notifier != nil {
+		s.notifier.Notify()
 	}
 	return nil
 }
 
-// RequestPasswordReset issues a fresh password reset token and sends it if the account exists
-// and is active.
+// RequestPasswordReset issues a fresh password reset token and creates an outbox event atomically.
 func (s *UserService) RequestPasswordReset(ctx context.Context, rawEmail string) error {
 	canonicalEmail, err := repository.CanonicalizeEmail(rawEmail)
 	if err != nil {
@@ -287,16 +329,32 @@ func (s *UserService) RequestPasswordReset(ctx context.Context, rawEmail string)
 		CreatedAt: now,
 	}
 
-	if err := s.repo.CreatePasswordResetToken(ctx, token); err != nil {
+	outboxEv := &repository.OutboxEvent{
+		ID:            newUUIDv7(),
+		EventType:     repository.EventTypePasswordReset,
+		AggregateType: "user",
+		AggregateID:   u.ID,
+		Payload: map[string]any{
+			"id":        newUUIDv7().String(),
+			"type":      string(email.TemplatePasswordReset),
+			"recipient": u.Email,
+			"data": map[string]string{
+				"token": rawToken,
+			},
+			"created_at": now.Format(time.RFC3339),
+		},
+		Headers:     map[string]any{},
+		Status:      repository.OutboxStatusPending,
+		CreatedAt:   now,
+		ScheduledAt: now,
+	}
+
+	if err := s.repo.CreatePasswordResetToken(ctx, token, outboxEv); err != nil {
 		return err
 	}
 
-	if s.emailSender != nil {
-		emailCtx, cancel := context.WithTimeout(ctx, emailDispatchTimeout)
-		defer cancel()
-		if err := s.emailSender.SendPasswordResetEmail(emailCtx, u.Email, rawToken); err != nil {
-			log.Printf("failed to dispatch password reset email for user %s: %v", u.ID, err)
-		}
+	if s.notifier != nil {
+		s.notifier.Notify()
 	}
 	return nil
 }
