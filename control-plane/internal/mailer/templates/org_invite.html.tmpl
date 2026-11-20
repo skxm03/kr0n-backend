@@ -1,10 +1,15 @@
 <!DOCTYPE html>
 <html>
-<body style="font-family: sans-serif; color: #111827; line-height: 1.5;">
+<body style="font-family: sans-serif; color: #111827; line-height: 1.5; padding: 20px;">
   <h2>Invitation to join {{.org_name}} on kr0n</h2>
   <p>You have been invited to join <strong>{{.org_name}}</strong> on kr0n with role <code>{{.role_id}}</code>.</p>
-  <p>Use the following invitation token to accept:</p>
-  <p><code style="background: #f3f4f6; padding: 6px 10px; border-radius: 4px; font-weight: bold;">{{.token}}</code></p>
-  <p style="color: #6b7280; font-size: 13px;">If you did not expect this invitation, you can safely ignore this email.</p>
+  <p style="margin: 24px 0;">
+    <a href="http://localhost:3000/invites/accept?token={{.token}}" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; font-weight: bold; text-decoration: none; border-radius: 6px; display: inline-block;">Accept Invitation</a>
+  </p>
+  <p style="color: #4b5563; font-size: 13px;">Or copy and paste this invitation URL into your browser:<br/>
+    <a href="http://localhost:3000/invites/accept?token={{.token}}" style="color: #2563eb; word-break: break-all;">http://localhost:3000/invites/accept?token={{.token}}</a>
+  </p>
+  <p style="color: #6b7280; font-size: 12px; margin-top: 20px;">Invitation Token: <code style="background: #f3f4f6; padding: 4px 8px; border-radius: 4px;">{{.token}}</code></p>
+  <p style="color: #9ca3af; font-size: 12px;">If you did not expect this invitation, you can safely ignore this email.</p>
 </body>
 </html>
