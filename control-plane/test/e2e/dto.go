@@ -1,5 +1,7 @@
 package e2e
 
+import "net/http"
+
 // ErrorResponseDTO represents the standard gateway error response JSON schema.
 type ErrorResponseDTO struct {
 	Error     string `json:"error"`
@@ -17,10 +19,8 @@ type UserDTO struct {
 
 // LoginResponseDTO represents the successful client login response JSON schema.
 type LoginResponseDTO struct {
-	AccessToken  string  `json:"access_token"`
-	RefreshToken string  `json:"refresh_token"`
-	TokenType    string  `json:"token_type"`
-	ExpiresIn    int32   `json:"expires_in"`
+	AccessToken  string  `json:"access_token,omitempty"`
+	RefreshToken string  `json:"refresh_token,omitempty"`
 	User         UserDTO `json:"user"`
 }
 
@@ -35,10 +35,19 @@ type RegisterResponseDTO struct {
 
 // RefreshResponseDTO represents the successful client refresh response JSON schema.
 type RefreshResponseDTO struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-	TokenType    string `json:"token_type"`
-	ExpiresIn    int32  `json:"expires_in"`
+	AccessToken  string `json:"access_token,omitempty"`
+	RefreshToken string `json:"refresh_token,omitempty"`
+	Status       string `json:"status,omitempty"`
+}
+
+// GetCookieValue extracts the value of a named cookie from an HTTP response.
+func GetCookieValue(resp *http.Response, name string) string {
+	for _, c := range resp.Cookies() {
+		if c.Name == name {
+			return c.Value
+		}
+	}
+	return ""
 }
 
 // LogoutResponseDTO represents the successful client logout response JSON schema.

@@ -82,11 +82,14 @@ func TestE2E_Refresh_Logout_Lifecycle(t *testing.T) {
 	var loginData LoginResponseDTO
 	_ = json.NewDecoder(loginResp.Body).Decode(&loginData)
 
-	initialAccess := loginData.AccessToken
-	initialRefresh := loginData.RefreshToken
+	initialAccess := GetCookieValue(loginResp, "access_token")
+	initialRefresh := GetCookieValue(loginResp, "refresh_token")
 
 	if initialAccess == "" || initialRefresh == "" {
-		t.Fatal("expected non-empty tokens from login")
+		t.Fatal("expected non-empty tokens from login cookies")
+	}
+	if loginData.AccessToken != "" || loginData.RefreshToken != "" {
+		t.Fatal("expected empty tokens in login body")
 	}
 
 	// Verify database state: raw token never stored
@@ -136,20 +139,20 @@ func TestE2E_Refresh_Logout_Lifecycle(t *testing.T) {
 	var refData RefreshResponseDTO
 	_ = json.NewDecoder(refResp.Body).Decode(&refData)
 
-	if refData.AccessToken == "" || refData.RefreshToken == "" {
-		t.Fatal("expected non-empty tokens on refresh")
+	refAccessToken := GetCookieValue(refResp, "access_token")
+	refRefreshToken := GetCookieValue(refResp, "refresh_token")
+
+	if refAccessToken == "" || refRefreshToken == "" {
+		t.Fatal("expected non-empty tokens on refresh cookies")
 	}
-	if refData.AccessToken == initialAccess {
+	if refAccessToken == initialAccess {
 		t.Fatal("expected fresh access token after refresh")
 	}
-	if refData.RefreshToken == initialRefresh {
+	if refRefreshToken == initialRefresh {
 		t.Fatal("expected rotated refresh token after refresh")
 	}
-	if refData.TokenType != "Bearer" {
-		t.Fatalf("expected Bearer token type, got %s", refData.TokenType)
-	}
-	if refData.ExpiresIn != 900 {
-		t.Fatalf("expected 900s expiration, got %d", refData.ExpiresIn)
+	if refData.AccessToken != "" || refData.RefreshToken != "" {
+		t.Fatal("expected empty tokens in refresh body")
 	}
 
 	// Verify database: same session ID, updated token hash, updated last_seen_at
@@ -168,10 +171,10 @@ func TestE2E_Refresh_Logout_Lifecycle(t *testing.T) {
 	if updatedSessID != sessionID {
 		t.Fatalf("expected same session ID %s, got %s", sessionID, updatedSessID)
 	}
-	if newStoredHash == refData.RefreshToken {
+	if newStoredHash == refRefreshToken {
 		t.Fatal("SECURITY VIOLATION: raw refresh token is stored in PostgreSQL!")
 	}
-	if !repository.VerifyRefreshToken(refData.RefreshToken, newStoredHash) {
+	if !repository.VerifyRefreshToken(refRefreshToken, newStoredHash) {
 		t.Fatal("stored hash does not match rotated refresh token")
 	}
 	if repository.VerifyRefreshToken(initialRefresh, newStoredHash) {
@@ -180,7 +183,7 @@ func TestE2E_Refresh_Logout_Lifecycle(t *testing.T) {
 
 	// 4. VERIFY NEW REFRESH TOKEN SUCCEEDS (SECOND ROTATION)
 	newRefBody, _ := json.Marshal(map[string]string{
-		"refresh_token": refData.RefreshToken,
+		"refresh_token": refRefreshToken,
 	})
 	newRefReq, _ := http.NewRequestWithContext(ctx, http.MethodPost, refreshURL, bytes.NewReader(newRefBody))
 	newRefReq.Header.Set("Content-Type", "application/json")
@@ -198,7 +201,7 @@ func TestE2E_Refresh_Logout_Lifecycle(t *testing.T) {
 	var secondRefData RefreshResponseDTO
 	_ = json.NewDecoder(newRefResp.Body).Decode(&secondRefData)
 
-	latestRefreshToken := secondRefData.RefreshToken
+	latestRefreshToken := GetCookieValue(newRefResp, "refresh_token")
 
 	// 5. VERIFY OLD REFRESH TOKEN FAILS AFTER ROTATION AND REVOKES SESSION ON REUSE
 	oldRefBody, _ := json.Marshal(map[string]string{
@@ -334,9 +337,8 @@ func TestE2E_Refresh_EdgeCases(t *testing.T) {
 	lResp, _ := http.DefaultClient.Do(lReq)
 	var lData LoginResponseDTO
 	_ = json.NewDecoder(lResp.Body).Decode(&lData)
+	refreshToken := GetCookieValue(lResp, "refresh_token")
 	lResp.Body.Close()
-
-	refreshToken := lData.RefreshToken
 
 	// 2. Expired session
 	t.Run("expired session fails with generic 401", func(t *testing.T) {
@@ -419,6 +421,7 @@ func TestE2E_Refresh_EdgeCases(t *testing.T) {
 		l2Resp, _ := http.DefaultClient.Do(l2Req)
 		var l2Data LoginResponseDTO
 		_ = json.NewDecoder(l2Resp.Body).Decode(&l2Data)
+		refreshToken2 := GetCookieValue(l2Resp, "refresh_token")
 		l2Resp.Body.Close()
 
 		// Suspend user
@@ -428,7 +431,7 @@ func TestE2E_Refresh_EdgeCases(t *testing.T) {
 		}
 
 		body, _ := json.Marshal(map[string]string{
-			"refresh_token": l2Data.RefreshToken,
+			"refresh_token": refreshToken2,
 		})
 		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, refreshURL, bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
@@ -488,9 +491,8 @@ func TestE2E_Refresh_ConcurrentRequests(t *testing.T) {
 	lResp, _ := http.DefaultClient.Do(lReq)
 	var lData LoginResponseDTO
 	_ = json.NewDecoder(lResp.Body).Decode(&lData)
+	tokenToRotate := GetCookieValue(lResp, "refresh_token")
 	lResp.Body.Close()
-
-	tokenToRotate := lData.RefreshToken
 
 	const concurrency = 10
 	var (

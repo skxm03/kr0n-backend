@@ -24,19 +24,15 @@ const (
 
 // SetAuthCookies writes HttpOnly, SameSite cookies for access_token and refresh_token,
 // ensuring tokens are never exposed in JavaScript or HTTP response bodies (mitigating XSS).
-func SetAuthCookies(w http.ResponseWriter, accessToken, refreshToken string, expiresIn int32) {
+func SetAuthCookies(w http.ResponseWriter, accessToken, refreshToken string) {
 	if accessToken != "" {
-		maxAge := int(expiresIn)
-		if maxAge <= 0 {
-			maxAge = 900 // default 15 minutes
-		}
 		http.SetCookie(w, &http.Cookie{
 			Name:     AccessTokenCookieName,
 			Value:    accessToken,
 			Path:     "/",
 			HttpOnly: true,
 			SameSite: http.SameSiteLaxMode,
-			MaxAge:   maxAge,
+			MaxAge:   900, // 15 minutes default
 		})
 	}
 	if refreshToken != "" {
@@ -106,19 +102,22 @@ func GatewayResponseModifier(ctx context.Context, w http.ResponseWriter, resp pr
 		switch m := resp.(type) {
 		case *authv1.LoginResponse:
 			if m.AccessToken != "" || m.RefreshToken != "" {
-				SetAuthCookies(w, m.AccessToken, m.RefreshToken, m.ExpiresIn)
+				SetAuthCookies(w, m.AccessToken, m.RefreshToken)
 				m.AccessToken = ""
 				m.RefreshToken = ""
 			}
 		case *authv1.RefreshResponse:
 			if m.AccessToken != "" || m.RefreshToken != "" {
-				SetAuthCookies(w, m.AccessToken, m.RefreshToken, m.ExpiresIn)
+				SetAuthCookies(w, m.AccessToken, m.RefreshToken)
 				m.AccessToken = ""
 				m.RefreshToken = ""
+				if m.Status == "" {
+					m.Status = "ok"
+				}
 			}
 		case *authv1.CompleteGitHubOAuthResponse:
 			if m.AccessToken != "" || m.RefreshToken != "" {
-				SetAuthCookies(w, m.AccessToken, m.RefreshToken, m.ExpiresIn)
+				SetAuthCookies(w, m.AccessToken, m.RefreshToken)
 				m.AccessToken = ""
 				m.RefreshToken = ""
 			}

@@ -2259,13 +2259,6 @@
           "description": "Delivered strictly via HttpOnly Set-Cookie; excluded from JSON body",
           "readOnly": true
         },
-        "token_type": {
-          "type": "string"
-        },
-        "expires_in": {
-          "type": "integer",
-          "format": "int32"
-        },
         "user": {
           "$ref": "#/definitions/v1LoginUser"
         }
@@ -2656,13 +2649,6 @@
           "description": "Delivered strictly via HttpOnly Set-Cookie; excluded from JSON body",
           "readOnly": true
         },
-        "token_type": {
-          "type": "string"
-        },
-        "expires_in": {
-          "type": "integer",
-          "format": "int32"
-        },
         "user": {
           "$ref": "#/definitions/v1LoginUser"
         }
@@ -2773,12 +2759,8 @@
           "description": "Delivered strictly via HttpOnly Set-Cookie; excluded from JSON body",
           "readOnly": true
         },
-        "token_type": {
+        "status": {
           "type": "string"
-        },
-        "expires_in": {
-          "type": "integer",
-          "format": "int32"
         }
       }
     },

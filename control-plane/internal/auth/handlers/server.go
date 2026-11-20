@@ -232,8 +232,6 @@ func (s *Server) Login(ctx context.Context, req *authv1.LoginRequest) (*authv1.L
 	return &authv1.LoginResponse{
 		AccessToken:  res.AccessToken,
 		RefreshToken: res.RefreshToken,
-		TokenType:    res.TokenType,
-		ExpiresIn:    int32(res.ExpiresIn.Seconds()),
 		User: &authv1.LoginUser{
 			Id:          res.User.ID.String(),
 			Email:       res.User.Email,
@@ -286,8 +284,7 @@ func (s *Server) Refresh(ctx context.Context, req *authv1.RefreshRequest) (*auth
 	return &authv1.RefreshResponse{
 		AccessToken:  res.AccessToken,
 		RefreshToken: res.RefreshToken,
-		TokenType:    res.TokenType,
-		ExpiresIn:    int32(res.ExpiresIn.Seconds()),
+		Status:       "ok",
 	}, nil
 }
 
@@ -750,8 +747,6 @@ func (s *Server) CompleteGitHubOAuth(ctx context.Context, req *authv1.CompleteGi
 	return &authv1.CompleteGitHubOAuthResponse{
 		AccessToken:  res.AccessToken,
 		RefreshToken: res.RefreshToken,
-		TokenType:    res.TokenType,
-		ExpiresIn:    int32(res.ExpiresIn.Seconds()),
 		User: &authv1.LoginUser{
 			Id:          res.User.ID.String(),
 			Email:       res.User.Email,

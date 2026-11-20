@@ -168,17 +168,20 @@ func TestE2E_Login_Slice(t *testing.T) {
 			t.Fatalf("decode login response failed: %v", err)
 		}
 
-		if loginResult.AccessToken == "" {
-			t.Fatal("expected non-empty access_token")
+		accessToken := GetCookieValue(resp, "access_token")
+		refreshToken := GetCookieValue(resp, "refresh_token")
+
+		if accessToken == "" {
+			t.Fatal("expected non-empty access_token cookie")
 		}
-		if loginResult.RefreshToken == "" {
-			t.Fatal("expected non-empty refresh_token")
+		if refreshToken == "" {
+			t.Fatal("expected non-empty refresh_token cookie")
 		}
-		if loginResult.TokenType != "Bearer" {
-			t.Fatalf("expected token_type Bearer, got %s", loginResult.TokenType)
+		if loginResult.AccessToken != "" {
+			t.Fatal("expected empty access_token in response body")
 		}
-		if loginResult.ExpiresIn != 900 {
-			t.Fatalf("expected 900s expires_in, got %d", loginResult.ExpiresIn)
+		if loginResult.RefreshToken != "" {
+			t.Fatal("expected empty refresh_token in response body")
 		}
 		if loginResult.User.ID != userID.String() {
 			t.Fatalf("expected user id %s, got %s", userID.String(), loginResult.User.ID)
@@ -203,12 +206,12 @@ func TestE2E_Login_Slice(t *testing.T) {
 		}
 
 		// 4. Verify raw refresh token NEVER stored
-		if storedHash == loginResult.RefreshToken {
+		if storedHash == refreshToken {
 			t.Fatal("SECURITY VIOLATION: raw refresh token is stored in database!")
 		}
 
 		// 5. Verify returned refresh token corresponds to stored hash
-		if !repository.VerifyRefreshToken(loginResult.RefreshToken, storedHash) {
+		if !repository.VerifyRefreshToken(refreshToken, storedHash) {
 			t.Fatal("stored hash does not match returned refresh token")
 		}
 

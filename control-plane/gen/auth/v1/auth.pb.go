@@ -301,8 +301,6 @@ type LoginResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	AccessToken   string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
 	RefreshToken  string                 `protobuf:"bytes,2,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
-	TokenType     string                 `protobuf:"bytes,3,opt,name=token_type,json=tokenType,proto3" json:"token_type,omitempty"`
-	ExpiresIn     int32                  `protobuf:"varint,4,opt,name=expires_in,json=expiresIn,proto3" json:"expires_in,omitempty"`
 	User          *LoginUser             `protobuf:"bytes,5,opt,name=user,proto3" json:"user,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -350,20 +348,6 @@ func (x *LoginResponse) GetRefreshToken() string {
 		return x.RefreshToken
 	}
 	return ""
-}
-
-func (x *LoginResponse) GetTokenType() string {
-	if x != nil {
-		return x.TokenType
-	}
-	return ""
-}
-
-func (x *LoginResponse) GetExpiresIn() int32 {
-	if x != nil {
-		return x.ExpiresIn
-	}
-	return 0
 }
 
 func (x *LoginResponse) GetUser() *LoginUser {
@@ -421,8 +405,7 @@ type RefreshResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	AccessToken   string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
 	RefreshToken  string                 `protobuf:"bytes,2,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
-	TokenType     string                 `protobuf:"bytes,3,opt,name=token_type,json=tokenType,proto3" json:"token_type,omitempty"`
-	ExpiresIn     int32                  `protobuf:"varint,4,opt,name=expires_in,json=expiresIn,proto3" json:"expires_in,omitempty"`
+	Status        string                 `protobuf:"bytes,5,opt,name=status,proto3" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -471,18 +454,11 @@ func (x *RefreshResponse) GetRefreshToken() string {
 	return ""
 }
 
-func (x *RefreshResponse) GetTokenType() string {
+func (x *RefreshResponse) GetStatus() string {
 	if x != nil {
-		return x.TokenType
+		return x.Status
 	}
 	return ""
-}
-
-func (x *RefreshResponse) GetExpiresIn() int32 {
-	if x != nil {
-		return x.ExpiresIn
-	}
-	return 0
 }
 
 type LogoutRequest struct {
@@ -1822,8 +1798,6 @@ type CompleteGitHubOAuthResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	AccessToken   string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
 	RefreshToken  string                 `protobuf:"bytes,2,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
-	TokenType     string                 `protobuf:"bytes,3,opt,name=token_type,json=tokenType,proto3" json:"token_type,omitempty"`
-	ExpiresIn     int32                  `protobuf:"varint,4,opt,name=expires_in,json=expiresIn,proto3" json:"expires_in,omitempty"`
 	User          *LoginUser             `protobuf:"bytes,5,opt,name=user,proto3" json:"user,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1871,20 +1845,6 @@ func (x *CompleteGitHubOAuthResponse) GetRefreshToken() string {
 		return x.RefreshToken
 	}
 	return ""
-}
-
-func (x *CompleteGitHubOAuthResponse) GetTokenType() string {
-	if x != nil {
-		return x.TokenType
-	}
-	return ""
-}
-
-func (x *CompleteGitHubOAuthResponse) GetExpiresIn() int32 {
-	if x != nil {
-		return x.ExpiresIn
-	}
-	return 0
 }
 
 func (x *CompleteGitHubOAuthResponse) GetUser() *LoginUser {
@@ -5317,24 +5277,21 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12!\n" +
 	"\fdisplay_name\x18\x03 \x01(\tR\vdisplayName\x12\x16\n" +
-	"\x06status\x18\x04 \x01(\tR\x06status\"\xd5\x02\n" +
+	"\x06status\x18\x04 \x01(\tR\x06status\"\xbb\x02\n" +
 	"\rLoginResponse\x12m\n" +
 	"\faccess_token\x18\x01 \x01(\tBJ\x92AG2CDelivered strictly via HttpOnly Set-Cookie; excluded from JSON body@\x01R\vaccessToken\x12o\n" +
-	"\rrefresh_token\x18\x02 \x01(\tBJ\x92AG2CDelivered strictly via HttpOnly Set-Cookie; excluded from JSON body@\x01R\frefreshToken\x12\x1d\n" +
-	"\n" +
-	"token_type\x18\x03 \x01(\tR\ttokenType\x12\x1d\n" +
-	"\n" +
-	"expires_in\x18\x04 \x01(\x05R\texpiresIn\x12&\n" +
-	"\x04user\x18\x05 \x01(\v2\x12.auth.v1.LoginUserR\x04user\"t\n" +
+	"\rrefresh_token\x18\x02 \x01(\tBJ\x92AG2CDelivered strictly via HttpOnly Set-Cookie; excluded from JSON body@\x01R\frefreshToken\x12&\n" +
+	"\x04user\x18\x05 \x01(\v2\x12.auth.v1.LoginUserR\x04userJ\x04\b\x03\x10\x04J\x04\b\x04\x10\x05R\n" +
+	"token_typeR\n" +
+	"expires_in\"t\n" +
 	"\x0eRefreshRequest\x12b\n" +
-	"\rrefresh_token\x18\x01 \x01(\tB=\x92A:28Optional if provided via HttpOnly 'refresh_token' cookieR\frefreshToken\"\xaf\x02\n" +
+	"\rrefresh_token\x18\x01 \x01(\tB=\x92A:28Optional if provided via HttpOnly 'refresh_token' cookieR\frefreshToken\"\xad\x02\n" +
 	"\x0fRefreshResponse\x12m\n" +
 	"\faccess_token\x18\x01 \x01(\tBJ\x92AG2CDelivered strictly via HttpOnly Set-Cookie; excluded from JSON body@\x01R\vaccessToken\x12o\n" +
-	"\rrefresh_token\x18\x02 \x01(\tBJ\x92AG2CDelivered strictly via HttpOnly Set-Cookie; excluded from JSON body@\x01R\frefreshToken\x12\x1d\n" +
-	"\n" +
-	"token_type\x18\x03 \x01(\tR\ttokenType\x12\x1d\n" +
-	"\n" +
-	"expires_in\x18\x04 \x01(\x05R\texpiresIn\"\xa5\x01\n" +
+	"\rrefresh_token\x18\x02 \x01(\tBJ\x92AG2CDelivered strictly via HttpOnly Set-Cookie; excluded from JSON body@\x01R\frefreshToken\x12\x16\n" +
+	"\x06status\x18\x05 \x01(\tR\x06statusJ\x04\b\x03\x10\x04J\x04\b\x04\x10\x05R\n" +
+	"token_typeR\n" +
+	"expires_in\"\xa5\x01\n" +
 	"\rLogoutRequest\x120\n" +
 	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12b\n" +
 	"\rrefresh_token\x18\x02 \x01(\tB=\x92A:28Optional if provided via HttpOnly 'refresh_token' cookieR\frefreshToken\"*\n" +
@@ -5424,15 +5381,13 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\rcode_verifier\x18\x02 \x01(\tR\fcodeVerifier\x12h\n" +
 	"\n" +
 	"user_agent\x18\x03 \x01(\tBI\x92AF2BExtracted automatically by API Gateway from User-Agent HTTP header@\x01R\tuserAgent\x12k\n" +
-	"\tclient_ip\x18\x04 \x01(\tBN\x92AK2GExtracted automatically by API Gateway from client IP / X-Forwarded-For@\x01R\bclientIp\"\xe3\x02\n" +
+	"\tclient_ip\x18\x04 \x01(\tBN\x92AK2GExtracted automatically by API Gateway from client IP / X-Forwarded-For@\x01R\bclientIp\"\xc9\x02\n" +
 	"\x1bCompleteGitHubOAuthResponse\x12m\n" +
 	"\faccess_token\x18\x01 \x01(\tBJ\x92AG2CDelivered strictly via HttpOnly Set-Cookie; excluded from JSON body@\x01R\vaccessToken\x12o\n" +
-	"\rrefresh_token\x18\x02 \x01(\tBJ\x92AG2CDelivered strictly via HttpOnly Set-Cookie; excluded from JSON body@\x01R\frefreshToken\x12\x1d\n" +
-	"\n" +
-	"token_type\x18\x03 \x01(\tR\ttokenType\x12\x1d\n" +
-	"\n" +
-	"expires_in\x18\x04 \x01(\x05R\texpiresIn\x12&\n" +
-	"\x04user\x18\x05 \x01(\v2\x12.auth.v1.LoginUserR\x04user\"\xac\x01\n" +
+	"\rrefresh_token\x18\x02 \x01(\tBJ\x92AG2CDelivered strictly via HttpOnly Set-Cookie; excluded from JSON body@\x01R\frefreshToken\x12&\n" +
+	"\x04user\x18\x05 \x01(\v2\x12.auth.v1.LoginUserR\x04userJ\x04\b\x03\x10\x04J\x04\b\x04\x10\x05R\n" +
+	"token_typeR\n" +
+	"expires_in\"\xac\x01\n" +
 	"\x0fCallerPrincipal\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x12 \n" +

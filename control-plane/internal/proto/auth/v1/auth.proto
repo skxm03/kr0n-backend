@@ -768,10 +768,10 @@ message LoginUser {
 }
 
 message LoginResponse {
+  reserved 3, 4;
+  reserved "token_type", "expires_in";
   string access_token = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true, description: "Delivered strictly via HttpOnly Set-Cookie; excluded from JSON body"}];
   string refresh_token = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true, description: "Delivered strictly via HttpOnly Set-Cookie; excluded from JSON body"}];
-  string token_type = 3;
-  int32 expires_in = 4;
   LoginUser user = 5;
 }
 
@@ -780,10 +780,11 @@ message RefreshRequest {
 }
 
 message RefreshResponse {
+  reserved 3, 4;
+  reserved "token_type", "expires_in";
   string access_token = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true, description: "Delivered strictly via HttpOnly Set-Cookie; excluded from JSON body"}];
   string refresh_token = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true, description: "Delivered strictly via HttpOnly Set-Cookie; excluded from JSON body"}];
-  string token_type = 3;
-  int32 expires_in = 4;
+  string status = 5;
 }
 
 message LogoutRequest {
@@ -917,10 +918,10 @@ message CompleteGitHubOAuthRequest {
 }
 
 message CompleteGitHubOAuthResponse {
+  reserved 3, 4;
+  reserved "token_type", "expires_in";
   string access_token = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true, description: "Delivered strictly via HttpOnly Set-Cookie; excluded from JSON body"}];
   string refresh_token = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true, description: "Delivered strictly via HttpOnly Set-Cookie; excluded from JSON body"}];
-  string token_type = 3;
-  int32 expires_in = 4;
   LoginUser user = 5;
 }
 

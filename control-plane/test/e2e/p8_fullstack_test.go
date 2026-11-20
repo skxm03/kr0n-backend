@@ -242,25 +242,27 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 	}
 	var loginDTO LoginResponseDTO
 	_ = json.Unmarshal(raw, &loginDTO)
+	loginRefreshToken := GetCookieValue(resp, "refresh_token")
 
 	resp, raw = doJSON(http.MethodPost, "/api/v1/auth/refresh", "", map[string]string{
-		"refresh_token": loginDTO.RefreshToken,
+		"refresh_token": loginRefreshToken,
 	})
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("refresh 1: %d %s", resp.StatusCode, string(raw))
 	}
 	var rotDTO RefreshResponseDTO
 	_ = json.Unmarshal(raw, &rotDTO)
+	rotRefreshToken := GetCookieValue(resp, "refresh_token")
 
-	// Reusing loginDTO.RefreshToken must fail AND revoke the rotated token's session
+	// Reusing loginRefreshToken must fail AND revoke the rotated token's session
 	resp, _ = doJSON(http.MethodPost, "/api/v1/auth/refresh", "", map[string]string{
-		"refresh_token": loginDTO.RefreshToken,
+		"refresh_token": loginRefreshToken,
 	})
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("expected 401 on refresh reuse, got %d", resp.StatusCode)
 	}
 	resp, _ = doJSON(http.MethodPost, "/api/v1/auth/refresh", "", map[string]string{
-		"refresh_token": rotDTO.RefreshToken,
+		"refresh_token": rotRefreshToken,
 	})
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("expected rotated refresh token to be revoked after reuse detection, got %d", resp.StatusCode)
@@ -298,13 +300,14 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 	}
 	var ghLogin LoginResponseDTO
 	_ = json.Unmarshal(cbRaw, &ghLogin)
-	if ghLogin.User.Email != ghEmail || ghLogin.AccessToken == "" {
+	ghAccessToken := GetCookieValue(cbResp, "access_token")
+	if ghLogin.User.Email != ghEmail || ghAccessToken == "" {
 		t.Fatalf("unexpected github login response: %+v", ghLogin)
 	}
 
 	// 3. RBAC Organizations, API Tokens (`kr0n_pat_...`), and Audit Logs (`GET /api/v1/orgs/{id}/audit`)
 	slug := "acme-" + uuid.NewString()[:8]
-	resp, raw = doJSON(http.MethodPost, "/api/v1/orgs", ghLogin.AccessToken, map[string]string{
+	resp, raw = doJSON(http.MethodPost, "/api/v1/orgs", ghAccessToken, map[string]string{
 		"name": "Acme Corp",
 		"slug": slug,
 	})
@@ -315,7 +318,7 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 	_ = json.Unmarshal(raw, &orgDTO)
 
 	// Create API token with `org:read` and `audit:read`
-	resp, raw = doJSON(http.MethodPost, "/api/v1/orgs/"+orgDTO.ID+"/tokens", ghLogin.AccessToken, map[string]any{
+	resp, raw = doJSON(http.MethodPost, "/api/v1/orgs/"+orgDTO.ID+"/tokens", ghAccessToken, map[string]any{
 		"name":        "ci-runner",
 		"permissions": []string{"org:read", "audit:read"},
 	})

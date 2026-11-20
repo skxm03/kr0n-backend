@@ -181,8 +181,6 @@ func TestNewGatewayServeMux_SnakeCaseMarshaler(t *testing.T) {
 	loginResp := &authv1.LoginResponse{
 		AccessToken:  "jwt-access-token",
 		RefreshToken: "jwt-refresh-token",
-		TokenType:    "Bearer",
-		ExpiresIn:    900,
 		User: &authv1.LoginUser{
 			Id:          "u-1",
 			Email:       "alice@example.com",
@@ -202,7 +200,7 @@ func TestNewGatewayServeMux_SnakeCaseMarshaler(t *testing.T) {
 	}
 
 	// Verify snake_case field names are emitted
-	expectedFields := []string{"access_token", "refresh_token", "token_type", "expires_in", "user"}
+	expectedFields := []string{"access_token", "refresh_token", "user"}
 	for _, field := range expectedFields {
 		if _, exists := jsonMap[field]; !exists {
 			t.Fatalf("expected snake_case field %q in marshaled JSON, but was missing: %s", field, string(bytes))
@@ -246,7 +244,6 @@ func TestGatewayResponseModifier(t *testing.T) {
 		loginResp := &authv1.LoginResponse{
 			AccessToken:  "secret-access-token",
 			RefreshToken: "secret-refresh-token",
-			ExpiresIn:    900,
 		}
 
 		if err := GatewayResponseModifier(context.Background(), rec, loginResp); err != nil {
@@ -293,7 +290,6 @@ func TestGatewayResponseModifier(t *testing.T) {
 		refResp := &authv1.RefreshResponse{
 			AccessToken:  "new-access-token",
 			RefreshToken: "new-refresh-token",
-			ExpiresIn:    900,
 		}
 
 		if err := GatewayResponseModifier(context.Background(), rec, refResp); err != nil {

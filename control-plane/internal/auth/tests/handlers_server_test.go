@@ -324,12 +324,6 @@ func TestServer_Login_Success(t *testing.T) {
 	if resp.GetRefreshToken() != "opaque_refresh" {
 		t.Fatalf("unexpected refresh token: %s", resp.GetRefreshToken())
 	}
-	if resp.GetTokenType() != "Bearer" {
-		t.Fatalf("unexpected token type: %s", resp.GetTokenType())
-	}
-	if resp.GetExpiresIn() != 900 {
-		t.Fatalf("expected 900 seconds, got %d", resp.GetExpiresIn())
-	}
 	if resp.GetUser().GetId() != expectedUser.ID.String() {
 		t.Fatalf("unexpected user ID: %s", resp.GetUser().GetId())
 	}
@@ -451,11 +445,8 @@ func TestServer_Refresh_Success(t *testing.T) {
 	if resp.GetRefreshToken() != "new_opaque_refresh" {
 		t.Fatalf("expected new refresh token, got %s", resp.GetRefreshToken())
 	}
-	if resp.GetTokenType() != "Bearer" {
-		t.Fatalf("expected Bearer token type, got %s", resp.GetTokenType())
-	}
-	if resp.GetExpiresIn() != 900 {
-		t.Fatalf("expected 900 seconds, got %d", resp.GetExpiresIn())
+	if resp.GetStatus() != "ok" {
+		t.Fatalf("expected status ok, got %s", resp.GetStatus())
 	}
 }
 
