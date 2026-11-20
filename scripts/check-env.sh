@@ -56,11 +56,22 @@ else
 fi
 
 if [ -n "${ENV_FILE}" ]; then
-  # Source .env safely
-  set -a
-  # shellcheck disable=SC1090
-  source "${ENV_FILE}"
-  set +a
+  # Safely parse KEY=VALUE without executing file contents as shell script
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="$(echo "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+    if [[ -z "$line" || "$line" =~ ^# ]]; then
+      continue
+    fi
+    if [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
+      key="${BASH_REMATCH[1]}"
+      val="${BASH_REMATCH[2]}"
+      val="${val%\"}"
+      val="${val#\"}"
+      val="${val%\'}"
+      val="${val#\'}"
+      export "$key"="$val"
+    fi
+  done < "${ENV_FILE}"
 fi
 
 # ------------------------------------------------------------------------------
