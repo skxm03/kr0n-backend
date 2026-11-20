@@ -120,12 +120,11 @@ service AuthService {
   rpc Refresh(RefreshRequest) returns (RefreshResponse) {
     option (google.api.http) = {
       post: "/api/v1/auth/refresh"
-      body: "*"
     };
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       tags: ["Authentication & Sessions"]
       summary: "Rotate session tokens"
-      description: "Rotates session tokens using the HttpOnly refresh_token cookie and returns updated access_token and refresh_token cookies. Tokens are omitted from the JSON response body."
+      description: "Rotates session tokens using the HttpOnly refresh_token cookie and returns updated access_token and refresh_token cookies. No request body is required."
     };
   }
 
@@ -776,7 +775,8 @@ message LoginResponse {
 }
 
 message RefreshRequest {
-  string refresh_token = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Optional if provided via HttpOnly 'refresh_token' cookie"}];
+  reserved 1;
+  reserved "refresh_token";
 }
 
 message RefreshResponse {
@@ -788,8 +788,8 @@ message RefreshResponse {
 }
 
 message LogoutRequest {
-  CallerPrincipal caller = 1;
-  string refresh_token = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Optional if provided via HttpOnly 'refresh_token' cookie"}];
+  CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
+  string refresh_token = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true, description: "Delivered strictly via HttpOnly 'refresh_token' cookie; omitted from body"}];
 }
 
 message LogoutResponse {

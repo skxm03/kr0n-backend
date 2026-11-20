@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
@@ -432,9 +433,8 @@ func TestServer_Refresh_Success(t *testing.T) {
 	}
 
 	server := handlers.NewServer(nil, mockSvc)
-	resp, err := server.Refresh(context.Background(), &authv1.RefreshRequest{
-		RefreshToken: "valid_refresh_token",
-	})
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("x-refresh-token", "valid_refresh_token"))
+	resp, err := server.Refresh(ctx, &authv1.RefreshRequest{})
 	if err != nil {
 		t.Fatalf("unexpected error on refresh: %v", err)
 	}
@@ -464,7 +464,7 @@ func TestServer_Refresh_NilOrEmptyRequest(t *testing.T) {
 	}
 
 	// Empty token
-	_, err = server.Refresh(context.Background(), &authv1.RefreshRequest{RefreshToken: ""})
+	_, err = server.Refresh(context.Background(), &authv1.RefreshRequest{})
 	if err == nil {
 		t.Fatal("expected error on empty token, got nil")
 	}
@@ -521,9 +521,8 @@ func TestServer_Refresh_InvalidOrExpiredOrRevokedToken(t *testing.T) {
 				},
 			}
 			server := handlers.NewServer(nil, mockSvc)
-			_, err := server.Refresh(context.Background(), &authv1.RefreshRequest{
-				RefreshToken: "test_token",
-			})
+			ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("x-refresh-token", "test_token"))
+			_, err := server.Refresh(ctx, &authv1.RefreshRequest{})
 			if err == nil {
 				t.Fatal("expected error, got nil")
 			}
@@ -548,9 +547,8 @@ func TestServer_Refresh_InternalErrorMasked(t *testing.T) {
 		},
 	}
 	server := handlers.NewServer(nil, mockSvc)
-	_, err := server.Refresh(context.Background(), &authv1.RefreshRequest{
-		RefreshToken: "test_token",
-	})
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs("x-refresh-token", "test_token"))
+	_, err := server.Refresh(ctx, &authv1.RefreshRequest{})
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}

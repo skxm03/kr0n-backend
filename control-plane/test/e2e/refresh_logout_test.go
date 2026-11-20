@@ -14,6 +14,28 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
 )
 
+func newRefreshRequest(ctx context.Context, url, token string) *http.Request {
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+	if token != "" {
+		req.AddCookie(&http.Cookie{
+			Name:  "refresh_token",
+			Value: token,
+		})
+	}
+	return req
+}
+
+func newLogoutRequest(ctx context.Context, url, token string) *http.Request {
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+	if token != "" {
+		req.AddCookie(&http.Cookie{
+			Name:  "refresh_token",
+			Value: token,
+		})
+	}
+	return req
+}
+
 func TestE2E_Refresh_Logout_Lifecycle(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -120,11 +142,7 @@ func TestE2E_Refresh_Logout_Lifecycle(t *testing.T) {
 	time.Sleep(1100 * time.Millisecond)
 
 	// 3. REFRESH
-	refBody, _ := json.Marshal(map[string]string{
-		"refresh_token": initialRefresh,
-	})
-	refReq, _ := http.NewRequestWithContext(ctx, http.MethodPost, refreshURL, bytes.NewReader(refBody))
-	refReq.Header.Set("Content-Type", "application/json")
+	refReq := newRefreshRequest(ctx, refreshURL, initialRefresh)
 
 	refResp, err := http.DefaultClient.Do(refReq)
 	if err != nil {
@@ -182,11 +200,7 @@ func TestE2E_Refresh_Logout_Lifecycle(t *testing.T) {
 	}
 
 	// 4. VERIFY NEW REFRESH TOKEN SUCCEEDS (SECOND ROTATION)
-	newRefBody, _ := json.Marshal(map[string]string{
-		"refresh_token": refRefreshToken,
-	})
-	newRefReq, _ := http.NewRequestWithContext(ctx, http.MethodPost, refreshURL, bytes.NewReader(newRefBody))
-	newRefReq.Header.Set("Content-Type", "application/json")
+	newRefReq := newRefreshRequest(ctx, refreshURL, refRefreshToken)
 
 	newRefResp, err := http.DefaultClient.Do(newRefReq)
 	if err != nil {
@@ -204,11 +218,7 @@ func TestE2E_Refresh_Logout_Lifecycle(t *testing.T) {
 	latestRefreshToken := GetCookieValue(newRefResp, "refresh_token")
 
 	// 5. VERIFY OLD REFRESH TOKEN FAILS AFTER ROTATION AND REVOKES SESSION ON REUSE
-	oldRefBody, _ := json.Marshal(map[string]string{
-		"refresh_token": initialRefresh,
-	})
-	oldRefReq, _ := http.NewRequestWithContext(ctx, http.MethodPost, refreshURL, bytes.NewReader(oldRefBody))
-	oldRefReq.Header.Set("Content-Type", "application/json")
+	oldRefReq := newRefreshRequest(ctx, refreshURL, initialRefresh)
 
 	oldRefResp, err := http.DefaultClient.Do(oldRefReq)
 	if err != nil {
@@ -230,11 +240,7 @@ func TestE2E_Refresh_Logout_Lifecycle(t *testing.T) {
 	}
 
 	// 6. LOGOUT
-	logoutBody, _ := json.Marshal(map[string]string{
-		"refresh_token": latestRefreshToken,
-	})
-	logoutReq, _ := http.NewRequestWithContext(ctx, http.MethodPost, logoutURL, bytes.NewReader(logoutBody))
-	logoutReq.Header.Set("Content-Type", "application/json")
+	logoutReq := newLogoutRequest(ctx, logoutURL, latestRefreshToken)
 
 	logoutResp, err := http.DefaultClient.Do(logoutReq)
 	if err != nil {
@@ -247,8 +253,7 @@ func TestE2E_Refresh_Logout_Lifecycle(t *testing.T) {
 	}
 
 	// 7. VERIFY REFRESH AFTER LOGOUT FAILS
-	postLogoutReq, _ := http.NewRequestWithContext(ctx, http.MethodPost, refreshURL, bytes.NewReader(logoutBody))
-	postLogoutReq.Header.Set("Content-Type", "application/json")
+	postLogoutReq := newRefreshRequest(ctx, refreshURL, latestRefreshToken)
 
 	postLogoutResp, err := http.DefaultClient.Do(postLogoutReq)
 	if err != nil {
@@ -291,11 +296,7 @@ func TestE2E_Refresh_EdgeCases(t *testing.T) {
 
 	// 1. Unknown refresh token
 	t.Run("unknown refresh token returns generic 401", func(t *testing.T) {
-		body, _ := json.Marshal(map[string]string{
-			"refresh_token": "nonexistent_opaque_token_string_12345",
-		})
-		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, refreshURL, bytes.NewReader(body))
-		req.Header.Set("Content-Type", "application/json")
+		req := newRefreshRequest(ctx, refreshURL, "nonexistent_opaque_token_string_12345")
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
@@ -347,11 +348,7 @@ func TestE2E_Refresh_EdgeCases(t *testing.T) {
 			t.Fatalf("expire session failed: %v", err)
 		}
 
-		body, _ := json.Marshal(map[string]string{
-			"refresh_token": refreshToken,
-		})
-		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, refreshURL, bytes.NewReader(body))
-		req.Header.Set("Content-Type", "application/json")
+		req := newRefreshRequest(ctx, refreshURL, refreshToken)
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
@@ -376,11 +373,7 @@ func TestE2E_Refresh_EdgeCases(t *testing.T) {
 			t.Fatalf("revoke session failed: %v", err)
 		}
 
-		body, _ := json.Marshal(map[string]string{
-			"refresh_token": refreshToken,
-		})
-		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, refreshURL, bytes.NewReader(body))
-		req.Header.Set("Content-Type", "application/json")
+		req := newRefreshRequest(ctx, refreshURL, refreshToken)
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
@@ -430,11 +423,7 @@ func TestE2E_Refresh_EdgeCases(t *testing.T) {
 			t.Fatalf("update status failed: %v", err)
 		}
 
-		body, _ := json.Marshal(map[string]string{
-			"refresh_token": refreshToken2,
-		})
-		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, refreshURL, bytes.NewReader(body))
-		req.Header.Set("Content-Type", "application/json")
+		req := newRefreshRequest(ctx, refreshURL, refreshToken2)
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
@@ -506,11 +495,7 @@ func TestE2E_Refresh_ConcurrentRequests(t *testing.T) {
 	for i := 0; i < concurrency; i++ {
 		go func() {
 			defer wg.Done()
-			body, _ := json.Marshal(map[string]string{
-				"refresh_token": tokenToRotate,
-			})
-			req, _ := http.NewRequestWithContext(ctx, http.MethodPost, refreshURL, bytes.NewReader(body))
-			req.Header.Set("Content-Type", "application/json")
+			req := newRefreshRequest(ctx, refreshURL, tokenToRotate)
 
 			resp, err := http.DefaultClient.Do(req)
 			if err != nil {

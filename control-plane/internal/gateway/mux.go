@@ -175,6 +175,8 @@ func GatewayMetadataAnnotator(trustedProxies []*net.IPNet) func(ctx context.Cont
 		}
 		if c, err := r.Cookie(RefreshTokenCookieName); err == nil && strings.TrimSpace(c.Value) != "" {
 			md.Set("x-refresh-token", strings.TrimSpace(c.Value))
+		} else if h := r.Header.Get("X-Refresh-Token"); strings.TrimSpace(h) != "" {
+			md.Set("x-refresh-token", strings.TrimSpace(h))
 		}
 
 		return md

@@ -133,7 +133,7 @@
     "/api/v1/auth/refresh": {
       "post": {
         "summary": "Rotate session tokens",
-        "description": "Rotates session tokens using the HttpOnly refresh_token cookie and returns updated access_token and refresh_token cookies. Tokens are omitted from the JSON response body.",
+        "description": "Rotates session tokens using the HttpOnly refresh_token cookie and returns updated access_token and refresh_token cookies. No request body is required.",
         "operationId": "AuthService_Refresh",
         "responses": {
           "200": {
@@ -149,16 +149,6 @@
             }
           }
         },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/v1RefreshRequest"
-            }
-          }
-        ],
         "tags": [
           "Authentication \u0026 Sessions"
         ]
@@ -2675,11 +2665,13 @@
       "type": "object",
       "properties": {
         "caller": {
-          "$ref": "#/definitions/v1CallerPrincipal"
+          "$ref": "#/definitions/v1CallerPrincipal",
+          "readOnly": true
         },
         "refresh_token": {
           "type": "string",
-          "description": "Optional if provided via HttpOnly 'refresh_token' cookie"
+          "description": "Delivered strictly via HttpOnly 'refresh_token' cookie; omitted from body",
+          "readOnly": true
         }
       }
     },
@@ -2734,15 +2726,6 @@
         "updated_at": {
           "type": "string",
           "format": "date-time"
-        }
-      }
-    },
-    "v1RefreshRequest": {
-      "type": "object",
-      "properties": {
-        "refresh_token": {
-          "type": "string",
-          "description": "Optional if provided via HttpOnly 'refresh_token' cookie"
         }
       }
     },

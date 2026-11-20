@@ -244,18 +244,16 @@ func (s *Server) Login(ctx context.Context, req *authv1.LoginRequest) (*authv1.L
 // Refresh processes token refresh and rotation requests over gRPC.
 func (s *Server) Refresh(ctx context.Context, req *authv1.RefreshRequest) (*authv1.RefreshResponse, error) {
 	if req == nil {
-		return nil, status.Error(codes.InvalidArgument, "request body cannot be empty")
+		return nil, status.Error(codes.InvalidArgument, "request cannot be empty")
 	}
 
 	if s.sessionService == nil {
 		return nil, status.Error(codes.Unimplemented, "session service not configured")
 	}
 
-	refreshToken := strings.TrimSpace(req.GetRefreshToken())
-	if refreshToken == "" {
-		if mdToken := metadataValue(ctx, "x-refresh-token"); mdToken != "" {
-			refreshToken = mdToken
-		}
+	refreshToken := ""
+	if mdToken := metadataValue(ctx, "x-refresh-token"); mdToken != "" {
+		refreshToken = mdToken
 	}
 	if refreshToken == "" {
 		return nil, status.Error(codes.InvalidArgument, "refresh token is required")

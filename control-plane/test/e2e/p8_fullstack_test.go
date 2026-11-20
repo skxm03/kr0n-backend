@@ -204,6 +204,24 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 		return resp, raw
 	}
 
+	doWithCookie := func(method, path string, cookies []*http.Cookie) (*http.Response, []byte) {
+		t.Helper()
+		req, err := http.NewRequestWithContext(ctx, method, gwServer.URL+path, nil)
+		if err != nil {
+			t.Fatalf("new request: %v", err)
+		}
+		for _, c := range cookies {
+			req.AddCookie(c)
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("do %s %s: %v", method, path, err)
+		}
+		defer resp.Body.Close()
+		raw, _ := io.ReadAll(resp.Body)
+		return resp, raw
+	}
+
 	// 1. Register + Password Reset + Reuse Detection
 	emailAddr := "p8_" + uuid.NewString() + "@kr0n.dev"
 	resp, raw := doJSON(http.MethodPost, "/api/v1/auth/register", "", map[string]string{
@@ -244,8 +262,8 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 	_ = json.Unmarshal(raw, &loginDTO)
 	loginRefreshToken := GetCookieValue(resp, "refresh_token")
 
-	resp, raw = doJSON(http.MethodPost, "/api/v1/auth/refresh", "", map[string]string{
-		"refresh_token": loginRefreshToken,
+	resp, raw = doWithCookie(http.MethodPost, "/api/v1/auth/refresh", []*http.Cookie{
+		{Name: "refresh_token", Value: loginRefreshToken},
 	})
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("refresh 1: %d %s", resp.StatusCode, string(raw))
@@ -255,14 +273,14 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 	rotRefreshToken := GetCookieValue(resp, "refresh_token")
 
 	// Reusing loginRefreshToken must fail AND revoke the rotated token's session
-	resp, _ = doJSON(http.MethodPost, "/api/v1/auth/refresh", "", map[string]string{
-		"refresh_token": loginRefreshToken,
+	resp, _ = doWithCookie(http.MethodPost, "/api/v1/auth/refresh", []*http.Cookie{
+		{Name: "refresh_token", Value: loginRefreshToken},
 	})
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("expected 401 on refresh reuse, got %d", resp.StatusCode)
 	}
-	resp, _ = doJSON(http.MethodPost, "/api/v1/auth/refresh", "", map[string]string{
-		"refresh_token": rotRefreshToken,
+	resp, _ = doWithCookie(http.MethodPost, "/api/v1/auth/refresh", []*http.Cookie{
+		{Name: "refresh_token", Value: rotRefreshToken},
 	})
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("expected rotated refresh token to be revoked after reuse detection, got %d", resp.StatusCode)
