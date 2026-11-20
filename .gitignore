@@ -23,6 +23,7 @@ build-errors.log
 
 # Certificates & Private Keys
 certs/
+*/certs
 *.key
 *.pem
 *.pfx

@@ -65,7 +65,9 @@ func NewApp(cfg *config.Config) (*App, error) {
 	}
 
 	// 3. Dial upstream for auth client (used by JWKS key set provider & API token verifier)
+	insecureAuth := isDev && cfg.AuthGRPCTLSCertFile == "" && cfg.AuthGRPCTLSCAFile == ""
 	authConn, err := DialUpstream(authAddr, DialUpstreamTLSConfig{
+		Insecure:   insecureAuth,
 		CertFile:   cfg.AuthGRPCTLSCertFile,
 		KeyFile:    cfg.AuthGRPCTLSKeyFile,
 		CAFile:     cfg.AuthGRPCTLSCAFile,
@@ -146,7 +148,9 @@ func NewApp(cfg *config.Config) (*App, error) {
 		Registry:           dynamicregistry.DefaultRegistry(),
 		MiddlewareRegistry: mwReg,
 		Dialer: func(svc dynamicconfig.ServiceConfig) (*grpc.ClientConn, error) {
+			insecure := isDev && svc.TLS.CAFile == "" && svc.TLS.CertFile == ""
 			return DialUpstream(svc.Address, DialUpstreamTLSConfig{
+				Insecure:   insecure,
 				CertFile:   svc.TLS.CertFile,
 				KeyFile:    svc.TLS.KeyFile,
 				CAFile:     svc.TLS.CAFile,
