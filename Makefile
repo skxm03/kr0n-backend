@@ -1,9 +1,21 @@
-.PHONY: all certs test test-race e2e build clean dev dev-infra dev-infra-down dev-infra-logs migrate-up migrate-down migrate-status dev-auth dev-gateway dev-github dev-mailer docker-build docker-up docker-down
+.PHONY: all certs test test-race e2e build clean dev dev-infra dev-infra-down dev-infra-logs migrate-up migrate-down migrate-status dev-auth dev-gateway dev-github dev-mailer docker-build docker-up docker-down check-env doctor
 
 DEV_COMPOSE := infrastructure/docker/docker-compose.dev.yml
 FULL_COMPOSE := infrastructure/docker/compose.yaml
 
 all: build test
+
+## -----------------------------------------------------------------------------
+## Environment & Pre-Flight Validation
+## -----------------------------------------------------------------------------
+
+## check-env: Verify .env completeness, TLS certificates, keys, and backing service readiness
+check-env:
+	@chmod +x scripts/check-env.sh
+	@./scripts/check-env.sh
+
+## doctor: Comprehensive pre-flight healthcheck alias for check-env
+doctor: check-env
 
 ## -----------------------------------------------------------------------------
 ## Development Infrastructure (PostgreSQL:5433, Redis:6379, RabbitMQ:5672, Mailpit:1025/8025)
@@ -44,8 +56,8 @@ migrate-status:
 ## Hot Reload Development (Air)
 ## -----------------------------------------------------------------------------
 
-## dev: Boot dev infra, apply migrations, and launch all 4 microservices with Air
-dev: dev-infra migrate-up
+## dev: Verify config, boot dev infra, apply migrations, and launch all 4 microservices with Air
+dev: check-env dev-infra migrate-up
 	@echo "Starting all microservices with Air live reloading (Ctrl+C to stop)..."
 	@trap 'kill 0' EXIT INT TERM; \
 	(cd control-plane && air -c .air.auth.toml) & \
