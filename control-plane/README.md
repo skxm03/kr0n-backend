@@ -7,42 +7,21 @@
 
 ## Running Locally
 
-### Option A: Full Stack via Root Docker Compose (Recommended for Dev)
-The root [`infrastructure/docker/compose.yaml`](../infrastructure/docker/compose.yaml) uses `include:` to bring up both isolated service stacks (`auth` and `gateway`) with network segmentation (`kr0n_auth_private`, `kr0n_gateway_private`, and shared `kr0n_control_plane`):
-```sh
-docker compose -f ../infrastructure/docker/compose.yaml up -d --build
+### Recommended: Root Makefile & Air Live Reload
+From the repository root, run:
+```bash
+make dev
 ```
+This automatically boots PostgreSQL on port 5433, Redis on 6379, RabbitMQ on 5672, Mailpit on 1025/8025, applies schema migrations, and launches all microservices with Air live reloading.
 
-### Option B: Per-Service Isolated Compose Stacks (CI/CD & Production)
-Each service owns its backing stores and private network in its own Compose file:
-```sh
-# Auth stack (auth-postgres + auth-mailpit + auth-migrate + auth on kr0n_auth_private)
-docker compose -f ../infrastructure/docker/auth/compose.yaml up -d --build
+See the root [README.md](../README.md) for full developer documentation, architecture overview, and command references.
 
-# Gateway stack (gateway-redis + gateway on kr0n_gateway_private)
-docker compose -f ../infrastructure/docker/gateway/compose.yaml up -d --build
+### Production & Full-Stack Containerized Compose
+To run all microservices fully containerized in Docker:
+```bash
+make docker-build
+make docker-up
 ```
-
-### Option C: Backing Stores in Docker + Go Binaries on Host
-1. **Start backing stores only**:
-   ```sh
-   docker compose -f ../infrastructure/docker/compose.yaml up -d auth-postgres gateway-redis auth-mailpit
-   ```
-
-2. **Copy `.env.example` and run database migrations**:
-   ```sh
-   cp .env.example .env
-   set -a && source .env && set +a
-   go run ./cmd/migrate up
-   ```
-
-3. **Start the Auth gRPC service and API Gateway**:
-   ```sh
-   go run ./cmd/auth
-   # in another terminal:
-   go run ./cmd/gateway
-   ```
-   Mailpit UI is available at `http://localhost:8025`.
 
 ## Security & Service Boundary
 
