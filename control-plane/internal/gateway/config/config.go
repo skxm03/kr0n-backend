@@ -20,6 +20,7 @@ type Config struct {
 	TrustedProxyCIDRs []string `env:"TRUSTED_PROXY_CIDRS"`
 	AuditRabbitMQURL  string   `env:"AUDIT_RABBITMQ_URL"`
 	AuditExchangeName string   `env:"AUDIT_EXCHANGE_NAME"`
+	FrontendURL       string   `env:"FRONTEND_URL" envDefault:"http://localhost:3000"`
 
 	// Upstream Auth TLS optional overrides
 	AuthGRPCTLSCAFile   string `env:"AUTH_GRPC_TLS_CA_FILE"`

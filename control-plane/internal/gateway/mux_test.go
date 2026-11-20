@@ -323,6 +323,44 @@ func TestGatewayResponseModifier(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("complete github oauth response sets cookies and redirects to FRONTEND_URL", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		ghResp := &authv1.CompleteGitHubOAuthResponse{
+			AccessToken:  "gh-access-token",
+			RefreshToken: "gh-refresh-token",
+		}
+
+		t.Setenv("FRONTEND_URL", "http://localhost:3000")
+		if err := GatewayResponseModifier(context.Background(), rec, ghResp); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if rec.Code != http.StatusFound {
+			t.Fatalf("expected 302 Found, got %d", rec.Code)
+		}
+		if loc := rec.Header().Get("Location"); loc != "http://localhost:3000" {
+			t.Fatalf("expected Location header http://localhost:3000, got %q", loc)
+		}
+
+		// Tokens wiped from response message
+		if ghResp.AccessToken != "" || ghResp.RefreshToken != "" {
+			t.Fatal("expected tokens to be wiped from response body")
+		}
+
+		// Cookies set
+		cookies := rec.Result().Cookies()
+		cookieMap := make(map[string]*http.Cookie)
+		for _, c := range cookies {
+			cookieMap[c.Name] = c
+		}
+		if cookieMap[AccessTokenCookieName] == nil || cookieMap[AccessTokenCookieName].Value != "gh-access-token" {
+			t.Fatal("expected access_token cookie to be set")
+		}
+		if cookieMap[RefreshTokenCookieName] == nil || cookieMap[RefreshTokenCookieName].Value != "gh-refresh-token" {
+			t.Fatal("expected refresh_token cookie to be set")
+		}
+	})
 }
 
 func TestGatewayMetadataAnnotator_RefreshTokenCookie(t *testing.T) {

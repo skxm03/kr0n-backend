@@ -307,20 +307,25 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 	}
 
 	cbReq, _ := http.NewRequestWithContext(ctx, http.MethodGet, gwServer.URL+"/api/v1/auth/github/callback?code=gh_code&code_verifier="+startData.CodeVerifier, nil)
-	cbResp, err := http.DefaultClient.Do(cbReq)
+	noRedirectClient := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	cbResp, err := noRedirectClient.Do(cbReq)
 	if err != nil {
 		t.Fatalf("github callback: %v", err)
 	}
-	cbRaw, _ := io.ReadAll(cbResp.Body)
 	cbResp.Body.Close()
-	if cbResp.StatusCode != http.StatusOK {
-		t.Fatalf("github callback status: %d %s", cbResp.StatusCode, string(cbRaw))
+	if cbResp.StatusCode != http.StatusFound {
+		t.Fatalf("expected 302 Found from github callback redirect, got %d", cbResp.StatusCode)
 	}
-	var ghLogin LoginResponseDTO
-	_ = json.Unmarshal(cbRaw, &ghLogin)
+	if loc := cbResp.Header.Get("Location"); loc != "http://localhost:3000" {
+		t.Fatalf("expected redirect to http://localhost:3000, got %q", loc)
+	}
 	ghAccessToken := GetCookieValue(cbResp, "access_token")
-	if ghLogin.User.Email != ghEmail || ghAccessToken == "" {
-		t.Fatalf("unexpected github login response: %+v", ghLogin)
+	if ghAccessToken == "" {
+		t.Fatal("expected access_token cookie from github callback redirect")
 	}
 
 	// 3. RBAC Organizations, API Tokens (`kr0n_pat_...`), and Audit Logs (`GET /api/v1/orgs/{id}/audit`)

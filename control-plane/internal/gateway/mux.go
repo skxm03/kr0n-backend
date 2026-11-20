@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -121,6 +122,13 @@ func GatewayResponseModifier(ctx context.Context, w http.ResponseWriter, resp pr
 				m.AccessToken = ""
 				m.RefreshToken = ""
 			}
+			frontendURL := strings.TrimSpace(os.Getenv("FRONTEND_URL"))
+			if frontendURL == "" {
+				frontendURL = "http://localhost:3000"
+			}
+			w.Header().Set("Location", frontendURL)
+			w.WriteHeader(http.StatusFound)
+			return nil
 		case *authv1.LogoutResponse:
 			ClearAuthCookies(w)
 		}
