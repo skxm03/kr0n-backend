@@ -4,14 +4,102 @@ package auth.v1;
 
 import "google/api/annotations.proto";
 import "google/protobuf/timestamp.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
 
-// AuthService defines RPC operations for identity and credentials.
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "kr0n Control Plane & Auth API"
+    version: "1.0.0"
+    description: "Enterprise multi-tenant control plane API for identity, RBAC, workspaces, API keys, and GitHub integrations."
+    contact: {
+      name: "kr0n engineering"
+      url: "https://github.com/skxm03/kr0n-backend"
+    }
+  }
+  host: "localhost:8080"
+  schemes: HTTP
+  consumes: "application/json"
+  produces: "application/json"
+  security_definitions: {
+    security: {
+      key: "BearerAuth"
+      value: {
+        type: TYPE_API_KEY
+        in: IN_HEADER
+        name: "Authorization"
+        description: "Standard JWT Bearer token format: `Bearer <access_token>`"
+      }
+    }
+    security: {
+      key: "ApiKeyAuth"
+      value: {
+        type: TYPE_API_KEY
+        in: IN_HEADER
+        name: "X-API-Key"
+        description: "Organization Personal Access Token format: `kr0n_pat_...`"
+      }
+    }
+  }
+  tags: [
+    {
+      name: "Authentication & Sessions"
+      description: "User registration, password login, token refresh, and active session management."
+    },
+    {
+      name: "Account & Profile"
+      description: "Caller identity inspection and email address verification workflows."
+    },
+    {
+      name: "Password Management"
+      description: "Self-service password reset, email confirmation, and credential rotation."
+    },
+    {
+      name: "GitHub Authentication"
+      description: "PKCE-protected OAuth 2.0 user login and account linking with GitHub."
+    },
+    {
+      name: "Organizations"
+      description: "Multi-tenant workspace lifecycle, discovery, settings, and deletion."
+    },
+    {
+      name: "Organization Members & Roles"
+      description: "RBAC roles, permission introspection, member onboarding, and role assignments."
+    },
+    {
+      name: "Organization Invites"
+      description: "Secure invitation links for inviting collaborators into organizations."
+    },
+    {
+      name: "API Tokens"
+      description: "Org-scoped Personal Access Tokens (`kr0n_pat_...`) for CI/CD pipelines and headless agents."
+    },
+    {
+      name: "Audit Log"
+      description: "Immutable, append-only security and operational audit trail."
+    },
+    {
+      name: "GitHub App Integrations"
+      description: "GitHub App workspace installations for repository and VCS access."
+    }
+  ]
+};
+
+// AuthService defines RPC operations for identity, credentials, multi-tenancy, and integrations.
 service AuthService {
+  // =========================================================================
+  // 1. Authentication & Sessions
+  // =========================================================================
+
   // Register creates a new user and password credential.
   rpc Register(RegisterRequest) returns (RegisterResponse) {
     option (google.api.http) = {
       post: "/api/v1/auth/register"
       body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Authentication & Sessions"]
+      summary: "Register new user account"
+      description: "Creates a new user profile with email, password, and display name. If email verification is enabled, an unverified account is created and an activation code is sent."
     };
   }
 
@@ -21,6 +109,11 @@ service AuthService {
       post: "/api/v1/auth/login"
       body: "*"
     };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Authentication & Sessions"]
+      summary: "Authenticate credentials & create session"
+      description: "Authenticates user credentials (email & password). Upon success, returns an Ed25519-signed JWT access token, a long-lived refresh token, and initial session metadata."
+    };
   }
 
   // Refresh rotates the refresh token and issues a fresh access token.
@@ -28,6 +121,11 @@ service AuthService {
     option (google.api.http) = {
       post: "/api/v1/auth/refresh"
       body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Authentication & Sessions"]
+      summary: "Rotate session tokens"
+      description: "Exchanges a valid refresh token for a fresh short-lived JWT access token and a newly rotated refresh token to prevent replay attacks."
     };
   }
 
@@ -37,6 +135,81 @@ service AuthService {
       post: "/api/v1/auth/logout"
       body: "*"
     };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Authentication & Sessions"]
+      summary: "Terminate active session"
+      description: "Revokes the active session and destroys the associated refresh token state in the Redis session store."
+    };
+  }
+
+  // ListSessions returns active sessions for the authenticated user.
+  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/auth/sessions"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Authentication & Sessions"]
+      summary: "List active user sessions"
+      description: "Retrieves all active device and browser sessions for the authenticated user, including client IP, user agent, and last active timestamp."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
+    };
+  }
+
+  // RevokeSession revokes a specific session belonging to the authenticated user.
+  rpc RevokeSession(RevokeSessionRequest) returns (RevokeSessionResponse) {
+    option (google.api.http) = {
+      delete: "/api/v1/auth/sessions/{session_id}"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Authentication & Sessions"]
+      summary: "Revoke specific user session"
+      description: "Immediately terminates a specific session by its session ID belonging to the authenticated user, invalidating any token refresh attempts."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
+    };
+  }
+
+  // GetJWKS returns the active public signing keys in JSON Web Key Set format.
+  rpc GetJWKS(GetJWKSRequest) returns (GetJWKSResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/auth/jwks"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Authentication & Sessions"]
+      summary: "JSON Web Key Set (JWKS)"
+      description: "Returns active public Ed25519 signing keys formatted according to RFC 7517. Used by the API Gateway, satellite services, and third-party verifiers."
+    };
+  }
+
+  // =========================================================================
+  // 2. Account & Profile
+  // =========================================================================
+
+  // GetMe retrieves the authenticated user's profile.
+  rpc GetMe(GetMeRequest) returns (GetMeResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/me"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Account & Profile"]
+      summary: "Get current user profile"
+      description: "Returns profile information, email verification status, and organization membership details for the authenticated user."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
+    };
   }
 
   // VerifyEmail validates a verification token and marks the user's email verified.
@@ -45,12 +218,10 @@ service AuthService {
       post: "/api/v1/auth/verify-email"
       body: "*"
     };
-  }
-
-  // GetJWKS returns the active public signing keys in JSON Web Key Set format.
-  rpc GetJWKS(GetJWKSRequest) returns (GetJWKSResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/auth/jwks"
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Account & Profile"]
+      summary: "Verify account email"
+      description: "Consumes an email verification token received via email and upgrades the account to verified status."
     };
   }
 
@@ -60,13 +231,27 @@ service AuthService {
       post: "/api/v1/auth/resend-verification"
       body: "*"
     };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Account & Profile"]
+      summary: "Resend verification email"
+      description: "Generates a fresh email verification token and dispatches an activation email if the account exists and is unverified."
+    };
   }
+
+  // =========================================================================
+  // 3. Password Management
+  // =========================================================================
 
   // RequestPasswordReset issues a password reset token and sends it if the account exists.
   rpc RequestPasswordReset(RequestPasswordResetRequest) returns (RequestPasswordResetResponse) {
     option (google.api.http) = {
       post: "/api/v1/auth/password-reset/request"
       body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Password Management"]
+      summary: "Request password reset"
+      description: "Initiates a self-service password reset flow. If the email is registered, a time-limited secure reset link is emailed."
     };
   }
 
@@ -76,6 +261,11 @@ service AuthService {
       post: "/api/v1/auth/password-reset/confirm"
       body: "*"
     };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Password Management"]
+      summary: "Confirm password reset"
+      description: "Consumes a valid password reset token and updates the user's password. Revokes all existing user sessions across devices."
+    };
   }
 
   // ChangePassword verifies current_password, updates password, and revokes other sessions.
@@ -84,33 +274,32 @@ service AuthService {
       post: "/api/v1/auth/password/change"
       body: "*"
     };
-  }
-
-  // GetMe retrieves the authenticated user's profile.
-  rpc GetMe(GetMeRequest) returns (GetMeResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/me"
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Password Management"]
+      summary: "Change account password"
+      description: "Verifies the current password and changes it to the new password for the authenticated caller. Revokes all other active sessions."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
     };
   }
 
-  // ListSessions returns active sessions for the authenticated user.
-  rpc ListSessions(ListSessionsRequest) returns (ListSessionsResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/auth/sessions"
-    };
-  }
-
-  // RevokeSession revokes a specific session belonging to the authenticated user.
-  rpc RevokeSession(RevokeSessionRequest) returns (RevokeSessionResponse) {
-    option (google.api.http) = {
-      delete: "/api/v1/auth/sessions/{session_id}"
-    };
-  }
+  // =========================================================================
+  // 4. GitHub Authentication
+  // =========================================================================
 
   // StartGitHubOAuth generates a PKCE challenge, state, and GitHub authorize URL.
   rpc StartGitHubOAuth(StartGitHubOAuthRequest) returns (StartGitHubOAuthResponse) {
     option (google.api.http) = {
       get: "/api/v1/auth/github/start"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["GitHub Authentication"]
+      summary: "Start GitHub OAuth login"
+      description: "Generates an RFC 7636 PKCE challenge and HMAC-signed state token, returning the GitHub authorization URL for the browser to redirect to."
     };
   }
 
@@ -119,23 +308,33 @@ service AuthService {
     option (google.api.http) = {
       get: "/api/v1/auth/github/callback"
     };
-  }
-
-  // CheckPermission evaluates whether a caller principal holds a permission in an organization.
-  rpc CheckPermission(CheckPermissionRequest) returns (CheckPermissionResponse);
-
-  // ListRoles returns all RBAC roles and their granted permissions.
-  rpc ListRoles(ListRolesRequest) returns (ListRolesResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/roles"
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["GitHub Authentication"]
+      summary: "Complete GitHub OAuth callback"
+      description: "Exchanges the authorization code and PKCE code verifier with GitHub, links or provisions the user account, and returns session tokens."
     };
   }
+
+  // =========================================================================
+  // 5. Organizations
+  // =========================================================================
 
   // CreateOrganization creates an organization with the caller as owner.
   rpc CreateOrganization(CreateOrganizationRequest) returns (CreateOrganizationResponse) {
     option (google.api.http) = {
       post: "/api/v1/orgs"
       body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Organizations"]
+      summary: "Create new organization workspace"
+      description: "Provisions a new multi-tenant organization workspace with a unique slug and designates the authenticated caller as the Owner."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
     };
   }
 
@@ -144,12 +343,34 @@ service AuthService {
     option (google.api.http) = {
       get: "/api/v1/orgs"
     };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Organizations"]
+      summary: "List user organizations"
+      description: "Retrieves all organizations in which the authenticated caller is a member, admin, or owner."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
+    };
   }
 
   // GetOrganization returns an organization by ID.
   rpc GetOrganization(GetOrganizationRequest) returns (GetOrganizationResponse) {
     option (google.api.http) = {
       get: "/api/v1/orgs/{org_id}"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Organizations"]
+      summary: "Get organization metadata"
+      description: "Returns organization metadata, slug, name, and timestamps by ID. Caller must belong to the organization."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
     };
   }
 
@@ -159,6 +380,17 @@ service AuthService {
       patch: "/api/v1/orgs/{org_id}"
       body: "*"
     };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Organizations"]
+      summary: "Update organization details"
+      description: "Modifies organization display name or metadata. Requires `org:write` permission."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
+    };
   }
 
   // DeleteOrganization deletes an organization.
@@ -166,12 +398,56 @@ service AuthService {
     option (google.api.http) = {
       delete: "/api/v1/orgs/{org_id}"
     };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Organizations"]
+      summary: "Delete organization workspace"
+      description: "Permanently deletes an organization and cascades removal across members, tokens, and resources. Requires Owner role."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
+    };
+  }
+
+  // =========================================================================
+  // 6. Organization Members & Roles
+  // =========================================================================
+
+  // ListRoles returns all RBAC roles and their granted permissions.
+  rpc ListRoles(ListRolesRequest) returns (ListRolesResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/roles"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Organization Members & Roles"]
+      summary: "List RBAC roles & permissions"
+      description: "Returns the platform RBAC role catalog (e.g. Owner, Admin, Member, Viewer) with their granular permission capabilities."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
+    };
   }
 
   // ListMembers lists members of an organization.
   rpc ListMembers(ListMembersRequest) returns (ListMembersResponse) {
     option (google.api.http) = {
       get: "/api/v1/orgs/{org_id}/members"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Organization Members & Roles"]
+      summary: "List organization members"
+      description: "Retrieves all members within an organization workspace, including user email, display name, and assigned role."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
     };
   }
 
@@ -181,6 +457,17 @@ service AuthService {
       post: "/api/v1/orgs/{org_id}/members"
       body: "*"
     };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Organization Members & Roles"]
+      summary: "Directly add member by email"
+      description: "Adds an existing registered user directly to the organization workspace with the specified role. Requires `members:write`."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
+    };
   }
 
   // UpdateMemberRole updates a member's role in an organization.
@@ -189,6 +476,17 @@ service AuthService {
       patch: "/api/v1/orgs/{org_id}/members/{target_user_id}"
       body: "*"
     };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Organization Members & Roles"]
+      summary: "Update member role assignment"
+      description: "Promotes or demotes an existing member's role within the organization. Requires `members:write`."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
+    };
   }
 
   // RemoveMember removes a member from an organization.
@@ -196,13 +494,43 @@ service AuthService {
     option (google.api.http) = {
       delete: "/api/v1/orgs/{org_id}/members/{target_user_id}"
     };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Organization Members & Roles"]
+      summary: "Remove member from organization"
+      description: "Removes a member from the organization workspace, revoking all organization-scoped permissions. Requires `members:delete`."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
+    };
   }
+
+  // CheckPermission evaluates whether a caller principal holds a permission in an organization.
+  // Internal service-to-service gRPC method.
+  rpc CheckPermission(CheckPermissionRequest) returns (CheckPermissionResponse);
+
+  // =========================================================================
+  // 7. Organization Invites
+  // =========================================================================
 
   // CreateInvite creates an organization invitation token.
   rpc CreateInvite(CreateInviteRequest) returns (CreateInviteResponse) {
     option (google.api.http) = {
       post: "/api/v1/orgs/{org_id}/invites"
       body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Organization Invites"]
+      summary: "Create invitation link"
+      description: "Generates an invitation token to invite an email address into the organization workspace under a specified role. Requires `invites:write`."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
     };
   }
 
@@ -212,6 +540,17 @@ service AuthService {
       post: "/api/v1/orgs/invites/accept"
       body: "*"
     };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Organization Invites"]
+      summary: "Accept organization invite"
+      description: "Consumes an invitation token and attaches the authenticated user to the organization with the invite's designated role."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
+    };
   }
 
   // RevokeInvite revokes a pending organization invitation.
@@ -219,13 +558,39 @@ service AuthService {
     option (google.api.http) = {
       delete: "/api/v1/orgs/{org_id}/invites/{invite_id}"
     };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Organization Invites"]
+      summary: "Revoke pending invitation"
+      description: "Invalidates a pending invitation token, preventing it from being accepted. Requires `invites:delete`."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
+    };
   }
+
+  // =========================================================================
+  // 8. API Tokens
+  // =========================================================================
 
   // CreateAPIToken creates an org-scoped API token (`kr0n_pat_...`).
   rpc CreateAPIToken(CreateAPITokenRequest) returns (CreateAPITokenResponse) {
     option (google.api.http) = {
       post: "/api/v1/orgs/{org_id}/tokens"
       body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["API Tokens"]
+      summary: "Create Personal Access Token (PAT)"
+      description: "Provisions an org-scoped API token (`kr0n_pat_...`) with custom permissions and optional expiration. The raw token is returned only once upon creation. Requires `tokens:write`."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
     };
   }
 
@@ -234,6 +599,17 @@ service AuthService {
     option (google.api.http) = {
       get: "/api/v1/orgs/{org_id}/tokens"
     };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["API Tokens"]
+      summary: "List organization API tokens"
+      description: "Retrieves metadata for all active Personal Access Tokens created for the organization, including name, prefix, scopes, and expiration. Requires `tokens:read`."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
+    };
   }
 
   // RevokeAPIToken revokes an organization API token.
@@ -241,22 +617,64 @@ service AuthService {
     option (google.api.http) = {
       delete: "/api/v1/orgs/{org_id}/tokens/{token_id}"
     };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["API Tokens"]
+      summary: "Revoke API token"
+      description: "Immediately revokes an API token, deactivating programmatic access for CI/CD or automation clients. Requires `tokens:delete`."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
+    };
   }
 
   // ValidateAPIToken validates a raw `kr0n_pat_...` token and returns its org scope and permissions.
+  // Internal service-to-service gRPC method.
   rpc ValidateAPIToken(ValidateAPITokenRequest) returns (ValidateAPITokenResponse);
+
+  // =========================================================================
+  // 9. Audit Log
+  // =========================================================================
 
   // ListAuditEvents lists append-only audit events for an organization, gated by `audit:read`.
   rpc ListAuditEvents(ListAuditEventsRequest) returns (ListAuditEventsResponse) {
     option (google.api.http) = {
       get: "/api/v1/orgs/{org_id}/audit"
     };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Audit Log"]
+      summary: "List organization audit events"
+      description: "Queries the immutable append-only audit log for security, authentication, and administrative actions within the organization. Requires `audit:read`."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
+    };
   }
+
+  // =========================================================================
+  // 10. GitHub App Integrations
+  // =========================================================================
 
   // StartGitHubInstallation generates a signed installation state token and GitHub App installation URL.
   rpc StartGitHubInstallation(StartGitHubInstallationRequest) returns (StartGitHubInstallationResponse) {
     option (google.api.http) = {
       get: "/api/v1/orgs/{org_id}/github/installations/start"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["GitHub App Integrations"]
+      summary: "Start GitHub App installation"
+      description: "Generates an HMAC-signed installation state token and returns the GitHub App installation URL on github.com. Requires `github:install`."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
     };
   }
 
@@ -266,6 +684,17 @@ service AuthService {
       post: "/api/v1/orgs/{org_id}/github/installations"
       body: "*"
     };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["GitHub App Integrations"]
+      summary: "Complete GitHub App installation"
+      description: "Verifies the signed installation state token from GitHub and permanently links the GitHub App installation ID to the organization workspace. Requires `github:install`."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
+    };
   }
 
   // ListGitHubInstallations lists GitHub App installations linked to the organization.
@@ -273,12 +702,34 @@ service AuthService {
     option (google.api.http) = {
       get: "/api/v1/orgs/{org_id}/github/installations"
     };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["GitHub App Integrations"]
+      summary: "List GitHub App installations"
+      description: "Retrieves all GitHub App installations linked to the organization workspace, including account login, avatar, and repository access scope. Requires `github:read`."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
+    };
   }
 
   // DisconnectGitHubInstallation unlinks a GitHub App installation from the organization.
   rpc DisconnectGitHubInstallation(DisconnectGitHubInstallationRequest) returns (DisconnectGitHubInstallationResponse) {
     option (google.api.http) = {
       delete: "/api/v1/orgs/{org_id}/github/installations/{installation_id}"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["GitHub App Integrations"]
+      summary: "Disconnect GitHub App installation"
+      description: "Unlinks a GitHub App installation from the organization workspace, revoking repository access. Requires `github:delete`."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
     };
   }
 

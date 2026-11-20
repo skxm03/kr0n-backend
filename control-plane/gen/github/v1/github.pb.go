@@ -7,6 +7,7 @@
 package githubv1
 
 import (
+	_ "github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2/options"
 	v1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -531,7 +532,7 @@ var File_github_v1_github_proto protoreflect.FileDescriptor
 
 const file_github_v1_github_proto_rawDesc = "" +
 	"\n" +
-	"\x16github/v1/github.proto\x12\tgithub.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x12auth/v1/auth.proto\"\xc9\x01\n" +
+	"\x16github/v1/github.proto\x12\tgithub.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x12auth/v1/auth.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"\xc9\x01\n" +
 	"\x14GitHubRepositoryInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x14\n" +
 	"\x05owner\x18\x02 \x01(\tR\x05owner\x12\x12\n" +
@@ -567,11 +568,29 @@ const file_github_v1_github_proto_rawDesc = "" +
 	"\x04repo\x18\x05 \x01(\tR\x04repo\x12\x10\n" +
 	"\x03ref\x18\x06 \x01(\tR\x03ref\";\n" +
 	"\x17ListDirectoriesResponse\x12 \n" +
-	"\vdirectories\x18\x01 \x03(\tR\vdirectories2\xe6\x03\n" +
-	"\rGitHubService\x12\x8e\x01\n" +
-	"\x10ListRepositories\x12\".github.v1.ListRepositoriesRequest\x1a#.github.v1.ListRepositoriesResponse\"1\x82\xd3\xe4\x93\x02+\x12)/api/v1/orgs/{org_id}/github/repositories\x12\x9a\x01\n" +
-	"\fListBranches\x12\x1e.github.v1.ListBranchesRequest\x1a\x1f.github.v1.ListBranchesResponse\"I\x82\xd3\xe4\x93\x02C\x12A/api/v1/orgs/{org_id}/github/repositories/{owner}/{repo}/branches\x12\xa6\x01\n" +
-	"\x0fListDirectories\x12!.github.v1.ListDirectoriesRequest\x1a\".github.v1.ListDirectoriesResponse\"L\x82\xd3\xe4\x93\x02F\x12D/api/v1/orgs/{org_id}/github/repositories/{owner}/{repo}/directoriesB\xa6\x01\n" +
+	"\vdirectories\x18\x01 \x03(\tR\vdirectories2\x9c\t\n" +
+	"\rGitHubService\x12\x80\x03\n" +
+	"\x10ListRepositories\x12\".github.v1.ListRepositoriesRequest\x1a#.github.v1.ListRepositoriesResponse\"\xa2\x02\x92A\xed\x01\n" +
+	"\x19GitHub Repositories & VCS\x12#List accessible GitHub repositories\x1a\x98\x01Queries the GitHub API via installation credentials to list all repositories accessible to the linked organization installation. Requires `github:read`.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02+\x12)/api/v1/orgs/{org_id}/github/repositories\x12\xde\x02\n" +
+	"\fListBranches\x12\x1e.github.v1.ListBranchesRequest\x1a\x1f.github.v1.ListBranchesResponse\"\x8c\x02\x92A\xbf\x01\n" +
+	"\x19GitHub Repositories & VCS\x12\x18List repository branches\x1avReturns branch names, latest commit SHAs, and protection status for a given GitHub repository. Requires `github:read`.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02C\x12A/api/v1/orgs/{org_id}/github/repositories/{owner}/{repo}/branches\x12\xa6\x03\n" +
+	"\x0fListDirectories\x12!.github.v1.ListDirectoriesRequest\x1a\".github.v1.ListDirectoriesResponse\"\xcb\x02\x92A\xfb\x01\n" +
+	"\x19GitHub Repositories & VCS\x12#List repository directory structure\x1a\xa6\x01Discovers canonical directory structures (e.g. root '/', monorepo app subdirectories) at a given git commit/ref to assist workspace discovery. Requires `github:read`.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02F\x12D/api/v1/orgs/{org_id}/github/repositories/{owner}/{repo}/directoriesB\x90\x05\x92A\xe6\x03\x12\xd2\x01\n" +
+	"\x1bkr0n GitHub VCS Service API\x12pGitHub Version Control System microservice for repository exploration, branch indexing, and directory discovery.\":\n" +
+	"\x10kr0n engineering\x12&https://github.com/skxm03/kr0n-backend2\x051.0.0\x1a\x0elocalhost:8080*\x01\x012\x10application/json:\x10application/jsonZ^\n" +
+	"\\\n" +
+	"\n" +
+	"BearerAuth\x12N\b\x02\x129Standard JWT Bearer token format: `Bearer <access_token>`\x1a\rAuthorization \x02jx\n" +
+	"\x19GitHub Repositories & VCS\x12[Explore repositories, branches, and directory trees connected via GitHub App installations.\n" +
 	"\rcom.github.v1B\vGithubProtoP\x01ZCgithub.com/skxm03/kr0n-backend/control-plane/gen/github/v1;githubv1\xa2\x02\x03GXX\xaa\x02\tGithub.V1\xca\x02\tGithub\\V1\xe2\x02\x15Github\\V1\\GPBMetadata\xea\x02\n" +
 	"Github::V1b\x06proto3"
 

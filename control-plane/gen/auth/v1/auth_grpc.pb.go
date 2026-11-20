@@ -23,28 +23,28 @@ const (
 	AuthService_Login_FullMethodName                        = "/auth.v1.AuthService/Login"
 	AuthService_Refresh_FullMethodName                      = "/auth.v1.AuthService/Refresh"
 	AuthService_Logout_FullMethodName                       = "/auth.v1.AuthService/Logout"
-	AuthService_VerifyEmail_FullMethodName                  = "/auth.v1.AuthService/VerifyEmail"
+	AuthService_ListSessions_FullMethodName                 = "/auth.v1.AuthService/ListSessions"
+	AuthService_RevokeSession_FullMethodName                = "/auth.v1.AuthService/RevokeSession"
 	AuthService_GetJWKS_FullMethodName                      = "/auth.v1.AuthService/GetJWKS"
+	AuthService_GetMe_FullMethodName                        = "/auth.v1.AuthService/GetMe"
+	AuthService_VerifyEmail_FullMethodName                  = "/auth.v1.AuthService/VerifyEmail"
 	AuthService_ResendVerification_FullMethodName           = "/auth.v1.AuthService/ResendVerification"
 	AuthService_RequestPasswordReset_FullMethodName         = "/auth.v1.AuthService/RequestPasswordReset"
 	AuthService_ConfirmPasswordReset_FullMethodName         = "/auth.v1.AuthService/ConfirmPasswordReset"
 	AuthService_ChangePassword_FullMethodName               = "/auth.v1.AuthService/ChangePassword"
-	AuthService_GetMe_FullMethodName                        = "/auth.v1.AuthService/GetMe"
-	AuthService_ListSessions_FullMethodName                 = "/auth.v1.AuthService/ListSessions"
-	AuthService_RevokeSession_FullMethodName                = "/auth.v1.AuthService/RevokeSession"
 	AuthService_StartGitHubOAuth_FullMethodName             = "/auth.v1.AuthService/StartGitHubOAuth"
 	AuthService_CompleteGitHubOAuth_FullMethodName          = "/auth.v1.AuthService/CompleteGitHubOAuth"
-	AuthService_CheckPermission_FullMethodName              = "/auth.v1.AuthService/CheckPermission"
-	AuthService_ListRoles_FullMethodName                    = "/auth.v1.AuthService/ListRoles"
 	AuthService_CreateOrganization_FullMethodName           = "/auth.v1.AuthService/CreateOrganization"
 	AuthService_ListOrganizations_FullMethodName            = "/auth.v1.AuthService/ListOrganizations"
 	AuthService_GetOrganization_FullMethodName              = "/auth.v1.AuthService/GetOrganization"
 	AuthService_UpdateOrganization_FullMethodName           = "/auth.v1.AuthService/UpdateOrganization"
 	AuthService_DeleteOrganization_FullMethodName           = "/auth.v1.AuthService/DeleteOrganization"
+	AuthService_ListRoles_FullMethodName                    = "/auth.v1.AuthService/ListRoles"
 	AuthService_ListMembers_FullMethodName                  = "/auth.v1.AuthService/ListMembers"
 	AuthService_AddMember_FullMethodName                    = "/auth.v1.AuthService/AddMember"
 	AuthService_UpdateMemberRole_FullMethodName             = "/auth.v1.AuthService/UpdateMemberRole"
 	AuthService_RemoveMember_FullMethodName                 = "/auth.v1.AuthService/RemoveMember"
+	AuthService_CheckPermission_FullMethodName              = "/auth.v1.AuthService/CheckPermission"
 	AuthService_CreateInvite_FullMethodName                 = "/auth.v1.AuthService/CreateInvite"
 	AuthService_AcceptInvite_FullMethodName                 = "/auth.v1.AuthService/AcceptInvite"
 	AuthService_RevokeInvite_FullMethodName                 = "/auth.v1.AuthService/RevokeInvite"
@@ -64,7 +64,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// AuthService defines RPC operations for identity and credentials.
+// AuthService defines RPC operations for identity, credentials, multi-tenancy, and integrations.
 type AuthServiceClient interface {
 	// Register creates a new user and password credential.
 	Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error)
@@ -74,10 +74,16 @@ type AuthServiceClient interface {
 	Refresh(ctx context.Context, in *RefreshRequest, opts ...grpc.CallOption) (*RefreshResponse, error)
 	// Logout revokes the session associated with the refresh token.
 	Logout(ctx context.Context, in *LogoutRequest, opts ...grpc.CallOption) (*LogoutResponse, error)
-	// VerifyEmail validates a verification token and marks the user's email verified.
-	VerifyEmail(ctx context.Context, in *VerifyEmailRequest, opts ...grpc.CallOption) (*VerifyEmailResponse, error)
+	// ListSessions returns active sessions for the authenticated user.
+	ListSessions(ctx context.Context, in *ListSessionsRequest, opts ...grpc.CallOption) (*ListSessionsResponse, error)
+	// RevokeSession revokes a specific session belonging to the authenticated user.
+	RevokeSession(ctx context.Context, in *RevokeSessionRequest, opts ...grpc.CallOption) (*RevokeSessionResponse, error)
 	// GetJWKS returns the active public signing keys in JSON Web Key Set format.
 	GetJWKS(ctx context.Context, in *GetJWKSRequest, opts ...grpc.CallOption) (*GetJWKSResponse, error)
+	// GetMe retrieves the authenticated user's profile.
+	GetMe(ctx context.Context, in *GetMeRequest, opts ...grpc.CallOption) (*GetMeResponse, error)
+	// VerifyEmail validates a verification token and marks the user's email verified.
+	VerifyEmail(ctx context.Context, in *VerifyEmailRequest, opts ...grpc.CallOption) (*VerifyEmailResponse, error)
 	// ResendVerification issues a new email verification token and sends it if the account is unverified.
 	ResendVerification(ctx context.Context, in *ResendVerificationRequest, opts ...grpc.CallOption) (*ResendVerificationResponse, error)
 	// RequestPasswordReset issues a password reset token and sends it if the account exists.
@@ -86,20 +92,10 @@ type AuthServiceClient interface {
 	ConfirmPasswordReset(ctx context.Context, in *ConfirmPasswordResetRequest, opts ...grpc.CallOption) (*ConfirmPasswordResetResponse, error)
 	// ChangePassword verifies current_password, updates password, and revokes other sessions.
 	ChangePassword(ctx context.Context, in *ChangePasswordRequest, opts ...grpc.CallOption) (*ChangePasswordResponse, error)
-	// GetMe retrieves the authenticated user's profile.
-	GetMe(ctx context.Context, in *GetMeRequest, opts ...grpc.CallOption) (*GetMeResponse, error)
-	// ListSessions returns active sessions for the authenticated user.
-	ListSessions(ctx context.Context, in *ListSessionsRequest, opts ...grpc.CallOption) (*ListSessionsResponse, error)
-	// RevokeSession revokes a specific session belonging to the authenticated user.
-	RevokeSession(ctx context.Context, in *RevokeSessionRequest, opts ...grpc.CallOption) (*RevokeSessionResponse, error)
 	// StartGitHubOAuth generates a PKCE challenge, state, and GitHub authorize URL.
 	StartGitHubOAuth(ctx context.Context, in *StartGitHubOAuthRequest, opts ...grpc.CallOption) (*StartGitHubOAuthResponse, error)
 	// CompleteGitHubOAuth exchanges an OAuth code + PKCE verifier, links/creates the user, and issues a session.
 	CompleteGitHubOAuth(ctx context.Context, in *CompleteGitHubOAuthRequest, opts ...grpc.CallOption) (*CompleteGitHubOAuthResponse, error)
-	// CheckPermission evaluates whether a caller principal holds a permission in an organization.
-	CheckPermission(ctx context.Context, in *CheckPermissionRequest, opts ...grpc.CallOption) (*CheckPermissionResponse, error)
-	// ListRoles returns all RBAC roles and their granted permissions.
-	ListRoles(ctx context.Context, in *ListRolesRequest, opts ...grpc.CallOption) (*ListRolesResponse, error)
 	// CreateOrganization creates an organization with the caller as owner.
 	CreateOrganization(ctx context.Context, in *CreateOrganizationRequest, opts ...grpc.CallOption) (*CreateOrganizationResponse, error)
 	// ListOrganizations lists all organizations the user belongs to.
@@ -110,6 +106,8 @@ type AuthServiceClient interface {
 	UpdateOrganization(ctx context.Context, in *UpdateOrganizationRequest, opts ...grpc.CallOption) (*UpdateOrganizationResponse, error)
 	// DeleteOrganization deletes an organization.
 	DeleteOrganization(ctx context.Context, in *DeleteOrganizationRequest, opts ...grpc.CallOption) (*DeleteOrganizationResponse, error)
+	// ListRoles returns all RBAC roles and their granted permissions.
+	ListRoles(ctx context.Context, in *ListRolesRequest, opts ...grpc.CallOption) (*ListRolesResponse, error)
 	// ListMembers lists members of an organization.
 	ListMembers(ctx context.Context, in *ListMembersRequest, opts ...grpc.CallOption) (*ListMembersResponse, error)
 	// AddMember adds an existing user by email to an organization.
@@ -118,6 +116,9 @@ type AuthServiceClient interface {
 	UpdateMemberRole(ctx context.Context, in *UpdateMemberRoleRequest, opts ...grpc.CallOption) (*UpdateMemberRoleResponse, error)
 	// RemoveMember removes a member from an organization.
 	RemoveMember(ctx context.Context, in *RemoveMemberRequest, opts ...grpc.CallOption) (*RemoveMemberResponse, error)
+	// CheckPermission evaluates whether a caller principal holds a permission in an organization.
+	// Internal service-to-service gRPC method.
+	CheckPermission(ctx context.Context, in *CheckPermissionRequest, opts ...grpc.CallOption) (*CheckPermissionResponse, error)
 	// CreateInvite creates an organization invitation token.
 	CreateInvite(ctx context.Context, in *CreateInviteRequest, opts ...grpc.CallOption) (*CreateInviteResponse, error)
 	// AcceptInvite accepts an organization invitation token.
@@ -131,6 +132,7 @@ type AuthServiceClient interface {
 	// RevokeAPIToken revokes an organization API token.
 	RevokeAPIToken(ctx context.Context, in *RevokeAPITokenRequest, opts ...grpc.CallOption) (*RevokeAPITokenResponse, error)
 	// ValidateAPIToken validates a raw `kr0n_pat_...` token and returns its org scope and permissions.
+	// Internal service-to-service gRPC method.
 	ValidateAPIToken(ctx context.Context, in *ValidateAPITokenRequest, opts ...grpc.CallOption) (*ValidateAPITokenResponse, error)
 	// ListAuditEvents lists append-only audit events for an organization, gated by `audit:read`.
 	ListAuditEvents(ctx context.Context, in *ListAuditEventsRequest, opts ...grpc.CallOption) (*ListAuditEventsResponse, error)
@@ -195,10 +197,20 @@ func (c *authServiceClient) Logout(ctx context.Context, in *LogoutRequest, opts 
 	return out, nil
 }
 
-func (c *authServiceClient) VerifyEmail(ctx context.Context, in *VerifyEmailRequest, opts ...grpc.CallOption) (*VerifyEmailResponse, error) {
+func (c *authServiceClient) ListSessions(ctx context.Context, in *ListSessionsRequest, opts ...grpc.CallOption) (*ListSessionsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(VerifyEmailResponse)
-	err := c.cc.Invoke(ctx, AuthService_VerifyEmail_FullMethodName, in, out, cOpts...)
+	out := new(ListSessionsResponse)
+	err := c.cc.Invoke(ctx, AuthService_ListSessions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) RevokeSession(ctx context.Context, in *RevokeSessionRequest, opts ...grpc.CallOption) (*RevokeSessionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RevokeSessionResponse)
+	err := c.cc.Invoke(ctx, AuthService_RevokeSession_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -209,6 +221,26 @@ func (c *authServiceClient) GetJWKS(ctx context.Context, in *GetJWKSRequest, opt
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetJWKSResponse)
 	err := c.cc.Invoke(ctx, AuthService_GetJWKS_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) GetMe(ctx context.Context, in *GetMeRequest, opts ...grpc.CallOption) (*GetMeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetMeResponse)
+	err := c.cc.Invoke(ctx, AuthService_GetMe_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) VerifyEmail(ctx context.Context, in *VerifyEmailRequest, opts ...grpc.CallOption) (*VerifyEmailResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(VerifyEmailResponse)
+	err := c.cc.Invoke(ctx, AuthService_VerifyEmail_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -255,36 +287,6 @@ func (c *authServiceClient) ChangePassword(ctx context.Context, in *ChangePasswo
 	return out, nil
 }
 
-func (c *authServiceClient) GetMe(ctx context.Context, in *GetMeRequest, opts ...grpc.CallOption) (*GetMeResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetMeResponse)
-	err := c.cc.Invoke(ctx, AuthService_GetMe_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *authServiceClient) ListSessions(ctx context.Context, in *ListSessionsRequest, opts ...grpc.CallOption) (*ListSessionsResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ListSessionsResponse)
-	err := c.cc.Invoke(ctx, AuthService_ListSessions_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *authServiceClient) RevokeSession(ctx context.Context, in *RevokeSessionRequest, opts ...grpc.CallOption) (*RevokeSessionResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(RevokeSessionResponse)
-	err := c.cc.Invoke(ctx, AuthService_RevokeSession_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *authServiceClient) StartGitHubOAuth(ctx context.Context, in *StartGitHubOAuthRequest, opts ...grpc.CallOption) (*StartGitHubOAuthResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(StartGitHubOAuthResponse)
@@ -299,26 +301,6 @@ func (c *authServiceClient) CompleteGitHubOAuth(ctx context.Context, in *Complet
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CompleteGitHubOAuthResponse)
 	err := c.cc.Invoke(ctx, AuthService_CompleteGitHubOAuth_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *authServiceClient) CheckPermission(ctx context.Context, in *CheckPermissionRequest, opts ...grpc.CallOption) (*CheckPermissionResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(CheckPermissionResponse)
-	err := c.cc.Invoke(ctx, AuthService_CheckPermission_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *authServiceClient) ListRoles(ctx context.Context, in *ListRolesRequest, opts ...grpc.CallOption) (*ListRolesResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ListRolesResponse)
-	err := c.cc.Invoke(ctx, AuthService_ListRoles_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -375,6 +357,16 @@ func (c *authServiceClient) DeleteOrganization(ctx context.Context, in *DeleteOr
 	return out, nil
 }
 
+func (c *authServiceClient) ListRoles(ctx context.Context, in *ListRolesRequest, opts ...grpc.CallOption) (*ListRolesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListRolesResponse)
+	err := c.cc.Invoke(ctx, AuthService_ListRoles_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *authServiceClient) ListMembers(ctx context.Context, in *ListMembersRequest, opts ...grpc.CallOption) (*ListMembersResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListMembersResponse)
@@ -409,6 +401,16 @@ func (c *authServiceClient) RemoveMember(ctx context.Context, in *RemoveMemberRe
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RemoveMemberResponse)
 	err := c.cc.Invoke(ctx, AuthService_RemoveMember_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) CheckPermission(ctx context.Context, in *CheckPermissionRequest, opts ...grpc.CallOption) (*CheckPermissionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CheckPermissionResponse)
+	err := c.cc.Invoke(ctx, AuthService_CheckPermission_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -549,7 +551,7 @@ func (c *authServiceClient) GetGitHubInstallationToken(ctx context.Context, in *
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility.
 //
-// AuthService defines RPC operations for identity and credentials.
+// AuthService defines RPC operations for identity, credentials, multi-tenancy, and integrations.
 type AuthServiceServer interface {
 	// Register creates a new user and password credential.
 	Register(context.Context, *RegisterRequest) (*RegisterResponse, error)
@@ -559,10 +561,16 @@ type AuthServiceServer interface {
 	Refresh(context.Context, *RefreshRequest) (*RefreshResponse, error)
 	// Logout revokes the session associated with the refresh token.
 	Logout(context.Context, *LogoutRequest) (*LogoutResponse, error)
-	// VerifyEmail validates a verification token and marks the user's email verified.
-	VerifyEmail(context.Context, *VerifyEmailRequest) (*VerifyEmailResponse, error)
+	// ListSessions returns active sessions for the authenticated user.
+	ListSessions(context.Context, *ListSessionsRequest) (*ListSessionsResponse, error)
+	// RevokeSession revokes a specific session belonging to the authenticated user.
+	RevokeSession(context.Context, *RevokeSessionRequest) (*RevokeSessionResponse, error)
 	// GetJWKS returns the active public signing keys in JSON Web Key Set format.
 	GetJWKS(context.Context, *GetJWKSRequest) (*GetJWKSResponse, error)
+	// GetMe retrieves the authenticated user's profile.
+	GetMe(context.Context, *GetMeRequest) (*GetMeResponse, error)
+	// VerifyEmail validates a verification token and marks the user's email verified.
+	VerifyEmail(context.Context, *VerifyEmailRequest) (*VerifyEmailResponse, error)
 	// ResendVerification issues a new email verification token and sends it if the account is unverified.
 	ResendVerification(context.Context, *ResendVerificationRequest) (*ResendVerificationResponse, error)
 	// RequestPasswordReset issues a password reset token and sends it if the account exists.
@@ -571,20 +579,10 @@ type AuthServiceServer interface {
 	ConfirmPasswordReset(context.Context, *ConfirmPasswordResetRequest) (*ConfirmPasswordResetResponse, error)
 	// ChangePassword verifies current_password, updates password, and revokes other sessions.
 	ChangePassword(context.Context, *ChangePasswordRequest) (*ChangePasswordResponse, error)
-	// GetMe retrieves the authenticated user's profile.
-	GetMe(context.Context, *GetMeRequest) (*GetMeResponse, error)
-	// ListSessions returns active sessions for the authenticated user.
-	ListSessions(context.Context, *ListSessionsRequest) (*ListSessionsResponse, error)
-	// RevokeSession revokes a specific session belonging to the authenticated user.
-	RevokeSession(context.Context, *RevokeSessionRequest) (*RevokeSessionResponse, error)
 	// StartGitHubOAuth generates a PKCE challenge, state, and GitHub authorize URL.
 	StartGitHubOAuth(context.Context, *StartGitHubOAuthRequest) (*StartGitHubOAuthResponse, error)
 	// CompleteGitHubOAuth exchanges an OAuth code + PKCE verifier, links/creates the user, and issues a session.
 	CompleteGitHubOAuth(context.Context, *CompleteGitHubOAuthRequest) (*CompleteGitHubOAuthResponse, error)
-	// CheckPermission evaluates whether a caller principal holds a permission in an organization.
-	CheckPermission(context.Context, *CheckPermissionRequest) (*CheckPermissionResponse, error)
-	// ListRoles returns all RBAC roles and their granted permissions.
-	ListRoles(context.Context, *ListRolesRequest) (*ListRolesResponse, error)
 	// CreateOrganization creates an organization with the caller as owner.
 	CreateOrganization(context.Context, *CreateOrganizationRequest) (*CreateOrganizationResponse, error)
 	// ListOrganizations lists all organizations the user belongs to.
@@ -595,6 +593,8 @@ type AuthServiceServer interface {
 	UpdateOrganization(context.Context, *UpdateOrganizationRequest) (*UpdateOrganizationResponse, error)
 	// DeleteOrganization deletes an organization.
 	DeleteOrganization(context.Context, *DeleteOrganizationRequest) (*DeleteOrganizationResponse, error)
+	// ListRoles returns all RBAC roles and their granted permissions.
+	ListRoles(context.Context, *ListRolesRequest) (*ListRolesResponse, error)
 	// ListMembers lists members of an organization.
 	ListMembers(context.Context, *ListMembersRequest) (*ListMembersResponse, error)
 	// AddMember adds an existing user by email to an organization.
@@ -603,6 +603,9 @@ type AuthServiceServer interface {
 	UpdateMemberRole(context.Context, *UpdateMemberRoleRequest) (*UpdateMemberRoleResponse, error)
 	// RemoveMember removes a member from an organization.
 	RemoveMember(context.Context, *RemoveMemberRequest) (*RemoveMemberResponse, error)
+	// CheckPermission evaluates whether a caller principal holds a permission in an organization.
+	// Internal service-to-service gRPC method.
+	CheckPermission(context.Context, *CheckPermissionRequest) (*CheckPermissionResponse, error)
 	// CreateInvite creates an organization invitation token.
 	CreateInvite(context.Context, *CreateInviteRequest) (*CreateInviteResponse, error)
 	// AcceptInvite accepts an organization invitation token.
@@ -616,6 +619,7 @@ type AuthServiceServer interface {
 	// RevokeAPIToken revokes an organization API token.
 	RevokeAPIToken(context.Context, *RevokeAPITokenRequest) (*RevokeAPITokenResponse, error)
 	// ValidateAPIToken validates a raw `kr0n_pat_...` token and returns its org scope and permissions.
+	// Internal service-to-service gRPC method.
 	ValidateAPIToken(context.Context, *ValidateAPITokenRequest) (*ValidateAPITokenResponse, error)
 	// ListAuditEvents lists append-only audit events for an organization, gated by `audit:read`.
 	ListAuditEvents(context.Context, *ListAuditEventsRequest) (*ListAuditEventsResponse, error)
@@ -652,11 +656,20 @@ func (UnimplementedAuthServiceServer) Refresh(context.Context, *RefreshRequest) 
 func (UnimplementedAuthServiceServer) Logout(context.Context, *LogoutRequest) (*LogoutResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Logout not implemented")
 }
-func (UnimplementedAuthServiceServer) VerifyEmail(context.Context, *VerifyEmailRequest) (*VerifyEmailResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method VerifyEmail not implemented")
+func (UnimplementedAuthServiceServer) ListSessions(context.Context, *ListSessionsRequest) (*ListSessionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListSessions not implemented")
+}
+func (UnimplementedAuthServiceServer) RevokeSession(context.Context, *RevokeSessionRequest) (*RevokeSessionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RevokeSession not implemented")
 }
 func (UnimplementedAuthServiceServer) GetJWKS(context.Context, *GetJWKSRequest) (*GetJWKSResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetJWKS not implemented")
+}
+func (UnimplementedAuthServiceServer) GetMe(context.Context, *GetMeRequest) (*GetMeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetMe not implemented")
+}
+func (UnimplementedAuthServiceServer) VerifyEmail(context.Context, *VerifyEmailRequest) (*VerifyEmailResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method VerifyEmail not implemented")
 }
 func (UnimplementedAuthServiceServer) ResendVerification(context.Context, *ResendVerificationRequest) (*ResendVerificationResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ResendVerification not implemented")
@@ -670,26 +683,11 @@ func (UnimplementedAuthServiceServer) ConfirmPasswordReset(context.Context, *Con
 func (UnimplementedAuthServiceServer) ChangePassword(context.Context, *ChangePasswordRequest) (*ChangePasswordResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ChangePassword not implemented")
 }
-func (UnimplementedAuthServiceServer) GetMe(context.Context, *GetMeRequest) (*GetMeResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method GetMe not implemented")
-}
-func (UnimplementedAuthServiceServer) ListSessions(context.Context, *ListSessionsRequest) (*ListSessionsResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method ListSessions not implemented")
-}
-func (UnimplementedAuthServiceServer) RevokeSession(context.Context, *RevokeSessionRequest) (*RevokeSessionResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method RevokeSession not implemented")
-}
 func (UnimplementedAuthServiceServer) StartGitHubOAuth(context.Context, *StartGitHubOAuthRequest) (*StartGitHubOAuthResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method StartGitHubOAuth not implemented")
 }
 func (UnimplementedAuthServiceServer) CompleteGitHubOAuth(context.Context, *CompleteGitHubOAuthRequest) (*CompleteGitHubOAuthResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CompleteGitHubOAuth not implemented")
-}
-func (UnimplementedAuthServiceServer) CheckPermission(context.Context, *CheckPermissionRequest) (*CheckPermissionResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method CheckPermission not implemented")
-}
-func (UnimplementedAuthServiceServer) ListRoles(context.Context, *ListRolesRequest) (*ListRolesResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method ListRoles not implemented")
 }
 func (UnimplementedAuthServiceServer) CreateOrganization(context.Context, *CreateOrganizationRequest) (*CreateOrganizationResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateOrganization not implemented")
@@ -706,6 +704,9 @@ func (UnimplementedAuthServiceServer) UpdateOrganization(context.Context, *Updat
 func (UnimplementedAuthServiceServer) DeleteOrganization(context.Context, *DeleteOrganizationRequest) (*DeleteOrganizationResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteOrganization not implemented")
 }
+func (UnimplementedAuthServiceServer) ListRoles(context.Context, *ListRolesRequest) (*ListRolesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListRoles not implemented")
+}
 func (UnimplementedAuthServiceServer) ListMembers(context.Context, *ListMembersRequest) (*ListMembersResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListMembers not implemented")
 }
@@ -717,6 +718,9 @@ func (UnimplementedAuthServiceServer) UpdateMemberRole(context.Context, *UpdateM
 }
 func (UnimplementedAuthServiceServer) RemoveMember(context.Context, *RemoveMemberRequest) (*RemoveMemberResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RemoveMember not implemented")
+}
+func (UnimplementedAuthServiceServer) CheckPermission(context.Context, *CheckPermissionRequest) (*CheckPermissionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CheckPermission not implemented")
 }
 func (UnimplementedAuthServiceServer) CreateInvite(context.Context, *CreateInviteRequest) (*CreateInviteResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateInvite not implemented")
@@ -850,20 +854,38 @@ func _AuthService_Logout_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
-func _AuthService_VerifyEmail_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(VerifyEmailRequest)
+func _AuthService_ListSessions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListSessionsRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(AuthServiceServer).VerifyEmail(ctx, in)
+		return srv.(AuthServiceServer).ListSessions(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: AuthService_VerifyEmail_FullMethodName,
+		FullMethod: AuthService_ListSessions_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuthServiceServer).VerifyEmail(ctx, req.(*VerifyEmailRequest))
+		return srv.(AuthServiceServer).ListSessions(ctx, req.(*ListSessionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_RevokeSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeSessionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).RevokeSession(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_RevokeSession_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).RevokeSession(ctx, req.(*RevokeSessionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -882,6 +904,42 @@ func _AuthService_GetJWKS_Handler(srv interface{}, ctx context.Context, dec func
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AuthServiceServer).GetJWKS(ctx, req.(*GetJWKSRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_GetMe_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetMeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).GetMe(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_GetMe_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).GetMe(ctx, req.(*GetMeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_VerifyEmail_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VerifyEmailRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).VerifyEmail(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_VerifyEmail_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).VerifyEmail(ctx, req.(*VerifyEmailRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -958,60 +1016,6 @@ func _AuthService_ChangePassword_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
-func _AuthService_GetMe_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetMeRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AuthServiceServer).GetMe(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: AuthService_GetMe_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuthServiceServer).GetMe(ctx, req.(*GetMeRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _AuthService_ListSessions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListSessionsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AuthServiceServer).ListSessions(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: AuthService_ListSessions_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuthServiceServer).ListSessions(ctx, req.(*ListSessionsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _AuthService_RevokeSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RevokeSessionRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AuthServiceServer).RevokeSession(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: AuthService_RevokeSession_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuthServiceServer).RevokeSession(ctx, req.(*RevokeSessionRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _AuthService_StartGitHubOAuth_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(StartGitHubOAuthRequest)
 	if err := dec(in); err != nil {
@@ -1044,42 +1048,6 @@ func _AuthService_CompleteGitHubOAuth_Handler(srv interface{}, ctx context.Conte
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AuthServiceServer).CompleteGitHubOAuth(ctx, req.(*CompleteGitHubOAuthRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _AuthService_CheckPermission_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CheckPermissionRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AuthServiceServer).CheckPermission(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: AuthService_CheckPermission_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuthServiceServer).CheckPermission(ctx, req.(*CheckPermissionRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _AuthService_ListRoles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListRolesRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AuthServiceServer).ListRoles(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: AuthService_ListRoles_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuthServiceServer).ListRoles(ctx, req.(*ListRolesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1174,6 +1142,24 @@ func _AuthService_DeleteOrganization_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthService_ListRoles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListRolesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).ListRoles(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_ListRoles_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).ListRoles(ctx, req.(*ListRolesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _AuthService_ListMembers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListMembersRequest)
 	if err := dec(in); err != nil {
@@ -1242,6 +1228,24 @@ func _AuthService_RemoveMember_Handler(srv interface{}, ctx context.Context, dec
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AuthServiceServer).RemoveMember(ctx, req.(*RemoveMemberRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_CheckPermission_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CheckPermissionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).CheckPermission(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_CheckPermission_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).CheckPermission(ctx, req.(*CheckPermissionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1504,12 +1508,24 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _AuthService_Logout_Handler,
 		},
 		{
-			MethodName: "VerifyEmail",
-			Handler:    _AuthService_VerifyEmail_Handler,
+			MethodName: "ListSessions",
+			Handler:    _AuthService_ListSessions_Handler,
+		},
+		{
+			MethodName: "RevokeSession",
+			Handler:    _AuthService_RevokeSession_Handler,
 		},
 		{
 			MethodName: "GetJWKS",
 			Handler:    _AuthService_GetJWKS_Handler,
+		},
+		{
+			MethodName: "GetMe",
+			Handler:    _AuthService_GetMe_Handler,
+		},
+		{
+			MethodName: "VerifyEmail",
+			Handler:    _AuthService_VerifyEmail_Handler,
 		},
 		{
 			MethodName: "ResendVerification",
@@ -1528,32 +1544,12 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _AuthService_ChangePassword_Handler,
 		},
 		{
-			MethodName: "GetMe",
-			Handler:    _AuthService_GetMe_Handler,
-		},
-		{
-			MethodName: "ListSessions",
-			Handler:    _AuthService_ListSessions_Handler,
-		},
-		{
-			MethodName: "RevokeSession",
-			Handler:    _AuthService_RevokeSession_Handler,
-		},
-		{
 			MethodName: "StartGitHubOAuth",
 			Handler:    _AuthService_StartGitHubOAuth_Handler,
 		},
 		{
 			MethodName: "CompleteGitHubOAuth",
 			Handler:    _AuthService_CompleteGitHubOAuth_Handler,
-		},
-		{
-			MethodName: "CheckPermission",
-			Handler:    _AuthService_CheckPermission_Handler,
-		},
-		{
-			MethodName: "ListRoles",
-			Handler:    _AuthService_ListRoles_Handler,
 		},
 		{
 			MethodName: "CreateOrganization",
@@ -1576,6 +1572,10 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _AuthService_DeleteOrganization_Handler,
 		},
 		{
+			MethodName: "ListRoles",
+			Handler:    _AuthService_ListRoles_Handler,
+		},
+		{
 			MethodName: "ListMembers",
 			Handler:    _AuthService_ListMembers_Handler,
 		},
@@ -1590,6 +1590,10 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RemoveMember",
 			Handler:    _AuthService_RemoveMember_Handler,
+		},
+		{
+			MethodName: "CheckPermission",
+			Handler:    _AuthService_CheckPermission_Handler,
 		},
 		{
 			MethodName: "CreateInvite",

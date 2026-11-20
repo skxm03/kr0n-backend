@@ -5,6 +5,8 @@ managed:
   disable:
     - file_option: go_package_prefix
       module: buf.build/googleapis/googleapis
+    - file_option: go_package_prefix
+      module: buf.build/grpc-ecosystem/grpc-gateway
   override:
     - file_option: go_package_prefix
       value: github.com/skxm03/kr0n-backend/control-plane/gen
@@ -31,5 +33,5 @@ plugins:
     opt:
       - json_names_for_fields=false
       - output_format=json
-      - host=localhost:8080
-      - schemes=http
+      - preserve_rpc_order=true
+      - disable_service_tags=true

@@ -1,17 +1,59 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "auth/v1/auth.proto",
-    "version": "version not set"
+    "title": "kr0n Control Plane \u0026 Auth API",
+    "description": "Enterprise multi-tenant control plane API for identity, RBAC, workspaces, API keys, and GitHub integrations.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "kr0n engineering",
+      "url": "https://github.com/skxm03/kr0n-backend"
+    }
   },
+  "tags": [
+    {
+      "name": "Authentication \u0026 Sessions",
+      "description": "User registration, password login, token refresh, and active session management."
+    },
+    {
+      "name": "Account \u0026 Profile",
+      "description": "Caller identity inspection and email address verification workflows."
+    },
+    {
+      "name": "Password Management",
+      "description": "Self-service password reset, email confirmation, and credential rotation."
+    },
+    {
+      "name": "GitHub Authentication",
+      "description": "PKCE-protected OAuth 2.0 user login and account linking with GitHub."
+    },
+    {
+      "name": "Organizations",
+      "description": "Multi-tenant workspace lifecycle, discovery, settings, and deletion."
+    },
+    {
+      "name": "Organization Members \u0026 Roles",
+      "description": "RBAC roles, permission introspection, member onboarding, and role assignments."
+    },
+    {
+      "name": "Organization Invites",
+      "description": "Secure invitation links for inviting collaborators into organizations."
+    },
+    {
+      "name": "API Tokens",
+      "description": "Org-scoped Personal Access Tokens (`kr0n_pat_...`) for CI/CD pipelines and headless agents."
+    },
+    {
+      "name": "Audit Log",
+      "description": "Immutable, append-only security and operational audit trail."
+    },
+    {
+      "name": "GitHub App Integrations",
+      "description": "GitHub App workspace installations for repository and VCS access."
+    }
+  ],
   "host": "localhost:8080",
   "schemes": [
     "http"
-  ],
-  "tags": [
-    {
-      "name": "AuthService"
-    }
   ],
   "consumes": [
     "application/json"
@@ -20,302 +62,10 @@
     "application/json"
   ],
   "paths": {
-    "/api/v1/auth/github/callback": {
-      "get": {
-        "summary": "CompleteGitHubOAuth exchanges an OAuth code + PKCE verifier, links/creates the user, and issues a session.",
-        "operationId": "AuthService_CompleteGitHubOAuth",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1CompleteGitHubOAuthResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "code",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "code_verifier",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "user_agent",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "client_ip",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          }
-        ],
-        "tags": [
-          "AuthService"
-        ]
-      }
-    },
-    "/api/v1/auth/github/start": {
-      "get": {
-        "summary": "StartGitHubOAuth generates a PKCE challenge, state, and GitHub authorize URL.",
-        "operationId": "AuthService_StartGitHubOAuth",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1StartGitHubOAuthResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "tags": [
-          "AuthService"
-        ]
-      }
-    },
-    "/api/v1/auth/jwks": {
-      "get": {
-        "summary": "GetJWKS returns the active public signing keys in JSON Web Key Set format.",
-        "operationId": "AuthService_GetJWKS",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1GetJWKSResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "tags": [
-          "AuthService"
-        ]
-      }
-    },
-    "/api/v1/auth/login": {
-      "post": {
-        "summary": "Login authenticates credentials and issues tokens with an active session.",
-        "operationId": "AuthService_Login",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1LoginResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/v1LoginRequest"
-            }
-          }
-        ],
-        "tags": [
-          "AuthService"
-        ]
-      }
-    },
-    "/api/v1/auth/logout": {
-      "post": {
-        "summary": "Logout revokes the session associated with the refresh token.",
-        "operationId": "AuthService_Logout",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1LogoutResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/v1LogoutRequest"
-            }
-          }
-        ],
-        "tags": [
-          "AuthService"
-        ]
-      }
-    },
-    "/api/v1/auth/password-reset/confirm": {
-      "post": {
-        "summary": "ConfirmPasswordReset consumes a password reset token and updates the user's password.",
-        "operationId": "AuthService_ConfirmPasswordReset",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1ConfirmPasswordResetResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/v1ConfirmPasswordResetRequest"
-            }
-          }
-        ],
-        "tags": [
-          "AuthService"
-        ]
-      }
-    },
-    "/api/v1/auth/password-reset/request": {
-      "post": {
-        "summary": "RequestPasswordReset issues a password reset token and sends it if the account exists.",
-        "operationId": "AuthService_RequestPasswordReset",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1RequestPasswordResetResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/v1RequestPasswordResetRequest"
-            }
-          }
-        ],
-        "tags": [
-          "AuthService"
-        ]
-      }
-    },
-    "/api/v1/auth/password/change": {
-      "post": {
-        "summary": "ChangePassword verifies current_password, updates password, and revokes other sessions.",
-        "operationId": "AuthService_ChangePassword",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1ChangePasswordResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/v1ChangePasswordRequest"
-            }
-          }
-        ],
-        "tags": [
-          "AuthService"
-        ]
-      }
-    },
-    "/api/v1/auth/refresh": {
-      "post": {
-        "summary": "Refresh rotates the refresh token and issues a fresh access token.",
-        "operationId": "AuthService_Refresh",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1RefreshResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/v1RefreshRequest"
-            }
-          }
-        ],
-        "tags": [
-          "AuthService"
-        ]
-      }
-    },
     "/api/v1/auth/register": {
       "post": {
-        "summary": "Register creates a new user and password credential.",
+        "summary": "Register new user account",
+        "description": "Creates a new user profile with email, password, and display name. If email verification is enabled, an unverified account is created and an activation code is sent.",
         "operationId": "AuthService_Register",
         "responses": {
           "200": {
@@ -342,19 +92,20 @@
           }
         ],
         "tags": [
-          "AuthService"
+          "Authentication \u0026 Sessions"
         ]
       }
     },
-    "/api/v1/auth/resend-verification": {
+    "/api/v1/auth/login": {
       "post": {
-        "summary": "ResendVerification issues a new email verification token and sends it if the account is unverified.",
-        "operationId": "AuthService_ResendVerification",
+        "summary": "Authenticate credentials \u0026 create session",
+        "description": "Authenticates user credentials (email \u0026 password). Upon success, returns an Ed25519-signed JWT access token, a long-lived refresh token, and initial session metadata.",
+        "operationId": "AuthService_Login",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/v1ResendVerificationResponse"
+              "$ref": "#/definitions/v1LoginResponse"
             }
           },
           "default": {
@@ -370,18 +121,87 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/v1ResendVerificationRequest"
+              "$ref": "#/definitions/v1LoginRequest"
             }
           }
         ],
         "tags": [
-          "AuthService"
+          "Authentication \u0026 Sessions"
+        ]
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "summary": "Rotate session tokens",
+        "description": "Exchanges a valid refresh token for a fresh short-lived JWT access token and a newly rotated refresh token to prevent replay attacks.",
+        "operationId": "AuthService_Refresh",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1RefreshResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1RefreshRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Authentication \u0026 Sessions"
+        ]
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "summary": "Terminate active session",
+        "description": "Revokes the active session and destroys the associated refresh token state in the Redis session store.",
+        "operationId": "AuthService_Logout",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1LogoutResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1LogoutRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Authentication \u0026 Sessions"
         ]
       }
     },
     "/api/v1/auth/sessions": {
       "get": {
-        "summary": "ListSessions returns active sessions for the authenticated user.",
+        "summary": "List active user sessions",
+        "description": "Retrieves all active device and browser sessions for the authenticated user, including client IP, user agent, and last active timestamp.",
         "operationId": "AuthService_ListSessions",
         "responses": {
           "200": {
@@ -434,13 +254,19 @@
           }
         ],
         "tags": [
-          "AuthService"
+          "Authentication \u0026 Sessions"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
         ]
       }
     },
     "/api/v1/auth/sessions/{session_id}": {
       "delete": {
-        "summary": "RevokeSession revokes a specific session belonging to the authenticated user.",
+        "summary": "Revoke specific user session",
+        "description": "Immediately terminates a specific session by its session ID belonging to the authenticated user, invalidating any token refresh attempts.",
         "operationId": "AuthService_RevokeSession",
         "responses": {
           "200": {
@@ -499,19 +325,25 @@
           }
         ],
         "tags": [
-          "AuthService"
+          "Authentication \u0026 Sessions"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
         ]
       }
     },
-    "/api/v1/auth/verify-email": {
-      "post": {
-        "summary": "VerifyEmail validates a verification token and marks the user's email verified.",
-        "operationId": "AuthService_VerifyEmail",
+    "/api/v1/auth/jwks": {
+      "get": {
+        "summary": "JSON Web Key Set (JWKS)",
+        "description": "Returns active public Ed25519 signing keys formatted according to RFC 7517. Used by the API Gateway, satellite services, and third-party verifiers.",
+        "operationId": "AuthService_GetJWKS",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/v1VerifyEmailResponse"
+              "$ref": "#/definitions/v1GetJWKSResponse"
             }
           },
           "default": {
@@ -521,24 +353,15 @@
             }
           }
         },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/v1VerifyEmailRequest"
-            }
-          }
-        ],
         "tags": [
-          "AuthService"
+          "Authentication \u0026 Sessions"
         ]
       }
     },
     "/api/v1/me": {
       "get": {
-        "summary": "GetMe retrieves the authenticated user's profile.",
+        "summary": "Get current user profile",
+        "description": "Returns profile information, email verification status, and organization membership details for the authenticated user.",
         "operationId": "AuthService_GetMe",
         "responses": {
           "200": {
@@ -591,13 +414,268 @@
           }
         ],
         "tags": [
-          "AuthService"
+          "Account \u0026 Profile"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/verify-email": {
+      "post": {
+        "summary": "Verify account email",
+        "description": "Consumes an email verification token received via email and upgrades the account to verified status.",
+        "operationId": "AuthService_VerifyEmail",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1VerifyEmailResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1VerifyEmailRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Account \u0026 Profile"
+        ]
+      }
+    },
+    "/api/v1/auth/resend-verification": {
+      "post": {
+        "summary": "Resend verification email",
+        "description": "Generates a fresh email verification token and dispatches an activation email if the account exists and is unverified.",
+        "operationId": "AuthService_ResendVerification",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ResendVerificationResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1ResendVerificationRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Account \u0026 Profile"
+        ]
+      }
+    },
+    "/api/v1/auth/password-reset/request": {
+      "post": {
+        "summary": "Request password reset",
+        "description": "Initiates a self-service password reset flow. If the email is registered, a time-limited secure reset link is emailed.",
+        "operationId": "AuthService_RequestPasswordReset",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1RequestPasswordResetResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1RequestPasswordResetRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Password Management"
+        ]
+      }
+    },
+    "/api/v1/auth/password-reset/confirm": {
+      "post": {
+        "summary": "Confirm password reset",
+        "description": "Consumes a valid password reset token and updates the user's password. Revokes all existing user sessions across devices.",
+        "operationId": "AuthService_ConfirmPasswordReset",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ConfirmPasswordResetResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1ConfirmPasswordResetRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Password Management"
+        ]
+      }
+    },
+    "/api/v1/auth/password/change": {
+      "post": {
+        "summary": "Change account password",
+        "description": "Verifies the current password and changes it to the new password for the authenticated caller. Revokes all other active sessions.",
+        "operationId": "AuthService_ChangePassword",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ChangePasswordResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1ChangePasswordRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Password Management"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/github/start": {
+      "get": {
+        "summary": "Start GitHub OAuth login",
+        "description": "Generates an RFC 7636 PKCE challenge and HMAC-signed state token, returning the GitHub authorization URL for the browser to redirect to.",
+        "operationId": "AuthService_StartGitHubOAuth",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1StartGitHubOAuthResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "GitHub Authentication"
+        ]
+      }
+    },
+    "/api/v1/auth/github/callback": {
+      "get": {
+        "summary": "Complete GitHub OAuth callback",
+        "description": "Exchanges the authorization code and PKCE code verifier with GitHub, links or provisions the user account, and returns session tokens.",
+        "operationId": "AuthService_CompleteGitHubOAuth",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1CompleteGitHubOAuthResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "code_verifier",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "user_agent",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "client_ip",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "GitHub Authentication"
         ]
       }
     },
     "/api/v1/orgs": {
       "get": {
-        "summary": "ListOrganizations lists all organizations the user belongs to.",
+        "summary": "List user organizations",
+        "description": "Retrieves all organizations in which the authenticated caller is a member, admin, or owner.",
         "operationId": "AuthService_ListOrganizations",
         "responses": {
           "200": {
@@ -650,11 +728,17 @@
           }
         ],
         "tags": [
-          "AuthService"
+          "Organizations"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
         ]
       },
       "post": {
-        "summary": "CreateOrganization creates an organization with the caller as owner.",
+        "summary": "Create new organization workspace",
+        "description": "Provisions a new multi-tenant organization workspace with a unique slug and designates the authenticated caller as the Owner.",
         "operationId": "AuthService_CreateOrganization",
         "responses": {
           "200": {
@@ -681,46 +765,19 @@
           }
         ],
         "tags": [
-          "AuthService"
-        ]
-      }
-    },
-    "/api/v1/orgs/invites/accept": {
-      "post": {
-        "summary": "AcceptInvite accepts an organization invitation token.",
-        "operationId": "AuthService_AcceptInvite",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1AcceptInviteResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/v1AcceptInviteRequest"
-            }
-          }
+          "Organizations"
         ],
-        "tags": [
-          "AuthService"
+        "security": [
+          {
+            "BearerAuth": []
+          }
         ]
       }
     },
     "/api/v1/orgs/{org_id}": {
       "get": {
-        "summary": "GetOrganization returns an organization by ID.",
+        "summary": "Get organization metadata",
+        "description": "Returns organization metadata, slug, name, and timestamps by ID. Caller must belong to the organization.",
         "operationId": "AuthService_GetOrganization",
         "responses": {
           "200": {
@@ -779,11 +836,17 @@
           }
         ],
         "tags": [
-          "AuthService"
+          "Organizations"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
         ]
       },
       "delete": {
-        "summary": "DeleteOrganization deletes an organization.",
+        "summary": "Delete organization workspace",
+        "description": "Permanently deletes an organization and cascades removal across members, tokens, and resources. Requires Owner role.",
         "operationId": "AuthService_DeleteOrganization",
         "responses": {
           "200": {
@@ -842,11 +905,17 @@
           }
         ],
         "tags": [
-          "AuthService"
+          "Organizations"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
         ]
       },
       "patch": {
-        "summary": "UpdateOrganization updates an organization's name.",
+        "summary": "Update organization details",
+        "description": "Modifies organization display name or metadata. Requires `org:write` permission.",
         "operationId": "AuthService_UpdateOrganization",
         "responses": {
           "200": {
@@ -879,13 +948,640 @@
           }
         ],
         "tags": [
-          "AuthService"
+          "Organizations"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/roles": {
+      "get": {
+        "summary": "List RBAC roles \u0026 permissions",
+        "description": "Returns the platform RBAC role catalog (e.g. Owner, Admin, Member, Viewer) with their granular permission capabilities.",
+        "operationId": "AuthService_ListRoles",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ListRolesResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "Organization Members \u0026 Roles"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/orgs/{org_id}/members": {
+      "get": {
+        "summary": "List organization members",
+        "description": "Retrieves all members within an organization workspace, including user email, display name, and assigned role.",
+        "operationId": "AuthService_ListMembers",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ListMembersResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "caller.user_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.kind",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_org_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_permissions",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "caller.session_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Organization Members \u0026 Roles"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Directly add member by email",
+        "description": "Adds an existing registered user directly to the organization workspace with the specified role. Requires `members:write`.",
+        "operationId": "AuthService_AddMember",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1AddMemberResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AuthServiceAddMemberBody"
+            }
+          }
+        ],
+        "tags": [
+          "Organization Members \u0026 Roles"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/orgs/{org_id}/members/{target_user_id}": {
+      "delete": {
+        "summary": "Remove member from organization",
+        "description": "Removes a member from the organization workspace, revoking all organization-scoped permissions. Requires `members:delete`.",
+        "operationId": "AuthService_RemoveMember",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1RemoveMemberResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "target_user_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "caller.user_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.kind",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_org_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_permissions",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "caller.session_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Organization Members \u0026 Roles"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "summary": "Update member role assignment",
+        "description": "Promotes or demotes an existing member's role within the organization. Requires `members:write`.",
+        "operationId": "AuthService_UpdateMemberRole",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1UpdateMemberRoleResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "target_user_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AuthServiceUpdateMemberRoleBody"
+            }
+          }
+        ],
+        "tags": [
+          "Organization Members \u0026 Roles"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/orgs/{org_id}/invites": {
+      "post": {
+        "summary": "Create invitation link",
+        "description": "Generates an invitation token to invite an email address into the organization workspace under a specified role. Requires `invites:write`.",
+        "operationId": "AuthService_CreateInvite",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1CreateInviteResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AuthServiceCreateInviteBody"
+            }
+          }
+        ],
+        "tags": [
+          "Organization Invites"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/orgs/invites/accept": {
+      "post": {
+        "summary": "Accept organization invite",
+        "description": "Consumes an invitation token and attaches the authenticated user to the organization with the invite's designated role.",
+        "operationId": "AuthService_AcceptInvite",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1AcceptInviteResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/v1AcceptInviteRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Organization Invites"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/orgs/{org_id}/invites/{invite_id}": {
+      "delete": {
+        "summary": "Revoke pending invitation",
+        "description": "Invalidates a pending invitation token, preventing it from being accepted. Requires `invites:delete`.",
+        "operationId": "AuthService_RevokeInvite",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1RevokeInviteResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "invite_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "caller.user_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.kind",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_org_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_permissions",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "caller.session_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Organization Invites"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/orgs/{org_id}/tokens": {
+      "get": {
+        "summary": "List organization API tokens",
+        "description": "Retrieves metadata for all active Personal Access Tokens created for the organization, including name, prefix, scopes, and expiration. Requires `tokens:read`.",
+        "operationId": "AuthService_ListAPITokens",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ListAPITokensResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "caller.user_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.kind",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_org_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_permissions",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "caller.session_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "API Tokens"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Create Personal Access Token (PAT)",
+        "description": "Provisions an org-scoped API token (`kr0n_pat_...`) with custom permissions and optional expiration. The raw token is returned only once upon creation. Requires `tokens:write`.",
+        "operationId": "AuthService_CreateAPIToken",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1CreateAPITokenResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AuthServiceCreateAPITokenBody"
+            }
+          }
+        ],
+        "tags": [
+          "API Tokens"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/orgs/{org_id}/tokens/{token_id}": {
+      "delete": {
+        "summary": "Revoke API token",
+        "description": "Immediately revokes an API token, deactivating programmatic access for CI/CD or automation clients. Requires `tokens:delete`.",
+        "operationId": "AuthService_RevokeAPIToken",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1RevokeAPITokenResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "token_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "caller.user_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.kind",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_org_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_permissions",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "caller.session_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "API Tokens"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
         ]
       }
     },
     "/api/v1/orgs/{org_id}/audit": {
       "get": {
-        "summary": "ListAuditEvents lists append-only audit events for an organization, gated by `audit:read`.",
+        "summary": "List organization audit events",
+        "description": "Queries the immutable append-only audit log for security, authentication, and administrative actions within the organization. Requires `audit:read`.",
         "operationId": "AuthService_ListAuditEvents",
         "responses": {
           "200": {
@@ -965,115 +1661,19 @@
           }
         ],
         "tags": [
-          "AuthService"
-        ]
-      }
-    },
-    "/api/v1/orgs/{org_id}/github/installations": {
-      "get": {
-        "summary": "ListGitHubInstallations lists GitHub App installations linked to the organization.",
-        "operationId": "AuthService_ListGitHubInstallations",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1ListGitHubInstallationsResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "org_id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "caller.user_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "caller.kind",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "caller.token_org_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "caller.token_permissions",
-            "in": "query",
-            "required": false,
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "collectionFormat": "multi"
-          },
-          {
-            "name": "caller.session_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          }
+          "Audit Log"
         ],
-        "tags": [
-          "AuthService"
-        ]
-      },
-      "post": {
-        "summary": "CompleteGitHubInstallation verifies the installation state and links the GitHub App installation to the organization.",
-        "operationId": "AuthService_CompleteGitHubInstallation",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1CompleteGitHubInstallationResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
+        "security": [
           {
-            "name": "org_id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/AuthServiceCompleteGitHubInstallationBody"
-            }
+            "BearerAuth": []
           }
-        ],
-        "tags": [
-          "AuthService"
         ]
       }
     },
     "/api/v1/orgs/{org_id}/github/installations/start": {
       "get": {
-        "summary": "StartGitHubInstallation generates a signed installation state token and GitHub App installation URL.",
+        "summary": "Start GitHub App installation",
+        "description": "Generates an HMAC-signed installation state token and returns the GitHub App installation URL on github.com. Requires `github:install`.",
         "operationId": "AuthService_StartGitHubInstallation",
         "responses": {
           "200": {
@@ -1132,13 +1732,133 @@
           }
         ],
         "tags": [
-          "AuthService"
+          "GitHub App Integrations"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/orgs/{org_id}/github/installations": {
+      "get": {
+        "summary": "List GitHub App installations",
+        "description": "Retrieves all GitHub App installations linked to the organization workspace, including account login, avatar, and repository access scope. Requires `github:read`.",
+        "operationId": "AuthService_ListGitHubInstallations",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ListGitHubInstallationsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "caller.user_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.kind",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_org_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_permissions",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "caller.session_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "GitHub App Integrations"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Complete GitHub App installation",
+        "description": "Verifies the signed installation state token from GitHub and permanently links the GitHub App installation ID to the organization workspace. Requires `github:install`.",
+        "operationId": "AuthService_CompleteGitHubInstallation",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1CompleteGitHubInstallationResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AuthServiceCompleteGitHubInstallationBody"
+            }
+          }
+        ],
+        "tags": [
+          "GitHub App Integrations"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
         ]
       }
     },
     "/api/v1/orgs/{org_id}/github/installations/{installation_id}": {
       "delete": {
-        "summary": "DisconnectGitHubInstallation unlinks a GitHub App installation from the organization.",
+        "summary": "Disconnect GitHub App installation",
+        "description": "Unlinks a GitHub App installation from the organization workspace, revoking repository access. Requires `github:delete`.",
         "operationId": "AuthService_DisconnectGitHubInstallation",
         "responses": {
           "200": {
@@ -1204,529 +1924,12 @@
           }
         ],
         "tags": [
-          "AuthService"
-        ]
-      }
-    },
-    "/api/v1/orgs/{org_id}/invites": {
-      "post": {
-        "summary": "CreateInvite creates an organization invitation token.",
-        "operationId": "AuthService_CreateInvite",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1CreateInviteResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "org_id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/AuthServiceCreateInviteBody"
-            }
-          }
+          "GitHub App Integrations"
         ],
-        "tags": [
-          "AuthService"
-        ]
-      }
-    },
-    "/api/v1/orgs/{org_id}/invites/{invite_id}": {
-      "delete": {
-        "summary": "RevokeInvite revokes a pending organization invitation.",
-        "operationId": "AuthService_RevokeInvite",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1RevokeInviteResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
+        "security": [
+          {
+            "BearerAuth": []
           }
-        },
-        "parameters": [
-          {
-            "name": "org_id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "invite_id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "caller.user_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "caller.kind",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "caller.token_org_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "caller.token_permissions",
-            "in": "query",
-            "required": false,
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "collectionFormat": "multi"
-          },
-          {
-            "name": "caller.session_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          }
-        ],
-        "tags": [
-          "AuthService"
-        ]
-      }
-    },
-    "/api/v1/orgs/{org_id}/members": {
-      "get": {
-        "summary": "ListMembers lists members of an organization.",
-        "operationId": "AuthService_ListMembers",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1ListMembersResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "org_id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "caller.user_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "caller.kind",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "caller.token_org_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "caller.token_permissions",
-            "in": "query",
-            "required": false,
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "collectionFormat": "multi"
-          },
-          {
-            "name": "caller.session_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          }
-        ],
-        "tags": [
-          "AuthService"
-        ]
-      },
-      "post": {
-        "summary": "AddMember adds an existing user by email to an organization.",
-        "operationId": "AuthService_AddMember",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1AddMemberResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "org_id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/AuthServiceAddMemberBody"
-            }
-          }
-        ],
-        "tags": [
-          "AuthService"
-        ]
-      }
-    },
-    "/api/v1/orgs/{org_id}/members/{target_user_id}": {
-      "delete": {
-        "summary": "RemoveMember removes a member from an organization.",
-        "operationId": "AuthService_RemoveMember",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1RemoveMemberResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "org_id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "target_user_id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "caller.user_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "caller.kind",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "caller.token_org_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "caller.token_permissions",
-            "in": "query",
-            "required": false,
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "collectionFormat": "multi"
-          },
-          {
-            "name": "caller.session_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          }
-        ],
-        "tags": [
-          "AuthService"
-        ]
-      },
-      "patch": {
-        "summary": "UpdateMemberRole updates a member's role in an organization.",
-        "operationId": "AuthService_UpdateMemberRole",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1UpdateMemberRoleResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "org_id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "target_user_id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/AuthServiceUpdateMemberRoleBody"
-            }
-          }
-        ],
-        "tags": [
-          "AuthService"
-        ]
-      }
-    },
-    "/api/v1/orgs/{org_id}/tokens": {
-      "get": {
-        "summary": "ListAPITokens lists active API tokens for an organization.",
-        "operationId": "AuthService_ListAPITokens",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1ListAPITokensResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "org_id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "caller.user_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "caller.kind",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "caller.token_org_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "caller.token_permissions",
-            "in": "query",
-            "required": false,
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "collectionFormat": "multi"
-          },
-          {
-            "name": "caller.session_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          }
-        ],
-        "tags": [
-          "AuthService"
-        ]
-      },
-      "post": {
-        "summary": "CreateAPIToken creates an org-scoped API token (`kr0n_pat_...`).",
-        "operationId": "AuthService_CreateAPIToken",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1CreateAPITokenResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "org_id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/AuthServiceCreateAPITokenBody"
-            }
-          }
-        ],
-        "tags": [
-          "AuthService"
-        ]
-      }
-    },
-    "/api/v1/orgs/{org_id}/tokens/{token_id}": {
-      "delete": {
-        "summary": "RevokeAPIToken revokes an organization API token.",
-        "operationId": "AuthService_RevokeAPIToken",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1RevokeAPITokenResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "org_id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "token_id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "caller.user_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "caller.kind",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "caller.token_org_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "caller.token_permissions",
-            "in": "query",
-            "required": false,
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "collectionFormat": "multi"
-          },
-          {
-            "name": "caller.session_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          }
-        ],
-        "tags": [
-          "AuthService"
-        ]
-      }
-    },
-    "/api/v1/roles": {
-      "get": {
-        "summary": "ListRoles returns all RBAC roles and their granted permissions.",
-        "operationId": "AuthService_ListRoles",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1ListRolesResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "tags": [
-          "AuthService"
         ]
       }
     }
@@ -2800,6 +3003,20 @@
           "type": "string"
         }
       }
+    }
+  },
+  "securityDefinitions": {
+    "ApiKeyAuth": {
+      "type": "apiKey",
+      "description": "Organization Personal Access Token format: `kr0n_pat_...`",
+      "name": "X-API-Key",
+      "in": "header"
+    },
+    "BearerAuth": {
+      "type": "apiKey",
+      "description": "Standard JWT Bearer token format: `Bearer \u003caccess_token\u003e`",
+      "name": "Authorization",
+      "in": "header"
     }
   }
 }

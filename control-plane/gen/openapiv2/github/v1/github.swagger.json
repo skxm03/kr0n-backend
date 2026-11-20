@@ -1,17 +1,23 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "github/v1/github.proto",
-    "version": "version not set"
+    "title": "kr0n GitHub VCS Service API",
+    "description": "GitHub Version Control System microservice for repository exploration, branch indexing, and directory discovery.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "kr0n engineering",
+      "url": "https://github.com/skxm03/kr0n-backend"
+    }
   },
+  "tags": [
+    {
+      "name": "GitHub Repositories \u0026 VCS",
+      "description": "Explore repositories, branches, and directory trees connected via GitHub App installations."
+    }
+  ],
   "host": "localhost:8080",
   "schemes": [
     "http"
-  ],
-  "tags": [
-    {
-      "name": "GitHubService"
-    }
   ],
   "consumes": [
     "application/json"
@@ -22,7 +28,8 @@
   "paths": {
     "/api/v1/orgs/{org_id}/github/repositories": {
       "get": {
-        "summary": "ListRepositories lists GitHub repositories accessible to an organization installation.",
+        "summary": "List accessible GitHub repositories",
+        "description": "Queries the GitHub API via installation credentials to list all repositories accessible to the linked organization installation. Requires `github:read`.",
         "operationId": "GitHubService_ListRepositories",
         "responses": {
           "200": {
@@ -88,13 +95,19 @@
           }
         ],
         "tags": [
-          "GitHubService"
+          "GitHub Repositories \u0026 VCS"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
         ]
       }
     },
     "/api/v1/orgs/{org_id}/github/repositories/{owner}/{repo}/branches": {
       "get": {
-        "summary": "ListBranches lists branches in a GitHub repository accessible to an organization installation.",
+        "summary": "List repository branches",
+        "description": "Returns branch names, latest commit SHAs, and protection status for a given GitHub repository. Requires `github:read`.",
         "operationId": "GitHubService_ListBranches",
         "responses": {
           "200": {
@@ -172,13 +185,19 @@
           }
         ],
         "tags": [
-          "GitHubService"
+          "GitHub Repositories \u0026 VCS"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
         ]
       }
     },
     "/api/v1/orgs/{org_id}/github/repositories/{owner}/{repo}/directories": {
       "get": {
-        "summary": "ListDirectories lists canonical root directory paths (e.g. \"/\", \"/apps/api\") in a GitHub repository ref.",
+        "summary": "List repository directory structure",
+        "description": "Discovers canonical directory structures (e.g. root '/', monorepo app subdirectories) at a given git commit/ref to assist workspace discovery. Requires `github:read`.",
         "operationId": "GitHubService_ListDirectories",
         "responses": {
           "200": {
@@ -262,7 +281,12 @@
           }
         ],
         "tags": [
-          "GitHubService"
+          "GitHub Repositories \u0026 VCS"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
         ]
       }
     }
@@ -394,6 +418,14 @@
           }
         }
       }
+    }
+  },
+  "securityDefinitions": {
+    "BearerAuth": {
+      "type": "apiKey",
+      "description": "Standard JWT Bearer token format: `Bearer \u003caccess_token\u003e`",
+      "name": "Authorization",
+      "in": "header"
     }
   }
 }

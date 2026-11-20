@@ -7,6 +7,7 @@
 package authv1
 
 import (
+	_ "github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2/options"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -5292,7 +5293,7 @@ var File_auth_v1_auth_proto protoreflect.FileDescriptor
 
 const file_auth_v1_auth_proto_rawDesc = "" +
 	"\n" +
-	"\x12auth/v1/auth.proto\x12\aauth.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"f\n" +
+	"\x12auth/v1/auth.proto\x12\aauth.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"f\n" +
 	"\x0fRegisterRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x1a\n" +
 	"\bpassword\x18\x02 \x01(\tR\bpassword\x12!\n" +
@@ -5693,48 +5694,181 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\"GetGitHubInstallationTokenResponse\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12'\n" +
 	"\x0finstallation_id\x18\x02 \x01(\x03R\x0einstallationId\x12&\n" +
-	"\x0fexpires_at_unix\x18\x03 \x01(\x03R\rexpiresAtUnix2\xae%\n" +
-	"\vAuthService\x12a\n" +
-	"\bRegister\x12\x18.auth.v1.RegisterRequest\x1a\x19.auth.v1.RegisterResponse\" \x82\xd3\xe4\x93\x02\x1a:\x01*\"\x15/api/v1/auth/register\x12U\n" +
-	"\x05Login\x12\x15.auth.v1.LoginRequest\x1a\x16.auth.v1.LoginResponse\"\x1d\x82\xd3\xe4\x93\x02\x17:\x01*\"\x12/api/v1/auth/login\x12]\n" +
-	"\aRefresh\x12\x17.auth.v1.RefreshRequest\x1a\x18.auth.v1.RefreshResponse\"\x1f\x82\xd3\xe4\x93\x02\x19:\x01*\"\x14/api/v1/auth/refresh\x12Y\n" +
-	"\x06Logout\x12\x16.auth.v1.LogoutRequest\x1a\x17.auth.v1.LogoutResponse\"\x1e\x82\xd3\xe4\x93\x02\x18:\x01*\"\x13/api/v1/auth/logout\x12n\n" +
-	"\vVerifyEmail\x12\x1b.auth.v1.VerifyEmailRequest\x1a\x1c.auth.v1.VerifyEmailResponse\"$\x82\xd3\xe4\x93\x02\x1e:\x01*\"\x19/api/v1/auth/verify-email\x12W\n" +
-	"\aGetJWKS\x12\x17.auth.v1.GetJWKSRequest\x1a\x18.auth.v1.GetJWKSResponse\"\x19\x82\xd3\xe4\x93\x02\x13\x12\x11/api/v1/auth/jwks\x12\x8a\x01\n" +
-	"\x12ResendVerification\x12\".auth.v1.ResendVerificationRequest\x1a#.auth.v1.ResendVerificationResponse\"+\x82\xd3\xe4\x93\x02%:\x01*\" /api/v1/auth/resend-verification\x12\x93\x01\n" +
-	"\x14RequestPasswordReset\x12$.auth.v1.RequestPasswordResetRequest\x1a%.auth.v1.RequestPasswordResetResponse\".\x82\xd3\xe4\x93\x02(:\x01*\"#/api/v1/auth/password-reset/request\x12\x93\x01\n" +
-	"\x14ConfirmPasswordReset\x12$.auth.v1.ConfirmPasswordResetRequest\x1a%.auth.v1.ConfirmPasswordResetResponse\".\x82\xd3\xe4\x93\x02(:\x01*\"#/api/v1/auth/password-reset/confirm\x12z\n" +
-	"\x0eChangePassword\x12\x1e.auth.v1.ChangePasswordRequest\x1a\x1f.auth.v1.ChangePasswordResponse\"'\x82\xd3\xe4\x93\x02!:\x01*\"\x1c/api/v1/auth/password/change\x12J\n" +
-	"\x05GetMe\x12\x15.auth.v1.GetMeRequest\x1a\x16.auth.v1.GetMeResponse\"\x12\x82\xd3\xe4\x93\x02\f\x12\n" +
-	"/api/v1/me\x12j\n" +
-	"\fListSessions\x12\x1c.auth.v1.ListSessionsRequest\x1a\x1d.auth.v1.ListSessionsResponse\"\x1d\x82\xd3\xe4\x93\x02\x17\x12\x15/api/v1/auth/sessions\x12z\n" +
-	"\rRevokeSession\x12\x1d.auth.v1.RevokeSessionRequest\x1a\x1e.auth.v1.RevokeSessionResponse\"*\x82\xd3\xe4\x93\x02$*\"/api/v1/auth/sessions/{session_id}\x12z\n" +
-	"\x10StartGitHubOAuth\x12 .auth.v1.StartGitHubOAuthRequest\x1a!.auth.v1.StartGitHubOAuthResponse\"!\x82\xd3\xe4\x93\x02\x1b\x12\x19/api/v1/auth/github/start\x12\x86\x01\n" +
-	"\x13CompleteGitHubOAuth\x12#.auth.v1.CompleteGitHubOAuthRequest\x1a$.auth.v1.CompleteGitHubOAuthResponse\"$\x82\xd3\xe4\x93\x02\x1e\x12\x1c/api/v1/auth/github/callback\x12T\n" +
-	"\x0fCheckPermission\x12\x1f.auth.v1.CheckPermissionRequest\x1a .auth.v1.CheckPermissionResponse\x12Y\n" +
-	"\tListRoles\x12\x19.auth.v1.ListRolesRequest\x1a\x1a.auth.v1.ListRolesResponse\"\x15\x82\xd3\xe4\x93\x02\x0f\x12\r/api/v1/roles\x12v\n" +
-	"\x12CreateOrganization\x12\".auth.v1.CreateOrganizationRequest\x1a#.auth.v1.CreateOrganizationResponse\"\x17\x82\xd3\xe4\x93\x02\x11:\x01*\"\f/api/v1/orgs\x12p\n" +
-	"\x11ListOrganizations\x12!.auth.v1.ListOrganizationsRequest\x1a\".auth.v1.ListOrganizationsResponse\"\x14\x82\xd3\xe4\x93\x02\x0e\x12\f/api/v1/orgs\x12s\n" +
-	"\x0fGetOrganization\x12\x1f.auth.v1.GetOrganizationRequest\x1a .auth.v1.GetOrganizationResponse\"\x1d\x82\xd3\xe4\x93\x02\x17\x12\x15/api/v1/orgs/{org_id}\x12\x7f\n" +
-	"\x12UpdateOrganization\x12\".auth.v1.UpdateOrganizationRequest\x1a#.auth.v1.UpdateOrganizationResponse\" \x82\xd3\xe4\x93\x02\x1a:\x01*2\x15/api/v1/orgs/{org_id}\x12|\n" +
-	"\x12DeleteOrganization\x12\".auth.v1.DeleteOrganizationRequest\x1a#.auth.v1.DeleteOrganizationResponse\"\x1d\x82\xd3\xe4\x93\x02\x17*\x15/api/v1/orgs/{org_id}\x12o\n" +
-	"\vListMembers\x12\x1b.auth.v1.ListMembersRequest\x1a\x1c.auth.v1.ListMembersResponse\"%\x82\xd3\xe4\x93\x02\x1f\x12\x1d/api/v1/orgs/{org_id}/members\x12l\n" +
-	"\tAddMember\x12\x19.auth.v1.AddMemberRequest\x1a\x1a.auth.v1.AddMemberResponse\"(\x82\xd3\xe4\x93\x02\":\x01*\"\x1d/api/v1/orgs/{org_id}/members\x12\x92\x01\n" +
-	"\x10UpdateMemberRole\x12 .auth.v1.UpdateMemberRoleRequest\x1a!.auth.v1.UpdateMemberRoleResponse\"9\x82\xd3\xe4\x93\x023:\x01*2./api/v1/orgs/{org_id}/members/{target_user_id}\x12\x83\x01\n" +
-	"\fRemoveMember\x12\x1c.auth.v1.RemoveMemberRequest\x1a\x1d.auth.v1.RemoveMemberResponse\"6\x82\xd3\xe4\x93\x020*./api/v1/orgs/{org_id}/members/{target_user_id}\x12u\n" +
-	"\fCreateInvite\x12\x1c.auth.v1.CreateInviteRequest\x1a\x1d.auth.v1.CreateInviteResponse\"(\x82\xd3\xe4\x93\x02\":\x01*\"\x1d/api/v1/orgs/{org_id}/invites\x12s\n" +
-	"\fAcceptInvite\x12\x1c.auth.v1.AcceptInviteRequest\x1a\x1d.auth.v1.AcceptInviteResponse\"&\x82\xd3\xe4\x93\x02 :\x01*\"\x1b/api/v1/orgs/invites/accept\x12~\n" +
-	"\fRevokeInvite\x12\x1c.auth.v1.RevokeInviteRequest\x1a\x1d.auth.v1.RevokeInviteResponse\"1\x82\xd3\xe4\x93\x02+*)/api/v1/orgs/{org_id}/invites/{invite_id}\x12z\n" +
-	"\x0eCreateAPIToken\x12\x1e.auth.v1.CreateAPITokenRequest\x1a\x1f.auth.v1.CreateAPITokenResponse\"'\x82\xd3\xe4\x93\x02!:\x01*\"\x1c/api/v1/orgs/{org_id}/tokens\x12t\n" +
-	"\rListAPITokens\x12\x1d.auth.v1.ListAPITokensRequest\x1a\x1e.auth.v1.ListAPITokensResponse\"$\x82\xd3\xe4\x93\x02\x1e\x12\x1c/api/v1/orgs/{org_id}/tokens\x12\x82\x01\n" +
-	"\x0eRevokeAPIToken\x12\x1e.auth.v1.RevokeAPITokenRequest\x1a\x1f.auth.v1.RevokeAPITokenResponse\"/\x82\xd3\xe4\x93\x02)*'/api/v1/orgs/{org_id}/tokens/{token_id}\x12W\n" +
-	"\x10ValidateAPIToken\x12 .auth.v1.ValidateAPITokenRequest\x1a!.auth.v1.ValidateAPITokenResponse\x12y\n" +
-	"\x0fListAuditEvents\x12\x1f.auth.v1.ListAuditEventsRequest\x1a .auth.v1.ListAuditEventsResponse\"#\x82\xd3\xe4\x93\x02\x1d\x12\x1b/api/v1/orgs/{org_id}/audit\x12\xa6\x01\n" +
-	"\x17StartGitHubInstallation\x12'.auth.v1.StartGitHubInstallationRequest\x1a(.auth.v1.StartGitHubInstallationResponse\"8\x82\xd3\xe4\x93\x022\x120/api/v1/orgs/{org_id}/github/installations/start\x12\xac\x01\n" +
-	"\x1aCompleteGitHubInstallation\x12*.auth.v1.CompleteGitHubInstallationRequest\x1a+.auth.v1.CompleteGitHubInstallationResponse\"5\x82\xd3\xe4\x93\x02/:\x01*\"*/api/v1/orgs/{org_id}/github/installations\x12\xa0\x01\n" +
-	"\x17ListGitHubInstallations\x12'.auth.v1.ListGitHubInstallationsRequest\x1a(.auth.v1.ListGitHubInstallationsResponse\"2\x82\xd3\xe4\x93\x02,\x12*/api/v1/orgs/{org_id}/github/installations\x12\xc1\x01\n" +
-	"\x1cDisconnectGitHubInstallation\x12,.auth.v1.DisconnectGitHubInstallationRequest\x1a-.auth.v1.DisconnectGitHubInstallationResponse\"D\x82\xd3\xe4\x93\x02>*</api/v1/orgs/{org_id}/github/installations/{installation_id}\x12u\n" +
-	"\x1aGetGitHubInstallationToken\x12*.auth.v1.GetGitHubInstallationTokenRequest\x1a+.auth.v1.GetGitHubInstallationTokenResponseB\x96\x01\n" +
+	"\x0fexpires_at_unix\x18\x03 \x01(\x03R\rexpiresAtUnix2\xaa]\n" +
+	"\vAuthService\x12\xc4\x02\n" +
+	"\bRegister\x12\x18.auth.v1.RegisterRequest\x1a\x19.auth.v1.RegisterResponse\"\x82\x02\x92A\xde\x01\n" +
+	"\x19Authentication & Sessions\x12\x19Register new user account\x1a\xa5\x01Creates a new user profile with email, password, and display name. If email verification is enabled, an unverified account is created and an activation code is sent.\x82\xd3\xe4\x93\x02\x1a:\x01*\"\x15/api/v1/auth/register\x12\xc9\x02\n" +
+	"\x05Login\x12\x15.auth.v1.LoginRequest\x1a\x16.auth.v1.LoginResponse\"\x90\x02\x92A\xef\x01\n" +
+	"\x19Authentication & Sessions\x12)Authenticate credentials & create session\x1a\xa6\x01Authenticates user credentials (email & password). Upon success, returns an Ed25519-signed JWT access token, a long-lived refresh token, and initial session metadata.\x82\xd3\xe4\x93\x02\x17:\x01*\"\x12/api/v1/auth/login\x12\x9c\x02\n" +
+	"\aRefresh\x12\x17.auth.v1.RefreshRequest\x1a\x18.auth.v1.RefreshResponse\"\xdd\x01\x92A\xba\x01\n" +
+	"\x19Authentication & Sessions\x12\x15Rotate session tokens\x1a\x85\x01Exchanges a valid refresh token for a fresh short-lived JWT access token and a newly rotated refresh token to prevent replay attacks.\x82\xd3\xe4\x93\x02\x19:\x01*\"\x14/api/v1/auth/refresh\x12\xfb\x01\n" +
+	"\x06Logout\x12\x16.auth.v1.LogoutRequest\x1a\x17.auth.v1.LogoutResponse\"\xbf\x01\x92A\x9d\x01\n" +
+	"\x19Authentication & Sessions\x12\x18Terminate active session\x1afRevokes the active session and destroys the associated refresh token state in the Redis session store.\x82\xd3\xe4\x93\x02\x18:\x01*\"\x13/api/v1/auth/logout\x12\xc2\x02\n" +
+	"\fListSessions\x12\x1c.auth.v1.ListSessionsRequest\x1a\x1d.auth.v1.ListSessionsResponse\"\xf4\x01\x92A\xd3\x01\n" +
+	"\x19Authentication & Sessions\x12\x19List active user sessions\x1a\x88\x01Retrieves all active device and browser sessions for the authenticated user, including client IP, user agent, and last active timestamp.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02\x17\x12\x15/api/v1/auth/sessions\x12\xd6\x02\n" +
+	"\rRevokeSession\x12\x1d.auth.v1.RevokeSessionRequest\x1a\x1e.auth.v1.RevokeSessionResponse\"\x85\x02\x92A\xd7\x01\n" +
+	"\x19Authentication & Sessions\x12\x1cRevoke specific user session\x1a\x89\x01Immediately terminates a specific session by its session ID belonging to the authenticated user, invalidating any token refresh attempts.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02$*\"/api/v1/auth/sessions/{session_id}\x12\xa6\x02\n" +
+	"\aGetJWKS\x12\x17.auth.v1.GetJWKSRequest\x1a\x18.auth.v1.GetJWKSResponse\"\xe7\x01\x92A\xca\x01\n" +
+	"\x19Authentication & Sessions\x12\x17JSON Web Key Set (JWKS)\x1a\x93\x01Returns active public Ed25519 signing keys formatted according to RFC 7517. Used by the API Gateway, satellite services, and third-party verifiers.\x82\xd3\xe4\x93\x02\x13\x12\x11/api/v1/auth/jwks\x12\x87\x02\n" +
+	"\x05GetMe\x12\x15.auth.v1.GetMeRequest\x1a\x16.auth.v1.GetMeResponse\"\xce\x01\x92A\xb8\x01\n" +
+	"\x11Account & Profile\x12\x18Get current user profile\x1awReturns profile information, email verification status, and organization membership details for the authenticated user.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02\f\x12\n" +
+	"/api/v1/me\x12\x82\x02\n" +
+	"\vVerifyEmail\x12\x1b.auth.v1.VerifyEmailRequest\x1a\x1c.auth.v1.VerifyEmailResponse\"\xb7\x01\x92A\x8f\x01\n" +
+	"\x11Account & Profile\x12\x14Verify account email\x1adConsumes an email verification token received via email and upgrades the account to verified status.\x82\xd3\xe4\x93\x02\x1e:\x01*\"\x19/api/v1/auth/verify-email\x12\xb5\x02\n" +
+	"\x12ResendVerification\x12\".auth.v1.ResendVerificationRequest\x1a#.auth.v1.ResendVerificationResponse\"\xd5\x01\x92A\xa6\x01\n" +
+	"\x11Account & Profile\x12\x19Resend verification email\x1avGenerates a fresh email verification token and dispatches an activation email if the account exists and is unverified.\x82\xd3\xe4\x93\x02%:\x01*\" /api/v1/auth/resend-verification\x12\xbd\x02\n" +
+	"\x14RequestPasswordReset\x12$.auth.v1.RequestPasswordResetRequest\x1a%.auth.v1.RequestPasswordResetResponse\"\xd7\x01\x92A\xa5\x01\n" +
+	"\x13Password Management\x12\x16Request password reset\x1avInitiates a self-service password reset flow. If the email is registered, a time-limited secure reset link is emailed.\x82\xd3\xe4\x93\x02(:\x01*\"#/api/v1/auth/password-reset/request\x12\xc0\x02\n" +
+	"\x14ConfirmPasswordReset\x12$.auth.v1.ConfirmPasswordResetRequest\x1a%.auth.v1.ConfirmPasswordResetResponse\"\xda\x01\x92A\xa8\x01\n" +
+	"\x13Password Management\x12\x16Confirm password reset\x1ayConsumes a valid password reset token and updates the user's password. Revokes all existing user sessions across devices.\x82\xd3\xe4\x93\x02(:\x01*\"#/api/v1/auth/password-reset/confirm\x12\xc3\x02\n" +
+	"\x0eChangePassword\x12\x1e.auth.v1.ChangePasswordRequest\x1a\x1f.auth.v1.ChangePasswordResponse\"\xef\x01\x92A\xc4\x01\n" +
+	"\x13Password Management\x12\x17Change account password\x1a\x81\x01Verifies the current password and changes it to the new password for the authenticated caller. Revokes all other active sessions.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02!:\x01*\"\x1c/api/v1/auth/password/change\x12\xbb\x02\n" +
+	"\x10StartGitHubOAuth\x12 .auth.v1.StartGitHubOAuthRequest\x1a!.auth.v1.StartGitHubOAuthResponse\"\xe1\x01\x92A\xbc\x01\n" +
+	"\x15GitHub Authentication\x12\x18Start GitHub OAuth login\x1a\x88\x01Generates an RFC 7636 PKCE challenge and HMAC-signed state token, returning the GitHub authorization URL for the browser to redirect to.\x82\xd3\xe4\x93\x02\x1b\x12\x19/api/v1/auth/github/start\x12\xcb\x02\n" +
+	"\x13CompleteGitHubOAuth\x12#.auth.v1.CompleteGitHubOAuthRequest\x1a$.auth.v1.CompleteGitHubOAuthResponse\"\xe8\x01\x92A\xc0\x01\n" +
+	"\x15GitHub Authentication\x12\x1eComplete GitHub OAuth callback\x1a\x86\x01Exchanges the authorization code and PKCE code verifier with GitHub, links or provisions the user account, and returns session tokens.\x82\xd3\xe4\x93\x02\x1e\x12\x1c/api/v1/auth/github/callback\x12\xbe\x02\n" +
+	"\x12CreateOrganization\x12\".auth.v1.CreateOrganizationRequest\x1a#.auth.v1.CreateOrganizationResponse\"\xde\x01\x92A\xc3\x01\n" +
+	"\rOrganizations\x12!Create new organization workspace\x1a}Provisions a new multi-tenant organization workspace with a unique slug and designates the authenticated caller as the Owner.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02\x11:\x01*\"\f/api/v1/orgs\x12\x8c\x02\n" +
+	"\x11ListOrganizations\x12!.auth.v1.ListOrganizationsRequest\x1a\".auth.v1.ListOrganizationsResponse\"\xaf\x01\x92A\x97\x01\n" +
+	"\rOrganizations\x12\x17List user organizations\x1a[Retrieves all organizations in which the authenticated caller is a member, admin, or owner.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02\x0e\x12\f/api/v1/orgs\x12\x9e\x02\n" +
+	"\x0fGetOrganization\x12\x1f.auth.v1.GetOrganizationRequest\x1a .auth.v1.GetOrganizationResponse\"\xc7\x01\x92A\xa6\x01\n" +
+	"\rOrganizations\x12\x19Get organization metadata\x1ahReturns organization metadata, slug, name, and timestamps by ID. Caller must belong to the organization.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02\x17\x12\x15/api/v1/orgs/{org_id}\x12\x94\x02\n" +
+	"\x12UpdateOrganization\x12\".auth.v1.UpdateOrganizationRequest\x1a#.auth.v1.UpdateOrganizationResponse\"\xb4\x01\x92A\x90\x01\n" +
+	"\rOrganizations\x12\x1bUpdate organization details\x1aPModifies organization display name or metadata. Requires `org:write` permission.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02\x1a:\x01*2\x15/api/v1/orgs/{org_id}\x12\xb7\x02\n" +
+	"\x12DeleteOrganization\x12\".auth.v1.DeleteOrganizationRequest\x1a#.auth.v1.DeleteOrganizationResponse\"\xd7\x01\x92A\xb6\x01\n" +
+	"\rOrganizations\x12\x1dDelete organization workspace\x1atPermanently deletes an organization and cascades removal across members, tokens, and resources. Requires Owner role.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02\x17*\x15/api/v1/orgs/{org_id}\x12\xa6\x02\n" +
+	"\tListRoles\x12\x19.auth.v1.ListRolesRequest\x1a\x1a.auth.v1.ListRolesResponse\"\xe1\x01\x92A\xc8\x01\n" +
+	"\x1cOrganization Members & Roles\x12\x1dList RBAC roles & permissions\x1awReturns the platform RBAC role catalog (e.g. Owner, Admin, Member, Viewer) with their granular permission capabilities.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02\x0f\x12\r/api/v1/roles\x12\xaf\x02\n" +
+	"\vListMembers\x12\x1b.auth.v1.ListMembersRequest\x1a\x1c.auth.v1.ListMembersResponse\"\xe4\x01\x92A\xbb\x01\n" +
+	"\x1cOrganization Members & Roles\x12\x19List organization members\x1anRetrieves all members within an organization workspace, including user email, display name, and assigned role.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02\x1f\x12\x1d/api/v1/orgs/{org_id}/members\x12\xbb\x02\n" +
+	"\tAddMember\x12\x19.auth.v1.AddMemberRequest\x1a\x1a.auth.v1.AddMemberResponse\"\xf6\x01\x92A\xca\x01\n" +
+	"\x1cOrganization Members & Roles\x12\x1cDirectly add member by email\x1azAdds an existing registered user directly to the organization workspace with the specified role. Requires `members:write`.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02\":\x01*\"\x1d/api/v1/orgs/{org_id}/members\x12\xc8\x02\n" +
+	"\x10UpdateMemberRole\x12 .auth.v1.UpdateMemberRoleRequest\x1a!.auth.v1.UpdateMemberRoleResponse\"\xee\x01\x92A\xb1\x01\n" +
+	"\x1cOrganization Members & Roles\x12\x1dUpdate member role assignment\x1a`Promotes or demotes an existing member's role within the organization. Requires `members:write`.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x023:\x01*2./api/v1/orgs/{org_id}/members/{target_user_id}\x12\xd5\x02\n" +
+	"\fRemoveMember\x12\x1c.auth.v1.RemoveMemberRequest\x1a\x1d.auth.v1.RemoveMemberResponse\"\x87\x02\x92A\xcd\x01\n" +
+	"\x1cOrganization Members & Roles\x12\x1fRemove member from organization\x1azRemoves a member from the organization workspace, revoking all organization-scoped permissions. Requires `members:delete`.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x020*./api/v1/orgs/{org_id}/members/{target_user_id}\x12T\n" +
+	"\x0fCheckPermission\x12\x1f.auth.v1.CheckPermissionRequest\x1a .auth.v1.CheckPermissionResponse\x12\xc7\x02\n" +
+	"\fCreateInvite\x12\x1c.auth.v1.CreateInviteRequest\x1a\x1d.auth.v1.CreateInviteResponse\"\xf9\x01\x92A\xcd\x01\n" +
+	"\x14Organization Invites\x12\x16Create invitation link\x1a\x8a\x01Generates an invitation token to invite an email address into the organization workspace under a specified role. Requires `invites:write`.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02\":\x01*\"\x1d/api/v1/orgs/{org_id}/invites\x12\xb5\x02\n" +
+	"\fAcceptInvite\x12\x1c.auth.v1.AcceptInviteRequest\x1a\x1d.auth.v1.AcceptInviteResponse\"\xe7\x01\x92A\xbd\x01\n" +
+	"\x14Organization Invites\x12\x1aAccept organization invite\x1awConsumes an invitation token and attaches the authenticated user to the organization with the invite's designated role.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02 :\x01*\"\x1b/api/v1/orgs/invites/accept\x12\xad\x02\n" +
+	"\fRevokeInvite\x12\x1c.auth.v1.RevokeInviteRequest\x1a\x1d.auth.v1.RevokeInviteResponse\"\xdf\x01\x92A\xaa\x01\n" +
+	"\x14Organization Invites\x12\x19Revoke pending invitation\x1aeInvalidates a pending invitation token, preventing it from being accepted. Requires `invites:delete`.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02+*)/api/v1/orgs/{org_id}/invites/{invite_id}\x12\xf4\x02\n" +
+	"\x0eCreateAPIToken\x12\x1e.auth.v1.CreateAPITokenRequest\x1a\x1f.auth.v1.CreateAPITokenResponse\"\xa0\x02\x92A\xf5\x01\n" +
+	"\n" +
+	"API Tokens\x12\"Create Personal Access Token (PAT)\x1a\xb0\x01Provisions an org-scoped API token (`kr0n_pat_...`) with custom permissions and optional expiration. The raw token is returned only once upon creation. Requires `tokens:write`.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02!:\x01*\"\x1c/api/v1/orgs/{org_id}/tokens\x12\xd6\x02\n" +
+	"\rListAPITokens\x12\x1d.auth.v1.ListAPITokensRequest\x1a\x1e.auth.v1.ListAPITokensResponse\"\x85\x02\x92A\xdd\x01\n" +
+	"\n" +
+	"API Tokens\x12\x1cList organization API tokens\x1a\x9e\x01Retrieves metadata for all active Personal Access Tokens created for the organization, including name, prefix, scopes, and expiration. Requires `tokens:read`.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02\x1e\x12\x1c/api/v1/orgs/{org_id}/tokens\x12\xb6\x02\n" +
+	"\x0eRevokeAPIToken\x12\x1e.auth.v1.RevokeAPITokenRequest\x1a\x1f.auth.v1.RevokeAPITokenResponse\"\xe2\x01\x92A\xaf\x01\n" +
+	"\n" +
+	"API Tokens\x12\x10Revoke API token\x1a}Immediately revokes an API token, deactivating programmatic access for CI/CD or automation clients. Requires `tokens:delete`.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02)*'/api/v1/orgs/{org_id}/tokens/{token_id}\x12W\n" +
+	"\x10ValidateAPIToken\x12 .auth.v1.ValidateAPITokenRequest\x1a!.auth.v1.ValidateAPITokenResponse\x12\xd2\x02\n" +
+	"\x0fListAuditEvents\x12\x1f.auth.v1.ListAuditEventsRequest\x1a .auth.v1.ListAuditEventsResponse\"\xfb\x01\x92A\xd4\x01\n" +
+	"\tAudit Log\x12\x1eList organization audit events\x1a\x94\x01Queries the immutable append-only audit log for security, authentication, and administrative actions within the organization. Requires `audit:read`.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02\x1d\x12\x1b/api/v1/orgs/{org_id}/audit\x12\xff\x02\n" +
+	"\x17StartGitHubInstallation\x12'.auth.v1.StartGitHubInstallationRequest\x1a(.auth.v1.StartGitHubInstallationResponse\"\x90\x02\x92A\xd4\x01\n" +
+	"\x17GitHub App Integrations\x12\x1dStart GitHub App installation\x1a\x87\x01Generates an HMAC-signed installation state token and returns the GitHub App installation URL on github.com. Requires `github:install`.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x022\x120/api/v1/orgs/{org_id}/github/installations/start\x12\xa8\x03\n" +
+	"\x1aCompleteGitHubInstallation\x12*.auth.v1.CompleteGitHubInstallationRequest\x1a+.auth.v1.CompleteGitHubInstallationResponse\"\xb0\x02\x92A\xf7\x01\n" +
+	"\x17GitHub App Integrations\x12 Complete GitHub App installation\x1a\xa7\x01Verifies the signed installation state token from GitHub and permanently links the GitHub App installation ID to the organization workspace. Requires `github:install`.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02/:\x01*\"*/api/v1/orgs/{org_id}/github/installations\x12\x94\x03\n" +
+	"\x17ListGitHubInstallations\x12'.auth.v1.ListGitHubInstallationsRequest\x1a(.auth.v1.ListGitHubInstallationsResponse\"\xa5\x02\x92A\xef\x01\n" +
+	"\x17GitHub App Integrations\x12\x1dList GitHub App installations\x1a\xa2\x01Retrieves all GitHub App installations linked to the organization workspace, including account login, avatar, and repository access scope. Requires `github:read`.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02,\x12*/api/v1/orgs/{org_id}/github/installations\x12\x8f\x03\n" +
+	"\x1cDisconnectGitHubInstallation\x12,.auth.v1.DisconnectGitHubInstallationRequest\x1a-.auth.v1.DisconnectGitHubInstallationResponse\"\x91\x02\x92A\xc9\x01\n" +
+	"\x17GitHub App Integrations\x12\"Disconnect GitHub App installation\x1axUnlinks a GitHub App installation from the organization workspace, revoking repository access. Requires `github:delete`.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02>*</api/v1/orgs/{org_id}/github/installations/{installation_id}\x12u\n" +
+	"\x1aGetGitHubInstallationToken\x12*.auth.v1.GetGitHubInstallationTokenRequest\x1a+.auth.v1.GetGitHubInstallationTokenResponseB\xa5\f\x92A\x8b\v\x12\xd0\x01\n" +
+	"\x1dkr0n Control Plane & Auth API\x12lEnterprise multi-tenant control plane API for identity, RBAC, workspaces, API keys, and GitHub integrations.\":\n" +
+	"\x10kr0n engineering\x12&https://github.com/skxm03/kr0n-backend2\x051.0.0\x1a\x0elocalhost:8080*\x01\x012\x10application/json:\x10application/jsonZ\xb8\x01\n" +
+	"X\n" +
+	"\n" +
+	"ApiKeyAuth\x12J\b\x02\x129Organization Personal Access Token format: `kr0n_pat_...`\x1a\tX-API-Key \x02\n" +
+	"\\\n" +
+	"\n" +
+	"BearerAuth\x12N\b\x02\x129Standard JWT Bearer token format: `Bearer <access_token>`\x1a\rAuthorization \x02jm\n" +
+	"\x19Authentication & Sessions\x12PUser registration, password login, token refresh, and active session management.jY\n" +
+	"\x11Account & Profile\x12DCaller identity inspection and email address verification workflows.j`\n" +
+	"\x13Password Management\x12ISelf-service password reset, email confirmation, and credential rotation.j]\n" +
+	"\x15GitHub Authentication\x12DPKCE-protected OAuth 2.0 user login and account linking with GitHub.jU\n" +
+	"\rOrganizations\x12DMulti-tenant workspace lifecycle, discovery, settings, and deletion.jn\n" +
+	"\x1cOrganization Members & Roles\x12NRBAC roles, permission introspection, member onboarding, and role assignments.j^\n" +
+	"\x14Organization Invites\x12FSecure invitation links for inviting collaborators into organizations.ji\n" +
+	"\n" +
+	"API Tokens\x12[Org-scoped Personal Access Tokens (`kr0n_pat_...`) for CI/CD pipelines and headless agents.jI\n" +
+	"\tAudit Log\x12<Immutable, append-only security and operational audit trail.j\\\n" +
+	"\x17GitHub App Integrations\x12AGitHub App workspace installations for repository and VCS access.\n" +
 	"\vcom.auth.v1B\tAuthProtoP\x01Z?github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1;authv1\xa2\x02\x03AXX\xaa\x02\aAuth.V1\xca\x02\aAuth\\V1\xe2\x02\x13Auth\\V1\\GPBMetadata\xea\x02\bAuth::V1b\x06proto3"
 
 var (
@@ -5911,28 +6045,28 @@ var file_auth_v1_auth_proto_depIdxs = []int32{
 	2,   // 66: auth.v1.AuthService.Login:input_type -> auth.v1.LoginRequest
 	5,   // 67: auth.v1.AuthService.Refresh:input_type -> auth.v1.RefreshRequest
 	7,   // 68: auth.v1.AuthService.Logout:input_type -> auth.v1.LogoutRequest
-	9,   // 69: auth.v1.AuthService.VerifyEmail:input_type -> auth.v1.VerifyEmailRequest
-	11,  // 70: auth.v1.AuthService.GetJWKS:input_type -> auth.v1.GetJWKSRequest
-	14,  // 71: auth.v1.AuthService.ResendVerification:input_type -> auth.v1.ResendVerificationRequest
-	16,  // 72: auth.v1.AuthService.RequestPasswordReset:input_type -> auth.v1.RequestPasswordResetRequest
-	18,  // 73: auth.v1.AuthService.ConfirmPasswordReset:input_type -> auth.v1.ConfirmPasswordResetRequest
-	20,  // 74: auth.v1.AuthService.ChangePassword:input_type -> auth.v1.ChangePasswordRequest
-	22,  // 75: auth.v1.AuthService.GetMe:input_type -> auth.v1.GetMeRequest
-	24,  // 76: auth.v1.AuthService.ListSessions:input_type -> auth.v1.ListSessionsRequest
-	27,  // 77: auth.v1.AuthService.RevokeSession:input_type -> auth.v1.RevokeSessionRequest
+	24,  // 69: auth.v1.AuthService.ListSessions:input_type -> auth.v1.ListSessionsRequest
+	27,  // 70: auth.v1.AuthService.RevokeSession:input_type -> auth.v1.RevokeSessionRequest
+	11,  // 71: auth.v1.AuthService.GetJWKS:input_type -> auth.v1.GetJWKSRequest
+	22,  // 72: auth.v1.AuthService.GetMe:input_type -> auth.v1.GetMeRequest
+	9,   // 73: auth.v1.AuthService.VerifyEmail:input_type -> auth.v1.VerifyEmailRequest
+	14,  // 74: auth.v1.AuthService.ResendVerification:input_type -> auth.v1.ResendVerificationRequest
+	16,  // 75: auth.v1.AuthService.RequestPasswordReset:input_type -> auth.v1.RequestPasswordResetRequest
+	18,  // 76: auth.v1.AuthService.ConfirmPasswordReset:input_type -> auth.v1.ConfirmPasswordResetRequest
+	20,  // 77: auth.v1.AuthService.ChangePassword:input_type -> auth.v1.ChangePasswordRequest
 	29,  // 78: auth.v1.AuthService.StartGitHubOAuth:input_type -> auth.v1.StartGitHubOAuthRequest
 	31,  // 79: auth.v1.AuthService.CompleteGitHubOAuth:input_type -> auth.v1.CompleteGitHubOAuthRequest
-	34,  // 80: auth.v1.AuthService.CheckPermission:input_type -> auth.v1.CheckPermissionRequest
-	36,  // 81: auth.v1.AuthService.ListRoles:input_type -> auth.v1.ListRolesRequest
-	39,  // 82: auth.v1.AuthService.CreateOrganization:input_type -> auth.v1.CreateOrganizationRequest
-	42,  // 83: auth.v1.AuthService.ListOrganizations:input_type -> auth.v1.ListOrganizationsRequest
-	44,  // 84: auth.v1.AuthService.GetOrganization:input_type -> auth.v1.GetOrganizationRequest
-	46,  // 85: auth.v1.AuthService.UpdateOrganization:input_type -> auth.v1.UpdateOrganizationRequest
-	48,  // 86: auth.v1.AuthService.DeleteOrganization:input_type -> auth.v1.DeleteOrganizationRequest
-	50,  // 87: auth.v1.AuthService.ListMembers:input_type -> auth.v1.ListMembersRequest
-	53,  // 88: auth.v1.AuthService.AddMember:input_type -> auth.v1.AddMemberRequest
-	55,  // 89: auth.v1.AuthService.UpdateMemberRole:input_type -> auth.v1.UpdateMemberRoleRequest
-	57,  // 90: auth.v1.AuthService.RemoveMember:input_type -> auth.v1.RemoveMemberRequest
+	39,  // 80: auth.v1.AuthService.CreateOrganization:input_type -> auth.v1.CreateOrganizationRequest
+	42,  // 81: auth.v1.AuthService.ListOrganizations:input_type -> auth.v1.ListOrganizationsRequest
+	44,  // 82: auth.v1.AuthService.GetOrganization:input_type -> auth.v1.GetOrganizationRequest
+	46,  // 83: auth.v1.AuthService.UpdateOrganization:input_type -> auth.v1.UpdateOrganizationRequest
+	48,  // 84: auth.v1.AuthService.DeleteOrganization:input_type -> auth.v1.DeleteOrganizationRequest
+	36,  // 85: auth.v1.AuthService.ListRoles:input_type -> auth.v1.ListRolesRequest
+	50,  // 86: auth.v1.AuthService.ListMembers:input_type -> auth.v1.ListMembersRequest
+	53,  // 87: auth.v1.AuthService.AddMember:input_type -> auth.v1.AddMemberRequest
+	55,  // 88: auth.v1.AuthService.UpdateMemberRole:input_type -> auth.v1.UpdateMemberRoleRequest
+	57,  // 89: auth.v1.AuthService.RemoveMember:input_type -> auth.v1.RemoveMemberRequest
+	34,  // 90: auth.v1.AuthService.CheckPermission:input_type -> auth.v1.CheckPermissionRequest
 	59,  // 91: auth.v1.AuthService.CreateInvite:input_type -> auth.v1.CreateInviteRequest
 	61,  // 92: auth.v1.AuthService.AcceptInvite:input_type -> auth.v1.AcceptInviteRequest
 	63,  // 93: auth.v1.AuthService.RevokeInvite:input_type -> auth.v1.RevokeInviteRequest
@@ -5950,28 +6084,28 @@ var file_auth_v1_auth_proto_depIdxs = []int32{
 	4,   // 105: auth.v1.AuthService.Login:output_type -> auth.v1.LoginResponse
 	6,   // 106: auth.v1.AuthService.Refresh:output_type -> auth.v1.RefreshResponse
 	8,   // 107: auth.v1.AuthService.Logout:output_type -> auth.v1.LogoutResponse
-	10,  // 108: auth.v1.AuthService.VerifyEmail:output_type -> auth.v1.VerifyEmailResponse
-	13,  // 109: auth.v1.AuthService.GetJWKS:output_type -> auth.v1.GetJWKSResponse
-	15,  // 110: auth.v1.AuthService.ResendVerification:output_type -> auth.v1.ResendVerificationResponse
-	17,  // 111: auth.v1.AuthService.RequestPasswordReset:output_type -> auth.v1.RequestPasswordResetResponse
-	19,  // 112: auth.v1.AuthService.ConfirmPasswordReset:output_type -> auth.v1.ConfirmPasswordResetResponse
-	21,  // 113: auth.v1.AuthService.ChangePassword:output_type -> auth.v1.ChangePasswordResponse
-	23,  // 114: auth.v1.AuthService.GetMe:output_type -> auth.v1.GetMeResponse
-	26,  // 115: auth.v1.AuthService.ListSessions:output_type -> auth.v1.ListSessionsResponse
-	28,  // 116: auth.v1.AuthService.RevokeSession:output_type -> auth.v1.RevokeSessionResponse
+	26,  // 108: auth.v1.AuthService.ListSessions:output_type -> auth.v1.ListSessionsResponse
+	28,  // 109: auth.v1.AuthService.RevokeSession:output_type -> auth.v1.RevokeSessionResponse
+	13,  // 110: auth.v1.AuthService.GetJWKS:output_type -> auth.v1.GetJWKSResponse
+	23,  // 111: auth.v1.AuthService.GetMe:output_type -> auth.v1.GetMeResponse
+	10,  // 112: auth.v1.AuthService.VerifyEmail:output_type -> auth.v1.VerifyEmailResponse
+	15,  // 113: auth.v1.AuthService.ResendVerification:output_type -> auth.v1.ResendVerificationResponse
+	17,  // 114: auth.v1.AuthService.RequestPasswordReset:output_type -> auth.v1.RequestPasswordResetResponse
+	19,  // 115: auth.v1.AuthService.ConfirmPasswordReset:output_type -> auth.v1.ConfirmPasswordResetResponse
+	21,  // 116: auth.v1.AuthService.ChangePassword:output_type -> auth.v1.ChangePasswordResponse
 	30,  // 117: auth.v1.AuthService.StartGitHubOAuth:output_type -> auth.v1.StartGitHubOAuthResponse
 	32,  // 118: auth.v1.AuthService.CompleteGitHubOAuth:output_type -> auth.v1.CompleteGitHubOAuthResponse
-	35,  // 119: auth.v1.AuthService.CheckPermission:output_type -> auth.v1.CheckPermissionResponse
-	38,  // 120: auth.v1.AuthService.ListRoles:output_type -> auth.v1.ListRolesResponse
-	40,  // 121: auth.v1.AuthService.CreateOrganization:output_type -> auth.v1.CreateOrganizationResponse
-	43,  // 122: auth.v1.AuthService.ListOrganizations:output_type -> auth.v1.ListOrganizationsResponse
-	45,  // 123: auth.v1.AuthService.GetOrganization:output_type -> auth.v1.GetOrganizationResponse
-	47,  // 124: auth.v1.AuthService.UpdateOrganization:output_type -> auth.v1.UpdateOrganizationResponse
-	49,  // 125: auth.v1.AuthService.DeleteOrganization:output_type -> auth.v1.DeleteOrganizationResponse
-	52,  // 126: auth.v1.AuthService.ListMembers:output_type -> auth.v1.ListMembersResponse
-	54,  // 127: auth.v1.AuthService.AddMember:output_type -> auth.v1.AddMemberResponse
-	56,  // 128: auth.v1.AuthService.UpdateMemberRole:output_type -> auth.v1.UpdateMemberRoleResponse
-	58,  // 129: auth.v1.AuthService.RemoveMember:output_type -> auth.v1.RemoveMemberResponse
+	40,  // 119: auth.v1.AuthService.CreateOrganization:output_type -> auth.v1.CreateOrganizationResponse
+	43,  // 120: auth.v1.AuthService.ListOrganizations:output_type -> auth.v1.ListOrganizationsResponse
+	45,  // 121: auth.v1.AuthService.GetOrganization:output_type -> auth.v1.GetOrganizationResponse
+	47,  // 122: auth.v1.AuthService.UpdateOrganization:output_type -> auth.v1.UpdateOrganizationResponse
+	49,  // 123: auth.v1.AuthService.DeleteOrganization:output_type -> auth.v1.DeleteOrganizationResponse
+	38,  // 124: auth.v1.AuthService.ListRoles:output_type -> auth.v1.ListRolesResponse
+	52,  // 125: auth.v1.AuthService.ListMembers:output_type -> auth.v1.ListMembersResponse
+	54,  // 126: auth.v1.AuthService.AddMember:output_type -> auth.v1.AddMemberResponse
+	56,  // 127: auth.v1.AuthService.UpdateMemberRole:output_type -> auth.v1.UpdateMemberRoleResponse
+	58,  // 128: auth.v1.AuthService.RemoveMember:output_type -> auth.v1.RemoveMemberResponse
+	35,  // 129: auth.v1.AuthService.CheckPermission:output_type -> auth.v1.CheckPermissionResponse
 	60,  // 130: auth.v1.AuthService.CreateInvite:output_type -> auth.v1.CreateInviteResponse
 	62,  // 131: auth.v1.AuthService.AcceptInvite:output_type -> auth.v1.AcceptInviteResponse
 	64,  // 132: auth.v1.AuthService.RevokeInvite:output_type -> auth.v1.RevokeInviteResponse

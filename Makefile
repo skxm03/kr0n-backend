@@ -121,9 +121,13 @@ swagger-ui:
 		-v $(PWD)/control-plane/gen/openapiv2/github/v1/github.swagger.json:/usr/share/nginx/html/specs/github.swagger.json:ro \
 		swaggerapi/swagger-ui
 
+## proto: Regenerate gRPC stubs, gateway handlers, and OpenAPI specifications
+proto:
+	@cd control-plane && NETRC=/dev/null buf generate
+
 ## test: Run control-plane unit tests
 test:
-	@cd control-plane && go test ./...
+	@cd control-plane && go test ./internal/... ./cmd/... ./pkg/...
 
 ## test-race: Run control-plane tests with the Go race detector
 test-race:
