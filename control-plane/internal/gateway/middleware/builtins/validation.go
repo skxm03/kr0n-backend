@@ -39,10 +39,12 @@ func NewRequestValidationFactory(deps SharedDeps) middleware.MiddlewareFactory {
 			if enforceJSON {
 				handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodPatch {
-						ct := r.Header.Get("Content-Type")
-						if !strings.HasPrefix(strings.ToLower(ct), "application/json") {
-							middleware.WriteError(w, r, http.StatusUnsupportedMediaType, "content-type must be application/json", "UNSUPPORTED_MEDIA_TYPE")
-							return
+						if r.ContentLength > 0 || r.Header.Get("Transfer-Encoding") != "" {
+							ct := r.Header.Get("Content-Type")
+							if !strings.HasPrefix(strings.ToLower(ct), "application/json") {
+								middleware.WriteError(w, r, http.StatusUnsupportedMediaType, "content-type must be application/json", "UNSUPPORTED_MEDIA_TYPE")
+								return
+							}
 						}
 					}
 					next.ServeHTTP(w, r)

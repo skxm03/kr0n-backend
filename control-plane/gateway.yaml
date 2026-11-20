@@ -12,14 +12,16 @@ gateway:
 
 middleware_profiles:
   public_api:
-    - cors
+    - cors:
+        allow_credentials: true
     - request_validation
     - rate_limit:
         requests: 100
         window: 1m
 
   authenticated_api:
-    - cors
+    - cors:
+        allow_credentials: true
     - audit_log
     - authentication:
         allow_api_tokens: true
@@ -28,7 +30,8 @@ middleware_profiles:
         window: 1m
 
   sensitive_api:
-    - cors
+    - cors:
+        allow_credentials: true
     - audit_log
     - authentication:
         allow_api_tokens: true

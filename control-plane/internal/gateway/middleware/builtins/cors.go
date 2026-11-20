@@ -13,9 +13,9 @@ func NewCORSFactory() middleware.MiddlewareFactory {
 	return func(cfg map[string]any) (middleware.Middleware, error) {
 		allowedOrigins := []string{"*"}
 		allowedMethods := []string{"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"}
-		allowedHeaders := []string{"Authorization", "Content-Type", "X-Request-ID"}
+		allowedHeaders := []string{"Authorization", "Content-Type", "X-Request-ID", "X-Refresh-Token"}
 		exposedHeaders := []string{"X-Request-ID", "RateLimit-Limit", "RateLimit-Remaining", "Retry-After"}
-		allowCredentials := false
+		allowCredentials := true
 		maxAgeSec := 86400
 
 		if cfg != nil {
