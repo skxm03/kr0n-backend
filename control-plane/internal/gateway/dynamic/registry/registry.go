@@ -142,6 +142,8 @@ var DefaultAuthEndpoints = []EndpointDescriptor{
 	{Method: "GET", Path: "/api/v1/auth/jwks"},
 	{Method: "GET", Path: "/api/v1/auth/github/start"},
 	{Method: "GET", Path: "/api/v1/auth/github/callback"},
+	{Method: "GET", Path: "/api/v1/auth/google/start"},
+	{Method: "GET", Path: "/api/v1/auth/google/callback"},
 	{Method: "POST", Path: "/api/v1/github/webhooks"},
 }
 
