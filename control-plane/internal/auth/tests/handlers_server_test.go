@@ -852,6 +852,15 @@ func TestServer_P4AccountAndSessionRPCs(t *testing.T) {
 		t.Fatalf("ResendVerification: %v", err)
 	}
 
+	// ResendVerification limit exceeded -> ResourceExhausted (HTTP 429)
+	regSvc.resendFunc = func(ctx context.Context, rawEmail string) error {
+		return repository.ErrResendLimitExceeded
+	}
+	if _, resendErr := server.ResendVerification(ctx, &authv1.ResendVerificationRequest{Email: "me@kr0n.dev"}); status.Code(resendErr) != codes.ResourceExhausted {
+		t.Fatalf("expected ResourceExhausted for limit exceeded, got %v", resendErr)
+	}
+	regSvc.resendFunc = nil
+
 	// RequestPasswordReset
 	if _, err := server.RequestPasswordReset(ctx, &authv1.RequestPasswordResetRequest{Email: "me@kr0n.dev"}); err != nil {
 		t.Fatalf("RequestPasswordReset: %v", err)

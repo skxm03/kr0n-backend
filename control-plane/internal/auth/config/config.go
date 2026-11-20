@@ -8,6 +8,12 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// WebhookConfig holds GitHub webhook verification and payload limit settings.
+type WebhookConfig struct {
+	Secret   string
+	MaxBytes int64
+}
+
 type Config struct {
 	DatabaseURL                    string        `env:"DATABASE_URL"`
 	AuthGRPCAddr                   string        `env:"AUTH_GRPC_ADDR"`
@@ -33,6 +39,8 @@ type Config struct {
 	GitHubAppPrivateKey            string        `env:"GITHUB_APP_PRIVATE_KEY"`
 	GitHubAppPrivateKeyPath        string        `env:"GITHUB_APP_PRIVATE_KEY_PATH"`
 	GitHubAppStateSecret           string        `env:"GITHUB_APP_STATE_SECRET"`
+	GitHubWebhookSecret            string        `env:"GITHUB_WEBHOOK_SECRET"`
+	GitHubWebhookMaxBytes          int64         `env:"GITHUB_WEBHOOK_MAX_BYTES" envDefault:"10485760"`
 	AuthGRPCTLSCertFile            string        `env:"AUTH_GRPC_TLS_CERT_FILE"`
 	AuthGRPCTLSKeyFile             string        `env:"AUTH_GRPC_TLS_KEY_FILE"`
 	AuthGRPCClientCAFile           string        `env:"AUTH_GRPC_CLIENT_CA_FILE"`

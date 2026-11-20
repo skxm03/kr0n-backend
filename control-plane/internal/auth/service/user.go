@@ -248,11 +248,27 @@ func (s *UserService) ResendVerification(ctx context.Context, rawEmail string) e
 		return nil
 	}
 
+	// Cooldown: enforce a strict daily limit of at most 3 resends per 24 hours.
+	// If the user registered within the last 24 hours, their initial registration token is also in this window,
+	// so the maximum token threshold is 4 (1 registration + 3 resends); otherwise, it is 3.
+	now := time.Now().UTC()
+	since := now.Add(-24 * time.Hour)
+	count, err := s.repo.CountRecentVerificationTokens(ctx, u.ID, since)
+	if err != nil {
+		return fmt.Errorf("check verification resend limit: %w", err)
+	}
+	maxAllowed := 3
+	if u.CreatedAt.After(since) {
+		maxAllowed = 4
+	}
+	if count >= maxAllowed {
+		return repository.ErrResendLimitExceeded
+	}
+
 	rawToken, err := repository.GenerateToken()
 	if err != nil {
 		return fmt.Errorf("generate verification token: %w", err)
 	}
-	now := time.Now().UTC()
 	token := &repository.Token{
 		ID:        newUUIDv7(),
 		UserID:    u.ID,

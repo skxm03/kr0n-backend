@@ -207,6 +207,17 @@ func TestOrgPostgresRepository_GitHubInstallations(t *testing.T) {
 		t.Fatalf("ListGitHubInstallations: err=%v list=%+v", err, list)
 	}
 
+	// Webhook lifecycle status updates: suspended -> active -> deleted
+	for _, st := range []string{"suspended", "active", "deleted"} {
+		if err := repo.UpdateGitHubInstallationStatus(ctx, 849204, st); err != nil {
+			t.Fatalf("UpdateGitHubInstallationStatus(%s): %v", st, err)
+		}
+		fetched, err := repo.GetGitHubInstallationByInstallationID(ctx, 849204)
+		if err != nil || fetched.Status != st || fetched.OrganizationID != org1.ID {
+			t.Fatalf("GetGitHubInstallationByInstallationID after %s: err=%v fetched=%+v", st, err, fetched)
+		}
+	}
+
 	if err := repo.DeleteGitHubInstallation(ctx, org2.ID, 849204); !errors.Is(err, repository.ErrInstallationNotFound) {
 		t.Fatalf("expected ErrInstallationNotFound for wrong org delete, got %v", err)
 	}

@@ -818,3 +818,41 @@ func (s *Server) GetGitHubInstallationToken(ctx context.Context, req *authv1.Get
 		ExpiresAtUnix:  exp.Unix(),
 	}, nil
 }
+
+// HandleGitHubWebhook verifies and processes raw GitHub App webhook deliveries over gRPC.
+func (s *Server) HandleGitHubWebhook(ctx context.Context, req *authv1.HandleGitHubWebhookRequest) (*authv1.HandleGitHubWebhookResponse, error) {
+	if s.serviceAuth.Enabled && !IsTrustedService(ctx) {
+		return nil, status.Error(codes.Unauthenticated, "trusted service authentication required")
+	}
+	if s.webhookHandler == nil {
+		return nil, status.Error(codes.Unimplemented, "github webhook handler not configured")
+	}
+
+	httpCode, _, err := s.webhookHandler.Process(
+		ctx,
+		req.GetEventType(),
+		req.GetDeliveryId(),
+		req.GetSignatureHeader(),
+		req.GetPayload(),
+	)
+	if err != nil {
+		switch httpCode {
+		case 401:
+			return nil, status.Error(codes.Unauthenticated, err.Error())
+		case 400:
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		case 413:
+			return nil, status.Error(codes.ResourceExhausted, err.Error())
+		default:
+			return nil, status.Error(codes.Internal, "internal webhook processing error")
+		}
+	}
+
+	respStatus := "received"
+	if strings.EqualFold(strings.TrimSpace(req.GetEventType()), "ping") {
+		respStatus = "pong"
+	}
+	return &authv1.HandleGitHubWebhookResponse{
+		Status: respStatus,
+	}, nil
+}

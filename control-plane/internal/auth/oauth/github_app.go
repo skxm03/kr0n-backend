@@ -277,6 +277,18 @@ func (p *GitHubAppProvider) GetInstallationToken(ctx context.Context, installati
 	return tokResp.Token, tokResp.ExpiresAt, nil
 }
 
+// InvalidateInstallationToken evicts any cached installation token for installationID,
+// ensuring suspended/deleted installations are immediately blocked and repository additions/removals
+// mint a fresh installation token on next use.
+func (p *GitHubAppProvider) InvalidateInstallationToken(installationID int64) {
+	if p == nil {
+		return
+	}
+	p.mu.Lock()
+	delete(p.tokens, installationID)
+	p.mu.Unlock()
+}
+
 // GetInstallation fetches installation metadata from GitHub using the App JWT.
 func (p *GitHubAppProvider) GetInstallation(ctx context.Context, installationID int64) (*GitHubAppInstallation, error) {
 	if !p.Configured() {

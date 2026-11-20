@@ -468,7 +468,48 @@ func (s *OrgService) DisconnectGitHubInstallation(ctx context.Context, p reposit
 	if err := s.require(ctx, p, orgID, "org:update"); err != nil {
 		return err
 	}
-	return s.repo.DeleteGitHubInstallation(ctx, orgID, installationID)
+	if err := s.repo.DeleteGitHubInstallation(ctx, orgID, installationID); err != nil {
+		return err
+	}
+	s.InvalidateGitHubInstallationToken(installationID)
+	return nil
+}
+
+// UpdateGitHubInstallationStatus updates the lifecycle status ('active', 'suspended', 'deleted') of an installation
+// in response to a verified GitHub webhook event, evicts any cached installation token when non-active,
+// and returns the installation record (if linked to an organization).
+func (s *OrgService) UpdateGitHubInstallationStatus(ctx context.Context, installationID int64, status string) (*repository.GitHubInstallation, error) {
+	if installationID <= 0 {
+		return nil, repository.ErrInstallationNotFound
+	}
+	status = strings.ToLower(strings.TrimSpace(status))
+	if status != "active" {
+		s.InvalidateGitHubInstallationToken(installationID)
+	}
+	inst, err := s.repo.GetGitHubInstallationByInstallationID(ctx, installationID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.repo.UpdateGitHubInstallationStatus(ctx, installationID, status); err != nil {
+		return nil, err
+	}
+	inst.Status = status
+	return inst, nil
+}
+
+// GetGitHubInstallationByInstallationID looks up a linked installation by its GitHub installation_id.
+func (s *OrgService) GetGitHubInstallationByInstallationID(ctx context.Context, installationID int64) (*repository.GitHubInstallation, error) {
+	if installationID <= 0 {
+		return nil, repository.ErrInstallationNotFound
+	}
+	return s.repo.GetGitHubInstallationByInstallationID(ctx, installationID)
+}
+
+// InvalidateGitHubInstallationToken evicts any cached installation token for installationID.
+func (s *OrgService) InvalidateGitHubInstallationToken(installationID int64) {
+	if inv, ok := s.githubApp.(interface{ InvalidateInstallationToken(int64) }); ok {
+		inv.InvalidateInstallationToken(installationID)
+	}
 }
 
 // GetInstallationToken authorizes caller with service:read, resolves the installation, and mints an ephemeral GitHub App token.

@@ -2498,6 +2498,14 @@
         }
       }
     },
+    "v1HandleGitHubWebhookResponse": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      }
+    },
     "v1JWK": {
       "type": "object",
       "properties": {

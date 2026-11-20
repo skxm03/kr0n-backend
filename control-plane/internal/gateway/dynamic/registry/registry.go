@@ -3,10 +3,17 @@ package registry
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
 	githubv1 "github.com/skxm03/kr0n-backend/control-plane/gen/github/v1"
@@ -135,6 +142,7 @@ var DefaultAuthEndpoints = []EndpointDescriptor{
 	{Method: "GET", Path: "/api/v1/auth/jwks"},
 	{Method: "GET", Path: "/api/v1/auth/github/start"},
 	{Method: "GET", Path: "/api/v1/auth/github/callback"},
+	{Method: "POST", Path: "/api/v1/github/webhooks"},
 }
 
 // DefaultGitHubEndpoints provides the complete list of REST routes defined in github.proto.
@@ -144,13 +152,68 @@ var DefaultGitHubEndpoints = []EndpointDescriptor{
 	{Method: "GET", Path: "/api/v1/orgs/{org_id}/github/repositories/{owner}/{repo}/directories"},
 }
 
+const defaultWebhookMaxBytes int64 = 10 << 20 // 10 MB
+
+func resolveWebhookMaxBytes() int64 {
+	if raw := strings.TrimSpace(os.Getenv("GITHUB_WEBHOOK_MAX_BYTES")); raw != "" {
+		if n, err := strconv.ParseInt(raw, 10, 64); err == nil && n > 0 {
+			return n
+		}
+	}
+	return defaultWebhookMaxBytes
+}
+
 // DefaultRegistry creates and returns a Registry pre-populated with standard kr0n services.
 func DefaultRegistry() *Registry {
 	reg := NewRegistry()
 	_ = reg.RegisterService("auth", ServiceRegistration{
 		Registrar: func(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
 			client := authv1.NewAuthServiceClient(conn)
-			return authv1.RegisterAuthServiceHandlerClient(ctx, mux, client)
+			if err := authv1.RegisterAuthServiceHandlerClient(ctx, mux, client); err != nil {
+				return err
+			}
+			// Mount custom raw-body handler for GitHub webhooks so exact payload bytes are preserved for HMAC-SHA256 verification.
+			maxBytes := resolveWebhookMaxBytes()
+			return mux.HandlePath("POST", "/api/v1/github/webhooks", func(w http.ResponseWriter, r *http.Request, _ map[string]string) {
+				body, err := io.ReadAll(io.LimitReader(r.Body, maxBytes+1))
+				if err != nil || int64(len(body)) > maxBytes {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusRequestEntityTooLarge)
+					_, _ = w.Write([]byte(`{"error":"payload too large"}`))
+					return
+				}
+				resp, err := client.HandleGitHubWebhook(r.Context(), &authv1.HandleGitHubWebhookRequest{
+					Payload:         body,
+					SignatureHeader: r.Header.Get("X-Hub-Signature-256"),
+					EventType:       r.Header.Get("X-GitHub-Event"),
+					DeliveryId:      r.Header.Get("X-GitHub-Delivery"),
+				})
+				if err != nil {
+					w.Header().Set("Content-Type", "application/json")
+					switch status.Code(err) {
+					case codes.Unauthenticated:
+						w.WriteHeader(http.StatusUnauthorized)
+						_, _ = w.Write([]byte(`{"error":"invalid signature"}`))
+					case codes.InvalidArgument:
+						w.WriteHeader(http.StatusBadRequest)
+						_, _ = w.Write([]byte(`{"error":"invalid payload"}`))
+					case codes.ResourceExhausted:
+						w.WriteHeader(http.StatusRequestEntityTooLarge)
+						_, _ = w.Write([]byte(`{"error":"payload too large"}`))
+					default:
+						w.WriteHeader(http.StatusInternalServerError)
+						_, _ = w.Write([]byte(`{"error":"internal processing error"}`))
+					}
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				st := resp.GetStatus()
+				if st == "" {
+					st = "received"
+				}
+				_, _ = fmt.Fprintf(w, `{"status":%q}`, st)
+			})
 		},
 		Endpoints: DefaultAuthEndpoints,
 	})

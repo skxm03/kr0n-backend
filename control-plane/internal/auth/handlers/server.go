@@ -17,6 +17,7 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/oauth"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/service"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/webhook"
 )
 
 // GitHubOAuthProvider defines the contract for GitHub OAuth 2.0 + PKCE operations.
@@ -97,6 +98,13 @@ func WithServiceAuthConfig(cfg ServiceAuthConfig) Option {
 	}
 }
 
+// WithGitHubWebhookHandler configures the GitHub App webhook verifier and processor for Server.
+func WithGitHubWebhookHandler(wh *webhook.WebhookHandler) Option {
+	return func(s *Server) {
+		s.webhookHandler = wh
+	}
+}
+
 // Server implements authv1.AuthServiceServer.
 type Server struct {
 	authv1.UnimplementedAuthServiceServer
@@ -107,6 +115,7 @@ type Server struct {
 	githubOAuth         GitHubOAuthProvider
 	orgService          *service.OrgService
 	auditService        *service.AuditService
+	webhookHandler      *webhook.WebhookHandler
 	serviceAuth         ServiceAuthConfig
 }
 
@@ -401,11 +410,15 @@ func (s *Server) ResendVerification(ctx context.Context, req *authv1.ResendVerif
 		return nil, status.Error(codes.Unimplemented, "registration service not configured")
 	}
 	if err := s.regService.ResendVerification(ctx, req.GetEmail()); err != nil {
-		if errors.Is(err, repository.ErrInvalidEmail) {
+		switch {
+		case errors.Is(err, repository.ErrInvalidEmail):
 			return nil, status.Error(codes.InvalidArgument, err.Error())
+		case errors.Is(err, repository.ErrResendLimitExceeded):
+			return nil, status.Error(codes.ResourceExhausted, "resend verification limit reached (maximum 3 requests per day)")
+		default:
+			log.Printf("internal resend verification error: %v", err)
+			return nil, status.Error(codes.Internal, "internal server error")
 		}
-		log.Printf("internal resend verification error: %v", err)
-		return nil, status.Error(codes.Internal, "internal server error")
 	}
 	return &authv1.ResendVerificationResponse{Message: "if the account exists and is unverified, a new verification link has been sent"}, nil
 }

@@ -207,6 +207,11 @@ if [ -n "${GITHUB_APP_ID:-}" ] || [ -n "${GITHUB_APP_SLUG:-}" ]; then
   else
     pass "GITHUB_APP_STATE_SECRET is configured"
   fi
+  if [ -z "${GITHUB_WEBHOOK_SECRET:-}" ]; then
+    warn "GITHUB_WEBHOOK_SECRET is empty (GitHub webhook signature verification requires GITHUB_WEBHOOK_SECRET)"
+  else
+    pass "GITHUB_WEBHOOK_SECRET is configured"
+  fi
 fi
 
 if [ -z "${GITHUB_CLIENT_ID:-}" ] || [ -z "${GITHUB_CLIENT_SECRET:-}" ]; then

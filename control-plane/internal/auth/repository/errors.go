@@ -29,6 +29,7 @@ var (
 	ErrInvalidToken          = domain.ErrInvalidToken
 	ErrTokenExpired          = domain.ErrTokenExpired
 	ErrTokenAlreadyConsumed  = domain.ErrTokenAlreadyConsumed
+	ErrResendLimitExceeded   = domain.ErrResendLimitExceeded
 
 	// Organization, Membership & RBAC Errors
 	ErrOrgNotFound               = domain.ErrOrgNotFound

@@ -78,6 +78,8 @@ type OrgRepository interface {
 	UpsertGitHubInstallation(ctx context.Context, inst *GitHubInstallation) (*GitHubInstallation, error)
 	ListGitHubInstallations(ctx context.Context, orgID uuid.UUID) ([]GitHubInstallation, error)
 	DeleteGitHubInstallation(ctx context.Context, orgID uuid.UUID, installationID int64) error
+	UpdateGitHubInstallationStatus(ctx context.Context, installationID int64, status string) error
+	GetGitHubInstallationByInstallationID(ctx context.Context, installationID int64) (*GitHubInstallation, error)
 }
 
 // PostgresOrgRepository implements OrgRepository using PostgreSQL.
@@ -729,5 +731,47 @@ func (r *PostgresOrgRepository) DeleteGitHubInstallation(ctx context.Context, or
 		return ErrInstallationNotFound
 	}
 	return nil
+}
+
+// UpdateGitHubInstallationStatus updates the lifecycle status ('active', 'suspended', 'deleted', 'uninstalled')
+// of a GitHub App installation by its GitHub installation_id.
+func (r *PostgresOrgRepository) UpdateGitHubInstallationStatus(ctx context.Context, installationID int64, status string) error {
+	tag, err := r.pool.Exec(ctx, `
+		UPDATE github_installations
+		SET status = $1, updated_at = now()
+		WHERE installation_id = $2;
+	`, status, installationID)
+	if err != nil {
+		return fmt.Errorf("update github installation status: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrInstallationNotFound
+	}
+	return nil
+}
+
+// GetGitHubInstallationByInstallationID looks up a GitHub installation record by its GitHub installation_id.
+func (r *PostgresOrgRepository) GetGitHubInstallationByInstallationID(ctx context.Context, installationID int64) (*GitHubInstallation, error) {
+	var out GitHubInstallation
+	var createdBy *uuid.UUID
+	err := r.pool.QueryRow(ctx, `
+		SELECT id, organization_id, installation_id, account_login, account_type,
+		       repository_selection, status, created_by_user_id, created_at, updated_at
+		FROM github_installations
+		WHERE installation_id = $1;
+	`, installationID).Scan(
+		&out.ID, &out.OrganizationID, &out.InstallationID, &out.AccountLogin, &out.AccountType,
+		&out.RepositorySelection, &out.Status, &createdBy, &out.CreatedAt, &out.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrInstallationNotFound
+		}
+		return nil, fmt.Errorf("get github installation by installation_id: %w", err)
+	}
+	if createdBy != nil {
+		out.CreatedByUserID = *createdBy
+	}
+	return &out, nil
 }
 

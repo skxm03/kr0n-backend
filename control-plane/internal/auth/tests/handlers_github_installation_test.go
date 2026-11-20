@@ -2,9 +2,12 @@ package tests
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"net/http"
@@ -19,6 +22,7 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/oauth"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/service"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/webhook"
 )
 
 func TestHandlers_GitHubInstallationAndRepoExplorer(t *testing.T) {
@@ -109,7 +113,15 @@ func TestHandlers_GitHubInstallationAndRepoExplorer(t *testing.T) {
 	auditRepo := &memAuditRepo{}
 	orgSvc := service.NewOrgService(orgRepo, service.WithGitHubApp(ghApp))
 	auditSvc := service.NewAuditService(auditRepo)
-	srv := handlers.NewServer(nil, nil, handlers.WithOrgService(orgSvc), handlers.WithAuditService(auditSvc))
+	const webhookSecret = "whsec_integration_test_secret"
+	wh := webhook.NewWebhookHandler(webhookSecret, 0, orgSvc, auditSvc)
+	srv := handlers.NewServer(
+		nil,
+		nil,
+		handlers.WithOrgService(orgSvc),
+		handlers.WithAuditService(auditSvc),
+		handlers.WithGitHubWebhookHandler(wh),
+	)
 
 	ownerID := uuid.New()
 	memberID := uuid.New()
@@ -224,6 +236,66 @@ func TestHandlers_GitHubInstallationAndRepoExplorer(t *testing.T) {
 		t.Fatalf("GetGitHubInstallationToken: err=%v, resp=%+v", err, tokResp)
 	}
 
+	// 4b. HandleGitHubWebhook: ping, invalid signature (401), suspend blocks token generation, unsuspend restores
+	sign := func(b []byte) string {
+		mac := hmac.New(sha256.New, []byte(webhookSecret))
+		mac.Write(b)
+		return "sha256=" + hex.EncodeToString(mac.Sum(nil))
+	}
+
+	pingPayload := []byte(`{"zen":"Responsive is better than fast."}`)
+	pingResp, err := srv.HandleGitHubWebhook(ctx, &authv1.HandleGitHubWebhookRequest{
+		Payload:         pingPayload,
+		SignatureHeader: sign(pingPayload),
+		EventType:       "ping",
+		DeliveryId:      "d-ping",
+	})
+	if err != nil || pingResp.GetStatus() != "pong" {
+		t.Fatalf("HandleGitHubWebhook ping: err=%v resp=%+v", err, pingResp)
+	}
+
+	if _, err := srv.HandleGitHubWebhook(ctx, &authv1.HandleGitHubWebhookRequest{
+		Payload:         pingPayload,
+		SignatureHeader: "sha256=bad",
+		EventType:       "ping",
+	}); status.Code(err) != codes.Unauthenticated {
+		t.Fatalf("expected Unauthenticated on invalid webhook signature, got %v", err)
+	}
+
+	suspendPayload := []byte(`{"action":"suspend","installation":{"id":77001,"account":{"login":"acme-gh","type":"Organization"}},"sender":{"id":1,"login":"octocat"}}`)
+	if _, err := srv.HandleGitHubWebhook(ctx, &authv1.HandleGitHubWebhookRequest{
+		Payload:         suspendPayload,
+		SignatureHeader: sign(suspendPayload),
+		EventType:       "installation",
+		DeliveryId:      "d-suspend",
+	}); err != nil {
+		t.Fatalf("HandleGitHubWebhook suspend: %v", err)
+	}
+	if _, err := srv.GetGitHubInstallationToken(ctx, &authv1.GetGitHubInstallationTokenRequest{
+		Caller:         memberPrincipal,
+		OrgId:          org.ID.String(),
+		InstallationId: 77001,
+	}); status.Code(err) != codes.NotFound {
+		t.Fatalf("expected suspended installation to block token generation with NotFound, got %v", err)
+	}
+
+	unsuspendPayload := []byte(`{"action":"unsuspend","installation":{"id":77001,"account":{"login":"acme-gh","type":"Organization"}},"sender":{"id":1,"login":"octocat"}}`)
+	if _, err := srv.HandleGitHubWebhook(ctx, &authv1.HandleGitHubWebhookRequest{
+		Payload:         unsuspendPayload,
+		SignatureHeader: sign(unsuspendPayload),
+		EventType:       "installation",
+		DeliveryId:      "d-unsuspend",
+	}); err != nil {
+		t.Fatalf("HandleGitHubWebhook unsuspend: %v", err)
+	}
+	if _, err := srv.GetGitHubInstallationToken(ctx, &authv1.GetGitHubInstallationTokenRequest{
+		Caller:         memberPrincipal,
+		OrgId:          org.ID.String(),
+		InstallationId: 77001,
+	}); err != nil {
+		t.Fatalf("expected unsuspended installation to allow token generation, got %v", err)
+	}
+
 	// 5. DisconnectGitHubInstallation requires org:update and emits audit event
 	if _, err := srv.DisconnectGitHubInstallation(ctx, &authv1.DisconnectGitHubInstallationRequest{
 		Caller:         memberPrincipal,
@@ -246,7 +318,11 @@ func TestHandlers_GitHubInstallationAndRepoExplorer(t *testing.T) {
 	for _, ev := range events {
 		actions = append(actions, ev.Action)
 	}
-	if len(actions) < 2 || actions[0] != "github.installation_disconnected" || actions[1] != "github.installation_connected" {
-		t.Fatalf("expected audit events [github.installation_disconnected github.installation_connected], got %v", actions)
+	if len(actions) < 4 ||
+		actions[0] != "github.installation_disconnected" ||
+		actions[1] != "github.installation_unsuspended" ||
+		actions[2] != "github.installation_suspended" ||
+		actions[3] != "github.installation_connected" {
+		t.Fatalf("expected audit events [github.installation_disconnected github.installation_unsuspended github.installation_suspended github.installation_connected], got %v", actions)
 	}
 }

@@ -68,6 +68,9 @@ var (
 	// ErrTokenAlreadyConsumed indicates the verification token was previously consumed.
 	// Wraps ErrInvalidToken to prevent revealing token usage history.
 	ErrTokenAlreadyConsumed = fmt.Errorf("%w: token already consumed", ErrInvalidToken)
+
+	// ErrResendLimitExceeded indicates the user has reached the maximum allowed verification resend requests per day.
+	ErrResendLimitExceeded = errors.New("resend verification limit reached")
 )
 
 // Organization, Membership & RBAC Errors

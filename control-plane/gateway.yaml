@@ -39,6 +39,11 @@ middleware_profiles:
         requests: 50
         window: 1m
 
+  webhook_ingress:
+    - recovery
+    - request_id
+    - audit_log
+
 services:
   auth:
     address: "${AUTH_GRPC_ADDR}"
@@ -79,6 +84,14 @@ services:
             methods: [POST, PUT, PATCH, DELETE]
         use:
           - sensitive_api
+
+      webhooks:
+        match:
+          - path: "/api/v1/github/webhooks"
+            type: exact
+            methods: [POST]
+        use:
+          - webhook_ingress
 
   github:
     address: "${GITHUB_GRPC_ADDR:-127.0.0.1:50052}"

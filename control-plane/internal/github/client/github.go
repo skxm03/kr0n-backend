@@ -328,3 +328,13 @@ func (c *HTTPClient) setCache(key string, data any) {
 		expiresAt: time.Now().Add(c.cacheTTL),
 	}
 }
+
+// InvalidateCache clears all cached repository lists, branch lists, and directory trees.
+func (c *HTTPClient) InvalidateCache() {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	clear(c.cache)
+	c.mu.Unlock()
+}

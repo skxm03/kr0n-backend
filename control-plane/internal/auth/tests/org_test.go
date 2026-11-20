@@ -322,6 +322,29 @@ func (m *memOrgRepo) DeleteGitHubInstallation(ctx context.Context, orgID uuid.UU
 	return nil
 }
 
+func (m *memOrgRepo) UpdateGitHubInstallationStatus(ctx context.Context, installationID int64, status string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	inst, ok := m.installations[installationID]
+	if !ok {
+		return repository.ErrInstallationNotFound
+	}
+	inst.Status = status
+	inst.UpdatedAt = time.Now().UTC()
+	return nil
+}
+
+func (m *memOrgRepo) GetGitHubInstallationByInstallationID(ctx context.Context, installationID int64) (*repository.GitHubInstallation, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	inst, ok := m.installations[installationID]
+	if !ok {
+		return nil, repository.ErrInstallationNotFound
+	}
+	cp := *inst
+	return &cp, nil
+}
+
 func TestOrgRBACLastOwnerAndAPITokens(t *testing.T) {
 	repo := newMemOrgRepo()
 	svc := service.NewOrgService(repo)

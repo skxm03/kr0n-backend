@@ -35,6 +35,7 @@ type UserRepository interface {
 	RecordLoginFailure(ctx context.Context, userID uuid.UUID, maxAttempts int, lockoutDuration time.Duration, now time.Time) error
 	ResetLoginFailures(ctx context.Context, userID uuid.UUID) error
 	CreateVerificationToken(ctx context.Context, token *Token, outbox ...*OutboxEvent) error
+	CountRecentVerificationTokens(ctx context.Context, userID uuid.UUID, since time.Time) (int, error)
 	CreatePasswordResetToken(ctx context.Context, token *Token, outbox ...*OutboxEvent) error
 	ConsumePasswordResetAndUpdatePassword(ctx context.Context, tokenHash, newPasswordHash string, now time.Time) (uuid.UUID, error)
 	UpdatePassword(ctx context.Context, userID uuid.UUID, newPasswordHash string, now time.Time) error
@@ -317,6 +318,16 @@ func (r *PostgresUserRepository) CreateVerificationToken(ctx context.Context, to
 		return fmt.Errorf("commit verification token: %w", err)
 	}
 	return nil
+}
+
+// CountRecentVerificationTokens counts email verification tokens generated for a user since a given timestamp.
+func (r *PostgresUserRepository) CountRecentVerificationTokens(ctx context.Context, userID uuid.UUID, since time.Time) (int, error) {
+	const q = `SELECT COUNT(*) FROM email_verification_tokens WHERE user_id = $1 AND created_at >= $2;`
+	var count int
+	if err := r.pool.QueryRow(ctx, q, userID, since).Scan(&count); err != nil {
+		return 0, fmt.Errorf("count recent verification tokens: %w", err)
+	}
+	return count, nil
 }
 
 // CreatePasswordResetToken invalidates any prior unconsumed password reset tokens for the user and

@@ -58,6 +58,7 @@ const (
 	AuthService_ListGitHubInstallations_FullMethodName      = "/auth.v1.AuthService/ListGitHubInstallations"
 	AuthService_DisconnectGitHubInstallation_FullMethodName = "/auth.v1.AuthService/DisconnectGitHubInstallation"
 	AuthService_GetGitHubInstallationToken_FullMethodName   = "/auth.v1.AuthService/GetGitHubInstallationToken"
+	AuthService_HandleGitHubWebhook_FullMethodName          = "/auth.v1.AuthService/HandleGitHubWebhook"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -147,6 +148,8 @@ type AuthServiceClient interface {
 	// GetGitHubInstallationToken exchanges organization permissions and caller principal for a scoped GitHub App installation token.
 	// Internal service-to-service RPC used by satellite services (e.g. GitHub microservice).
 	GetGitHubInstallationToken(ctx context.Context, in *GetGitHubInstallationTokenRequest, opts ...grpc.CallOption) (*GetGitHubInstallationTokenResponse, error)
+	// HandleGitHubWebhook verifies and processes raw GitHub App webhook payloads (ping, installation, installation_repositories).
+	HandleGitHubWebhook(ctx context.Context, in *HandleGitHubWebhookRequest, opts ...grpc.CallOption) (*HandleGitHubWebhookResponse, error)
 }
 
 type authServiceClient struct {
@@ -547,6 +550,16 @@ func (c *authServiceClient) GetGitHubInstallationToken(ctx context.Context, in *
 	return out, nil
 }
 
+func (c *authServiceClient) HandleGitHubWebhook(ctx context.Context, in *HandleGitHubWebhookRequest, opts ...grpc.CallOption) (*HandleGitHubWebhookResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(HandleGitHubWebhookResponse)
+	err := c.cc.Invoke(ctx, AuthService_HandleGitHubWebhook_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AuthServiceServer is the server API for AuthService service.
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility.
@@ -634,6 +647,8 @@ type AuthServiceServer interface {
 	// GetGitHubInstallationToken exchanges organization permissions and caller principal for a scoped GitHub App installation token.
 	// Internal service-to-service RPC used by satellite services (e.g. GitHub microservice).
 	GetGitHubInstallationToken(context.Context, *GetGitHubInstallationTokenRequest) (*GetGitHubInstallationTokenResponse, error)
+	// HandleGitHubWebhook verifies and processes raw GitHub App webhook payloads (ping, installation, installation_repositories).
+	HandleGitHubWebhook(context.Context, *HandleGitHubWebhookRequest) (*HandleGitHubWebhookResponse, error)
 	mustEmbedUnimplementedAuthServiceServer()
 }
 
@@ -760,6 +775,9 @@ func (UnimplementedAuthServiceServer) DisconnectGitHubInstallation(context.Conte
 }
 func (UnimplementedAuthServiceServer) GetGitHubInstallationToken(context.Context, *GetGitHubInstallationTokenRequest) (*GetGitHubInstallationTokenResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetGitHubInstallationToken not implemented")
+}
+func (UnimplementedAuthServiceServer) HandleGitHubWebhook(context.Context, *HandleGitHubWebhookRequest) (*HandleGitHubWebhookResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method HandleGitHubWebhook not implemented")
 }
 func (UnimplementedAuthServiceServer) mustEmbedUnimplementedAuthServiceServer() {}
 func (UnimplementedAuthServiceServer) testEmbeddedByValue()                     {}
@@ -1484,6 +1502,24 @@ func _AuthService_GetGitHubInstallationToken_Handler(srv interface{}, ctx contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthService_HandleGitHubWebhook_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HandleGitHubWebhookRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).HandleGitHubWebhook(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_HandleGitHubWebhook_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).HandleGitHubWebhook(ctx, req.(*HandleGitHubWebhookRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AuthService_ServiceDesc is the grpc.ServiceDesc for AuthService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1646,6 +1682,10 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetGitHubInstallationToken",
 			Handler:    _AuthService_GetGitHubInstallationToken_Handler,
+		},
+		{
+			MethodName: "HandleGitHubWebhook",
+			Handler:    _AuthService_HandleGitHubWebhook_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -17,21 +17,22 @@ import (
 )
 
 type mockUserRepository struct {
-	createTokenFunc  func(ctx context.Context, u *repository.User, passwordHash string, token *repository.Token, outbox ...*repository.OutboxEvent) error
-	getFunc          func(ctx context.Context, email string) (*repository.User, string, error)
-	getByIDFunc      func(ctx context.Context, id uuid.UUID) (*repository.User, error)
-	getByIDPwFunc    func(ctx context.Context, id uuid.UUID) (*repository.User, string, error)
-	recordFailFunc   func(ctx context.Context, userID uuid.UUID, maxAttempts int, lockoutDuration time.Duration, now time.Time) error
-	resetFailFunc    func(ctx context.Context, userID uuid.UUID) error
-	consumeResetFunc func(ctx context.Context, tokenHash, newPasswordHash string, now time.Time) (uuid.UUID, error)
-	updatePwFunc     func(ctx context.Context, userID uuid.UUID, newPasswordHash string, now time.Time) error
-	resolveOAuthFunc func(ctx context.Context, profile repository.OAuthProfile, now time.Time) (*repository.User, error)
-	created          []*repository.User
-	createdTokens    []*repository.Token
-	createdOutbox    []*repository.OutboxEvent
-	resetTokens      []*repository.Token
-	failureRecorded  int
-	failuresReset    bool
+	createTokenFunc       func(ctx context.Context, u *repository.User, passwordHash string, token *repository.Token, outbox ...*repository.OutboxEvent) error
+	getFunc               func(ctx context.Context, email string) (*repository.User, string, error)
+	getByIDFunc           func(ctx context.Context, id uuid.UUID) (*repository.User, error)
+	getByIDPwFunc         func(ctx context.Context, id uuid.UUID) (*repository.User, string, error)
+	recordFailFunc        func(ctx context.Context, userID uuid.UUID, maxAttempts int, lockoutDuration time.Duration, now time.Time) error
+	resetFailFunc         func(ctx context.Context, userID uuid.UUID) error
+	consumeResetFunc      func(ctx context.Context, tokenHash, newPasswordHash string, now time.Time) (uuid.UUID, error)
+	updatePwFunc          func(ctx context.Context, userID uuid.UUID, newPasswordHash string, now time.Time) error
+	resolveOAuthFunc      func(ctx context.Context, profile repository.OAuthProfile, now time.Time) (*repository.User, error)
+	countRecentTokensFunc func(ctx context.Context, userID uuid.UUID, since time.Time) (int, error)
+	created               []*repository.User
+	createdTokens         []*repository.Token
+	createdOutbox         []*repository.OutboxEvent
+	resetTokens           []*repository.Token
+	failureRecorded       int
+	failuresReset         bool
 }
 
 func (m *mockUserRepository) CreateWithPasswordAndVerificationToken(ctx context.Context, u *repository.User, passwordHash string, token *repository.Token, outbox ...*repository.OutboxEvent) error {
@@ -91,6 +92,13 @@ func (m *mockUserRepository) CreateVerificationToken(ctx context.Context, token 
 		m.createdOutbox = append(m.createdOutbox, outbox[0])
 	}
 	return nil
+}
+
+func (m *mockUserRepository) CountRecentVerificationTokens(ctx context.Context, userID uuid.UUID, since time.Time) (int, error) {
+	if m.countRecentTokensFunc != nil {
+		return m.countRecentTokensFunc(ctx, userID, since)
+	}
+	return len(m.createdTokens), nil
 }
 
 func (m *mockUserRepository) CreatePasswordResetToken(ctx context.Context, token *repository.Token, outbox ...*repository.OutboxEvent) error {
@@ -626,6 +634,46 @@ func TestUserService_ResendVerification(t *testing.T) {
 	}
 	if len(sender.Messages()) != 1 {
 		t.Fatalf("expected 1 verification email, got %d", len(sender.Messages()))
+	}
+}
+
+func TestUserService_ResendVerification_CooldownLimit(t *testing.T) {
+	now := time.Now().UTC()
+	// User registered 5 minutes ago (within last 24h: 1 initial token exists)
+	recentUser := &repository.User{
+		ID:          uuid.New(),
+		Email:       "recent@kr0n.dev",
+		DisplayName: "Recent User",
+		Status:      repository.StatusActive,
+		CreatedAt:   now.Add(-5 * time.Minute),
+	}
+
+	recentTokenCount := 1 // Initial registration token
+	repo := &mockUserRepository{
+		getFunc: func(ctx context.Context, email string) (*repository.User, string, error) {
+			if email == "recent@kr0n.dev" {
+				return recentUser, "pw", nil
+			}
+			return nil, "", repository.ErrUserNotFound
+		},
+		countRecentTokensFunc: func(ctx context.Context, userID uuid.UUID, since time.Time) (int, error) {
+			return recentTokenCount, nil
+		},
+	}
+	svc := service.NewUserService(repo, &mockHasher{})
+
+	// Resend 1, 2, 3 should succeed
+	for i := 1; i <= 3; i++ {
+		if err := svc.ResendVerification(context.Background(), "recent@kr0n.dev"); err != nil {
+			t.Fatalf("resend #%d failed: %v", i, err)
+		}
+		recentTokenCount++
+	}
+
+	// 4th resend in 24 hours must fail with ErrResendLimitExceeded
+	err := svc.ResendVerification(context.Background(), "recent@kr0n.dev")
+	if !errors.Is(err, repository.ErrResendLimitExceeded) {
+		t.Fatalf("expected ErrResendLimitExceeded on 4th resend, got %v", err)
 	}
 }
 

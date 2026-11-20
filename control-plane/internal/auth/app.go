@@ -25,6 +25,7 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/outbox"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/service"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/webhook"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/email"
 	pkgAudit "github.com/skxm03/kr0n-backend/control-plane/pkg/audit"
@@ -164,6 +165,7 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 
 	auditRepo := repository.NewPostgresAuditRepository(dbPool)
 	auditService := service.NewAuditService(auditRepo, service.WithAuditEmitter(auditEmitter))
+	webhookHandler := webhook.NewWebhookHandler(cfg.GitHubWebhookSecret, cfg.GitHubWebhookMaxBytes, orgService, auditService)
 
 	serviceAuthConfig := handlers.ServiceAuthConfig{
 		Enabled:            !isDev || cfg.AuthGRPCClientCAFile != "",
@@ -180,6 +182,7 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 		handlers.WithGitHubOAuth(githubOAuth),
 		handlers.WithOrgService(orgService),
 		handlers.WithAuditService(auditService),
+		handlers.WithGitHubWebhookHandler(webhookHandler),
 		handlers.WithServiceAuthConfig(serviceAuthConfig),
 	)
 

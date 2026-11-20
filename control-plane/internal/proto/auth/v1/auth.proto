@@ -735,6 +735,9 @@ service AuthService {
   // GetGitHubInstallationToken exchanges organization permissions and caller principal for a scoped GitHub App installation token.
   // Internal service-to-service RPC used by satellite services (e.g. GitHub microservice).
   rpc GetGitHubInstallationToken(GetGitHubInstallationTokenRequest) returns (GetGitHubInstallationTokenResponse);
+
+  // HandleGitHubWebhook verifies and processes raw GitHub App webhook payloads (ping, installation, installation_repositories).
+  rpc HandleGitHubWebhook(HandleGitHubWebhookRequest) returns (HandleGitHubWebhookResponse);
 }
 
 message RegisterRequest {
@@ -1266,4 +1269,15 @@ message GetGitHubInstallationTokenResponse {
   string token = 1;
   int64 installation_id = 2;
   int64 expires_at_unix = 3;
+}
+
+message HandleGitHubWebhookRequest {
+  bytes payload = 1;
+  string signature_header = 2;
+  string event_type = 3;
+  string delivery_id = 4;
+}
+
+message HandleGitHubWebhookResponse {
+  string status = 1;
 }
