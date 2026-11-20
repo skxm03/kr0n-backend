@@ -849,7 +849,7 @@ message ConfirmPasswordResetResponse {
 }
 
 message ChangePasswordRequest {
-  CallerPrincipal caller = 1;
+  CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string current_password = 2;
   string new_password = 3;
 }
@@ -859,7 +859,7 @@ message ChangePasswordResponse {
 }
 
 message GetMeRequest {
-  CallerPrincipal caller = 1;
+  CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
 }
 
 message GetMeResponse {
@@ -877,7 +877,7 @@ message GetMeResponse {
 }
 
 message ListSessionsRequest {
-  CallerPrincipal caller = 1;
+  CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
 }
 
 message SessionInfo {
@@ -895,7 +895,7 @@ message ListSessionsResponse {
 }
 
 message RevokeSessionRequest {
-  CallerPrincipal caller = 1;
+  CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string session_id = 2;
 }
 
@@ -937,7 +937,7 @@ message CallerPrincipal {
 }
 
 message CheckPermissionRequest {
-  CallerPrincipal caller = 1;
+  CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string org_id = 2;
   string permission = 3;
 }
@@ -961,7 +961,7 @@ message ListRolesResponse {
 }
 
 message CreateOrganizationRequest {
-  CallerPrincipal caller = 1;
+  CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string name = 2;
   string slug = 3;
 }
@@ -985,7 +985,7 @@ message OrganizationResponse {
 }
 
 message ListOrganizationsRequest {
-  CallerPrincipal caller = 1;
+  CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
 }
 
 message ListOrganizationsResponse {
@@ -993,7 +993,7 @@ message ListOrganizationsResponse {
 }
 
 message GetOrganizationRequest {
-  CallerPrincipal caller = 1;
+  CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string org_id = 2;
 }
 
@@ -1007,7 +1007,7 @@ message GetOrganizationResponse {
 }
 
 message UpdateOrganizationRequest {
-  CallerPrincipal caller = 1;
+  CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string org_id = 2;
   string name = 3;
 }
@@ -1022,7 +1022,7 @@ message UpdateOrganizationResponse {
 }
 
 message DeleteOrganizationRequest {
-  CallerPrincipal caller = 1;
+  CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string org_id = 2;
 }
 
@@ -1031,7 +1031,7 @@ message DeleteOrganizationResponse {
 }
 
 message ListMembersRequest {
-  CallerPrincipal caller = 1;
+  CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string org_id = 2;
 }
 
@@ -1048,7 +1048,7 @@ message ListMembersResponse {
 }
 
 message AddMemberRequest {
-  CallerPrincipal caller = 1;
+  CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string org_id = 2;
   string email = 3;
   string role_id = 4;
@@ -1063,7 +1063,7 @@ message AddMemberResponse {
 }
 
 message UpdateMemberRoleRequest {
-  CallerPrincipal caller = 1;
+  CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string org_id = 2;
   string target_user_id = 3;
   string role_id = 4;
@@ -1074,7 +1074,7 @@ message UpdateMemberRoleResponse {
 }
 
 message RemoveMemberRequest {
-  CallerPrincipal caller = 1;
+  CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string org_id = 2;
   string target_user_id = 3;
 }
@@ -1084,7 +1084,7 @@ message RemoveMemberResponse {
 }
 
 message CreateInviteRequest {
-  CallerPrincipal caller = 1;
+  CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string org_id = 2;
   string email = 3;
   string role_id = 4;
@@ -1101,7 +1101,7 @@ message CreateInviteResponse {
 }
 
 message AcceptInviteRequest {
-  CallerPrincipal caller = 1;
+  CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string token = 2;
 }
 
@@ -1115,7 +1115,7 @@ message AcceptInviteResponse {
 }
 
 message RevokeInviteRequest {
-  CallerPrincipal caller = 1;
+  CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string org_id = 2;
   string invite_id = 3;
 }
@@ -1125,7 +1125,7 @@ message RevokeInviteResponse {
 }
 
 message CreateAPITokenRequest {
-  CallerPrincipal caller = 1;
+  CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string org_id = 2;
   string name = 3;
   repeated string permissions = 4;
@@ -1150,7 +1150,7 @@ message CreateAPITokenResponse {
 }
 
 message ListAPITokensRequest {
-  CallerPrincipal caller = 1;
+  CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string org_id = 2;
 }
 
@@ -1159,7 +1159,7 @@ message ListAPITokensResponse {
 }
 
 message RevokeAPITokenRequest {
-  CallerPrincipal caller = 1;
+  CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string org_id = 2;
   string token_id = 3;
 }
@@ -1180,7 +1180,7 @@ message ValidateAPITokenResponse {
 }
 
 message ListAuditEventsRequest {
-  CallerPrincipal caller = 1;
+  CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string org_id = 2;
   int32 limit = 3;
   int32 offset = 4;
@@ -1220,7 +1220,7 @@ message GitHubInstallationInfo {
 }
 
 message StartGitHubInstallationRequest {
-  CallerPrincipal caller = 1;
+  CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string org_id = 2;
 }
 
@@ -1230,7 +1230,7 @@ message StartGitHubInstallationResponse {
 }
 
 message CompleteGitHubInstallationRequest {
-  CallerPrincipal caller = 1;
+  CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string org_id = 2;
   int64 installation_id = 3;
   string state = 4;
@@ -1241,7 +1241,7 @@ message CompleteGitHubInstallationResponse {
 }
 
 message ListGitHubInstallationsRequest {
-  CallerPrincipal caller = 1;
+  CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string org_id = 2;
 }
 
@@ -1250,7 +1250,7 @@ message ListGitHubInstallationsResponse {
 }
 
 message DisconnectGitHubInstallationRequest {
-  CallerPrincipal caller = 1;
+  CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string org_id = 2;
   int64 installation_id = 3;
 }
@@ -1260,7 +1260,7 @@ message DisconnectGitHubInstallationResponse {
 }
 
 message GetGitHubInstallationTokenRequest {
-  CallerPrincipal caller = 1;
+  CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string org_id = 2;
   int64 installation_id = 3;
 }

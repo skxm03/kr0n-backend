@@ -62,7 +62,22 @@ services:
     groups:
       public_auth:
         match:
-          - path: "/api/v1/auth/*"
+          - path: "/api/v1/auth/register"
+            type: exact
+            methods: [POST]
+          - path: "/api/v1/auth/login"
+            type: exact
+            methods: [POST]
+          - path: "/api/v1/auth/refresh"
+            type: exact
+            methods: [POST]
+          - path: "/api/v1/auth/verify-email"
+            type: exact
+            methods: [POST]
+          - path: "/api/v1/auth/resend-verification"
+            type: exact
+            methods: [POST]
+          - path: "/api/v1/auth/password-reset/*"
             type: prefix
             methods: [POST]
           - path: "/api/v1/auth/jwks"

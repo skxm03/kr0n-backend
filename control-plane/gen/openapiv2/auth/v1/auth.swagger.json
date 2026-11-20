@@ -1931,7 +1931,8 @@
       "type": "object",
       "properties": {
         "caller": {
-          "$ref": "#/definitions/v1CallerPrincipal"
+          "$ref": "#/definitions/v1CallerPrincipal",
+          "readOnly": true
         },
         "email": {
           "type": "string"
@@ -1945,7 +1946,8 @@
       "type": "object",
       "properties": {
         "caller": {
-          "$ref": "#/definitions/v1CallerPrincipal"
+          "$ref": "#/definitions/v1CallerPrincipal",
+          "readOnly": true
         },
         "installation_id": {
           "type": "string",
@@ -1960,7 +1962,8 @@
       "type": "object",
       "properties": {
         "caller": {
-          "$ref": "#/definitions/v1CallerPrincipal"
+          "$ref": "#/definitions/v1CallerPrincipal",
+          "readOnly": true
         },
         "name": {
           "type": "string"
@@ -1981,7 +1984,8 @@
       "type": "object",
       "properties": {
         "caller": {
-          "$ref": "#/definitions/v1CallerPrincipal"
+          "$ref": "#/definitions/v1CallerPrincipal",
+          "readOnly": true
         },
         "email": {
           "type": "string"
@@ -1995,7 +1999,8 @@
       "type": "object",
       "properties": {
         "caller": {
-          "$ref": "#/definitions/v1CallerPrincipal"
+          "$ref": "#/definitions/v1CallerPrincipal",
+          "readOnly": true
         },
         "role_id": {
           "type": "string"
@@ -2006,7 +2011,8 @@
       "type": "object",
       "properties": {
         "caller": {
-          "$ref": "#/definitions/v1CallerPrincipal"
+          "$ref": "#/definitions/v1CallerPrincipal",
+          "readOnly": true
         },
         "name": {
           "type": "string"
@@ -2083,7 +2089,8 @@
       "type": "object",
       "properties": {
         "caller": {
-          "$ref": "#/definitions/v1CallerPrincipal"
+          "$ref": "#/definitions/v1CallerPrincipal",
+          "readOnly": true
         },
         "token": {
           "type": "string"
@@ -2202,7 +2209,8 @@
       "type": "object",
       "properties": {
         "caller": {
-          "$ref": "#/definitions/v1CallerPrincipal"
+          "$ref": "#/definitions/v1CallerPrincipal",
+          "readOnly": true
         },
         "current_password": {
           "type": "string"
@@ -2316,7 +2324,8 @@
       "type": "object",
       "properties": {
         "caller": {
-          "$ref": "#/definitions/v1CallerPrincipal"
+          "$ref": "#/definitions/v1CallerPrincipal",
+          "readOnly": true
         },
         "name": {
           "type": "string"

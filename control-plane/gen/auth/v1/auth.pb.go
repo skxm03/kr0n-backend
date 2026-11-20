@@ -5426,15 +5426,15 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12!\n" +
 	"\fnew_password\x18\x02 \x01(\tR\vnewPassword\"8\n" +
 	"\x1cConfirmPasswordResetResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\"\x97\x01\n" +
-	"\x15ChangePasswordRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12)\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"\x9e\x01\n" +
+	"\x15ChangePasswordRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12)\n" +
 	"\x10current_password\x18\x02 \x01(\tR\x0fcurrentPassword\x12!\n" +
 	"\fnew_password\x18\x03 \x01(\tR\vnewPassword\"2\n" +
 	"\x16ChangePasswordResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\"@\n" +
-	"\fGetMeRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\"\x85\x03\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"G\n" +
+	"\fGetMeRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\"\x85\x03\n" +
 	"\rGetMeResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12!\n" +
@@ -5450,9 +5450,9 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\n" +
 	"session_id\x18\n" +
 	" \x01(\tR\tsessionId\x12\x12\n" +
-	"\x04kind\x18\v \x01(\tR\x04kind\"G\n" +
-	"\x13ListSessionsRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\"\xa9\x02\n" +
+	"\x04kind\x18\v \x01(\tR\x04kind\"N\n" +
+	"\x13ListSessionsRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\"\xa9\x02\n" +
 	"\vSessionInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -5467,9 +5467,9 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"expires_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12\x18\n" +
 	"\acurrent\x18\a \x01(\bR\acurrent\"H\n" +
 	"\x14ListSessionsResponse\x120\n" +
-	"\bsessions\x18\x01 \x03(\v2\x14.auth.v1.SessionInfoR\bsessions\"g\n" +
-	"\x14RevokeSessionRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x1d\n" +
+	"\bsessions\x18\x01 \x03(\v2\x14.auth.v1.SessionInfoR\bsessions\"n\n" +
+	"\x14RevokeSessionRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x02 \x01(\tR\tsessionId\"1\n" +
 	"\x15RevokeSessionResponse\x12\x18\n" +
@@ -5498,9 +5498,9 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"tokenOrgId\x12+\n" +
 	"\x11token_permissions\x18\x04 \x03(\tR\x10tokenPermissions\x12\x1d\n" +
 	"\n" +
-	"session_id\x18\x05 \x01(\tR\tsessionId\"\x81\x01\n" +
-	"\x16CheckPermissionRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
+	"session_id\x18\x05 \x01(\tR\tsessionId\"\x88\x01\n" +
+	"\x16CheckPermissionRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12\x1e\n" +
 	"\n" +
 	"permission\x18\x03 \x01(\tR\n" +
@@ -5514,9 +5514,9 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\vdescription\x18\x03 \x01(\tR\vdescription\x12 \n" +
 	"\vpermissions\x18\x04 \x03(\tR\vpermissions\"<\n" +
 	"\x11ListRolesResponse\x12'\n" +
-	"\x05roles\x18\x01 \x03(\v2\x11.auth.v1.RoleInfoR\x05roles\"u\n" +
-	"\x19CreateOrganizationRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x12\n" +
+	"\x05roles\x18\x01 \x03(\v2\x11.auth.v1.RoleInfoR\x05roles\"|\n" +
+	"\x19CreateOrganizationRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
 	"\x04slug\x18\x03 \x01(\tR\x04slug\"\xe3\x01\n" +
 	"\x1aCreateOrganizationResponse\x12\x0e\n" +
@@ -5536,13 +5536,13 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"L\n" +
-	"\x18ListOrganizationsRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\"`\n" +
+	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"S\n" +
+	"\x18ListOrganizationsRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\"`\n" +
 	"\x19ListOrganizationsResponse\x12C\n" +
-	"\rorganizations\x18\x01 \x03(\v2\x1d.auth.v1.OrganizationResponseR\rorganizations\"a\n" +
-	"\x16GetOrganizationRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
+	"\rorganizations\x18\x01 \x03(\v2\x1d.auth.v1.OrganizationResponseR\rorganizations\"h\n" +
+	"\x16GetOrganizationRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\"\xe0\x01\n" +
 	"\x17GetOrganizationResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
@@ -5552,9 +5552,9 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"x\n" +
-	"\x19UpdateOrganizationRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
+	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\x7f\n" +
+	"\x19UpdateOrganizationRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\"\xe3\x01\n" +
 	"\x1aUpdateOrganizationResponse\x12\x0e\n" +
@@ -5565,14 +5565,14 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"d\n" +
-	"\x19DeleteOrganizationRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
+	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"k\n" +
+	"\x19DeleteOrganizationRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\"6\n" +
 	"\x1aDeleteOrganizationResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\"]\n" +
-	"\x12ListMembersRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"d\n" +
+	"\x12ListMembersRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\"\xb2\x01\n" +
 	"\n" +
 	"MemberInfo\x12\x17\n" +
@@ -5583,9 +5583,9 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"D\n" +
 	"\x13ListMembersResponse\x12-\n" +
-	"\amembers\x18\x01 \x03(\v2\x13.auth.v1.MemberInfoR\amembers\"\x8a\x01\n" +
-	"\x10AddMemberRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
+	"\amembers\x18\x01 \x03(\v2\x13.auth.v1.MemberInfoR\amembers\"\x91\x01\n" +
+	"\x10AddMemberRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12\x14\n" +
 	"\x05email\x18\x03 \x01(\tR\x05email\x12\x17\n" +
 	"\arole_id\x18\x04 \x01(\tR\x06roleId\"\xb9\x01\n" +
@@ -5595,22 +5595,22 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\fdisplay_name\x18\x03 \x01(\tR\vdisplayName\x12\x17\n" +
 	"\arole_id\x18\x04 \x01(\tR\x06roleId\x129\n" +
 	"\n" +
-	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xa1\x01\n" +
-	"\x17UpdateMemberRoleRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
+	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\xa8\x01\n" +
+	"\x17UpdateMemberRoleRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12$\n" +
 	"\x0etarget_user_id\x18\x03 \x01(\tR\ftargetUserId\x12\x17\n" +
 	"\arole_id\x18\x04 \x01(\tR\x06roleId\"4\n" +
 	"\x18UpdateMemberRoleResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\"\x84\x01\n" +
-	"\x13RemoveMemberRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"\x8b\x01\n" +
+	"\x13RemoveMemberRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12$\n" +
 	"\x0etarget_user_id\x18\x03 \x01(\tR\ftargetUserId\"0\n" +
 	"\x14RemoveMemberResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\"\x8d\x01\n" +
-	"\x13CreateInviteRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"\x94\x01\n" +
+	"\x13CreateInviteRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12\x14\n" +
 	"\x05email\x18\x03 \x01(\tR\x05email\x12\x17\n" +
 	"\arole_id\x18\x04 \x01(\tR\x06roleId\"\xf8\x01\n" +
@@ -5623,9 +5623,9 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\n" +
 	"expires_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x129\n" +
 	"\n" +
-	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"]\n" +
-	"\x13AcceptInviteRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x14\n" +
+	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"d\n" +
+	"\x13AcceptInviteRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x14\n" +
 	"\x05token\x18\x02 \x01(\tR\x05token\"\xdd\x01\n" +
 	"\x14AcceptInviteResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
@@ -5635,15 +5635,15 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"{\n" +
-	"\x13RevokeInviteRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
+	"updated_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\x82\x01\n" +
+	"\x13RevokeInviteRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12\x1b\n" +
 	"\tinvite_id\x18\x03 \x01(\tR\binviteId\"0\n" +
 	"\x14RevokeInviteResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\"\xc4\x01\n" +
-	"\x15CreateAPITokenRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"\xcb\x01\n" +
+	"\x15CreateAPITokenRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12 \n" +
 	"\vpermissions\x18\x04 \x03(\tR\vpermissions\x12,\n" +
@@ -5663,14 +5663,14 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"created_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"]\n" +
 	"\x16CreateAPITokenResponse\x12+\n" +
 	"\x05token\x18\x01 \x01(\v2\x15.auth.v1.APITokenInfoR\x05token\x12\x16\n" +
-	"\x06secret\x18\x02 \x01(\tR\x06secret\"_\n" +
-	"\x14ListAPITokensRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
+	"\x06secret\x18\x02 \x01(\tR\x06secret\"f\n" +
+	"\x14ListAPITokensRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\"F\n" +
 	"\x15ListAPITokensResponse\x12-\n" +
-	"\x06tokens\x18\x01 \x03(\v2\x15.auth.v1.APITokenInfoR\x06tokens\"{\n" +
-	"\x15RevokeAPITokenRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
+	"\x06tokens\x18\x01 \x03(\v2\x15.auth.v1.APITokenInfoR\x06tokens\"\x82\x01\n" +
+	"\x15RevokeAPITokenRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12\x19\n" +
 	"\btoken_id\x18\x03 \x01(\tR\atokenId\"2\n" +
 	"\x16RevokeAPITokenResponse\x12\x18\n" +
@@ -5681,9 +5681,9 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\btoken_id\x18\x01 \x01(\tR\atokenId\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12\x17\n" +
 	"\auser_id\x18\x03 \x01(\tR\x06userId\x12 \n" +
-	"\vpermissions\x18\x04 \x03(\tR\vpermissions\"\xa7\x01\n" +
-	"\x16ListAuditEventsRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
+	"\vpermissions\x18\x04 \x03(\tR\vpermissions\"\xae\x01\n" +
+	"\x16ListAuditEventsRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12\x14\n" +
 	"\x05limit\x18\x03 \x01(\x05R\x05limit\x12\x16\n" +
 	"\x06offset\x18\x04 \x01(\x05R\x06offset\x12\x16\n" +
@@ -5721,34 +5721,34 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"created_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
 	"updated_at\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"i\n" +
-	"\x1eStartGitHubInstallationRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"p\n" +
+	"\x1eStartGitHubInstallationRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\"X\n" +
 	"\x1fStartGitHubInstallationResponse\x12\x1f\n" +
 	"\vinstall_url\x18\x01 \x01(\tR\n" +
 	"installUrl\x12\x14\n" +
-	"\x05state\x18\x02 \x01(\tR\x05state\"\xab\x01\n" +
-	"!CompleteGitHubInstallationRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
+	"\x05state\x18\x02 \x01(\tR\x05state\"\xb2\x01\n" +
+	"!CompleteGitHubInstallationRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12'\n" +
 	"\x0finstallation_id\x18\x03 \x01(\x03R\x0einstallationId\x12\x14\n" +
 	"\x05state\x18\x04 \x01(\tR\x05state\"i\n" +
 	"\"CompleteGitHubInstallationResponse\x12C\n" +
-	"\finstallation\x18\x01 \x01(\v2\x1f.auth.v1.GitHubInstallationInfoR\finstallation\"i\n" +
-	"\x1eListGitHubInstallationsRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
+	"\finstallation\x18\x01 \x01(\v2\x1f.auth.v1.GitHubInstallationInfoR\finstallation\"p\n" +
+	"\x1eListGitHubInstallationsRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\"h\n" +
 	"\x1fListGitHubInstallationsResponse\x12E\n" +
-	"\rinstallations\x18\x01 \x03(\v2\x1f.auth.v1.GitHubInstallationInfoR\rinstallations\"\x97\x01\n" +
-	"#DisconnectGitHubInstallationRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
+	"\rinstallations\x18\x01 \x03(\v2\x1f.auth.v1.GitHubInstallationInfoR\rinstallations\"\x9e\x01\n" +
+	"#DisconnectGitHubInstallationRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12'\n" +
 	"\x0finstallation_id\x18\x03 \x01(\x03R\x0einstallationId\"@\n" +
 	"$DisconnectGitHubInstallationResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage\"\x95\x01\n" +
-	"!GetGitHubInstallationTokenRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"\x9c\x01\n" +
+	"!GetGitHubInstallationTokenRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12'\n" +
 	"\x0finstallation_id\x18\x03 \x01(\x03R\x0einstallationId\"\x8b\x01\n" +
 	"\"GetGitHubInstallationTokenResponse\x12\x14\n" +
