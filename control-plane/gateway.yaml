@@ -124,3 +124,26 @@ services:
 
     middleware:
       - cors
+
+  servicemanager:
+    address: "${SERVICEMANAGER_GRPC_ADDR:-127.0.0.1:50053}"
+    enabled: true
+    timeout: 10s
+    default_profile: authenticated_api
+    tls:
+      ca_file: "${SERVICEMANAGER_GRPC_TLS_CA_FILE:-}"
+      cert_file: "${GATEWAY_GRPC_TLS_CERT_FILE:-}"
+      key_file: "${GATEWAY_GRPC_TLS_KEY_FILE:-}"
+      server_name: "${SERVICEMANAGER_GRPC_SERVER_NAME:-servicemanager.internal}"
+
+    middleware:
+      - cors
+
+    groups:
+      sensitive_project_ops:
+        match:
+          - path: "/api/v1/orgs/*"
+            type: prefix
+            methods: [POST, PUT, PATCH, DELETE]
+        use:
+          - sensitive_api

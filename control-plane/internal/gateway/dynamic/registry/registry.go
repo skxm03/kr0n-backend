@@ -17,6 +17,7 @@ import (
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
 	githubv1 "github.com/skxm03/kr0n-backend/control-plane/gen/github/v1"
+	servicemanagerv1 "github.com/skxm03/kr0n-backend/control-plane/gen/servicemanager/v1"
 )
 
 // ServiceRegistrar binds a gRPC client connection to a grpc-gateway ServeMux.
@@ -154,6 +155,17 @@ var DefaultGitHubEndpoints = []EndpointDescriptor{
 	{Method: "GET", Path: "/api/v1/orgs/{org_id}/github/repositories/{owner}/{repo}/directories"},
 }
 
+// DefaultServiceManagerEndpoints provides the complete list of REST routes defined in servicemanager.proto.
+var DefaultServiceManagerEndpoints = []EndpointDescriptor{
+	{Method: "GET", Path: "/api/v1/presets"},
+	{Method: "POST", Path: "/api/v1/orgs/{org_id}/projects"},
+	{Method: "GET", Path: "/api/v1/orgs/{org_id}/projects"},
+	{Method: "GET", Path: "/api/v1/orgs/{org_id}/projects/{project_id}"},
+	{Method: "PATCH", Path: "/api/v1/orgs/{org_id}/projects/{project_id}"},
+	{Method: "PUT", Path: "/api/v1/orgs/{org_id}/projects/{project_id}/build-settings"},
+	{Method: "DELETE", Path: "/api/v1/orgs/{org_id}/projects/{project_id}"},
+}
+
 const defaultWebhookMaxBytes int64 = 10 << 20 // 10 MB
 
 func resolveWebhookMaxBytes() int64 {
@@ -225,6 +237,13 @@ func DefaultRegistry() *Registry {
 			return githubv1.RegisterGitHubServiceHandlerClient(ctx, mux, client)
 		},
 		Endpoints: DefaultGitHubEndpoints,
+	})
+	_ = reg.RegisterService("servicemanager", ServiceRegistration{
+		Registrar: func(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
+			client := servicemanagerv1.NewServiceManagerServiceClient(conn)
+			return servicemanagerv1.RegisterServiceManagerServiceHandlerClient(ctx, mux, client)
+		},
+		Endpoints: DefaultServiceManagerEndpoints,
 	})
 	return reg
 }

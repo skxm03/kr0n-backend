@@ -1,0 +1,320 @@
+syntax = "proto3";
+
+package servicemanager.v1;
+
+option go_package = "github.com/skxm03/kr0n-backend/control-plane/gen/servicemanager/v1;servicemanagerv1";
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+import "auth/v1/auth.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "kr0n Service Manager API"
+    version: "1.0.0"
+    description: "Control-plane microservice for repository-linked Projects, Railpack Application Presets, and toggleable Build Settings."
+    contact: {
+      name: "kr0n engineering"
+      url: "https://github.com/skxm03/kr0n-backend"
+    }
+  }
+  host: "localhost:8080"
+  schemes: HTTP
+  consumes: "application/json"
+  produces: "application/json"
+  security_definitions: {
+    security: {
+      key: "BearerAuth"
+      value: {
+        type: TYPE_API_KEY
+        in: IN_HEADER
+        name: "Authorization"
+        description: "Standard JWT Bearer token format: `Bearer <access_token>`"
+      }
+    }
+  }
+  tags: [
+    {
+      name: "Application Presets"
+      description: "Railpack-aligned application presets and default build configuration templates."
+    },
+    {
+      name: "Projects & Build Settings"
+      description: "Manage organization-scoped, GitHub repository-linked projects and toggleable build commands."
+    }
+  ]
+};
+
+// ServiceManagerService manages organization projects, Railpack application presets, and build settings.
+service ServiceManagerService {
+  // ListApplicationPresets returns the supported Railpack-aligned application presets and their default build commands.
+  rpc ListApplicationPresets(ListApplicationPresetsRequest) returns (ListApplicationPresetsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/presets"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Application Presets"]
+      summary: "List supported application presets"
+      description: "Returns the catalog of Railpack-aligned application presets (e.g. auto, nextjs, vite, go, python, rust, dockerfile, static) and their default install/build/output settings."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
+    };
+  }
+
+  // CreateProject creates a new repository-linked project and its initial 1:1 build settings at revision 1.
+  rpc CreateProject(CreateProjectRequest) returns (CreateProjectResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/orgs/{org_id}/projects"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Projects & Build Settings"]
+      summary: "Create a repository-linked project"
+      description: "Creates an organization-scoped project linked to an active GitHub App installation repository with root directory, application preset, and toggleable build settings. Requires `project:create`."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
+    };
+  }
+
+  // ListProjects lists projects belonging to an organization ordered newest-first.
+  rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/orgs/{org_id}/projects"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Projects & Build Settings"]
+      summary: "List organization projects"
+      description: "Lists all projects and their build settings within an organization workspace. Requires `project:read`."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
+    };
+  }
+
+  // GetProject retrieves a project and its build settings by ID.
+  rpc GetProject(GetProjectRequest) returns (GetProjectResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/orgs/{org_id}/projects/{project_id}"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Projects & Build Settings"]
+      summary: "Get project details"
+      description: "Retrieves a single project, its repository linkage, revision metadata, and toggleable build settings. Requires `project:read`."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
+    };
+  }
+
+  // UpdateProject updates a project's metadata, repository branch/root directory, or application preset, and increments revision.
+  rpc UpdateProject(UpdateProjectRequest) returns (UpdateProjectResponse) {
+    option (google.api.http) = {
+      patch: "/api/v1/orgs/{org_id}/projects/{project_id}"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Projects & Build Settings"]
+      summary: "Update project configuration"
+      description: "Updates project metadata, root directory, production branch, or application preset, atomically incrementing the project revision number. Requires `project:update`."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
+    };
+  }
+
+  // UpdateProjectBuildSettings updates a project's toggleable build settings (install command, build command, output directory) and increments revision.
+  rpc UpdateProjectBuildSettings(UpdateProjectBuildSettingsRequest) returns (UpdateProjectBuildSettingsResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/orgs/{org_id}/projects/{project_id}/build-settings"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Projects & Build Settings"]
+      summary: "Update project build settings"
+      description: "Updates a project's install command, build command, and output directory along with their explicit on/off override toggles, atomically incrementing the project revision. Requires `project:update`."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
+    };
+  }
+
+  // DeleteProject permanently deletes a project and its build settings.
+  rpc DeleteProject(DeleteProjectRequest) returns (DeleteProjectResponse) {
+    option (google.api.http) = {
+      delete: "/api/v1/orgs/{org_id}/projects/{project_id}"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Projects & Build Settings"]
+      summary: "Delete project"
+      description: "Permanently deletes an organization project and cascades removal of its build settings. Requires `project:delete`."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
+    };
+  }
+}
+
+message ApplicationPresetInfo {
+  string id = 1;
+  string display_name = 2;
+  string railpack_provider = 3;
+  string category = 4;
+  string default_install_command = 5;
+  string default_build_command = 6;
+  string default_output_directory = 7;
+}
+
+message ListApplicationPresetsRequest {
+}
+
+message ListApplicationPresetsResponse {
+  repeated ApplicationPresetInfo presets = 1;
+}
+
+message BuildSettingsInput {
+  string install_command = 1;
+  bool install_command_override = 2;
+  string build_command = 3;
+  bool build_command_override = 4;
+  string output_directory = 5;
+  bool output_directory_override = 6;
+}
+
+message BuildSettingsInfo {
+  string install_command = 1;
+  bool install_command_override = 2;
+  string build_command = 3;
+  bool build_command_override = 4;
+  string output_directory = 5;
+  bool output_directory_override = 6;
+  string effective_install_command = 7;
+  string effective_build_command = 8;
+  string effective_output_directory = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message ProjectInfo {
+  string id = 1;
+  string org_id = 2;
+  string name = 3;
+  string slug = 4;
+  string description = 5;
+  int64 github_installation_id = 6;
+  int64 repo_id = 7;
+  string repo_owner = 8;
+  string repo_name = 9;
+  string repo_full_name = 10;
+  string production_branch = 11;
+  string root_directory = 12;
+  string application_preset = 13;
+  int64 revision = 14;
+  string created_by_user_id = 15;
+  google.protobuf.Timestamp created_at = 16;
+  google.protobuf.Timestamp updated_at = 17;
+  BuildSettingsInfo build_settings = 18;
+}
+
+message CreateProjectRequest {
+  auth.v1.CallerPrincipal caller = 1;
+  string org_id = 2;
+  string name = 3;
+  string slug = 4;
+  string description = 5;
+  int64 github_installation_id = 6;
+  int64 repo_id = 7;
+  string repo_owner = 8;
+  string repo_name = 9;
+  string production_branch = 10;
+  string root_directory = 11;
+  string application_preset = 12;
+  BuildSettingsInput build_settings = 13;
+}
+
+message CreateProjectResponse {
+  ProjectInfo project = 1;
+}
+
+message ListProjectsRequest {
+  auth.v1.CallerPrincipal caller = 1;
+  string org_id = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message ListProjectsResponse {
+  repeated ProjectInfo projects = 1;
+}
+
+message GetProjectRequest {
+  auth.v1.CallerPrincipal caller = 1;
+  string org_id = 2;
+  string project_id = 3;
+}
+
+message GetProjectResponse {
+  ProjectInfo project = 1;
+}
+
+message UpdateProjectRequest {
+  auth.v1.CallerPrincipal caller = 1;
+  string org_id = 2;
+  string project_id = 3;
+  string name = 4;
+  string description = 5;
+  string production_branch = 6;
+  string root_directory = 7;
+  string application_preset = 8;
+  // Optional optimistic concurrency guard; when > 0, update fails with 409 Conflict if current revision differs.
+  int64 expected_revision = 9;
+}
+
+message UpdateProjectResponse {
+  ProjectInfo project = 1;
+}
+
+message UpdateProjectBuildSettingsRequest {
+  auth.v1.CallerPrincipal caller = 1;
+  string org_id = 2;
+  string project_id = 3;
+  BuildSettingsInput build_settings = 4;
+  // Optional optimistic concurrency guard; when > 0, update fails with 409 Conflict if current revision differs.
+  int64 expected_revision = 5;
+}
+
+message UpdateProjectBuildSettingsResponse {
+  ProjectInfo project = 1;
+}
+
+message DeleteProjectRequest {
+  auth.v1.CallerPrincipal caller = 1;
+  string org_id = 2;
+  string project_id = 3;
+}
+
+message DeleteProjectResponse {
+  string message = 1;
+}

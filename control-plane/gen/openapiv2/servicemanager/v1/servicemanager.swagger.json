@@ -1,0 +1,804 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "kr0n Service Manager API",
+    "description": "Control-plane microservice for repository-linked Projects, Railpack Application Presets, and toggleable Build Settings.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "kr0n engineering",
+      "url": "https://github.com/skxm03/kr0n-backend"
+    }
+  },
+  "tags": [
+    {
+      "name": "Application Presets",
+      "description": "Railpack-aligned application presets and default build configuration templates."
+    },
+    {
+      "name": "Projects \u0026 Build Settings",
+      "description": "Manage organization-scoped, GitHub repository-linked projects and toggleable build commands."
+    }
+  ],
+  "host": "localhost:8080",
+  "schemes": [
+    "http"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/api/v1/presets": {
+      "get": {
+        "summary": "List supported application presets",
+        "description": "Returns the catalog of Railpack-aligned application presets (e.g. auto, nextjs, vite, go, python, rust, dockerfile, static) and their default install/build/output settings.",
+        "operationId": "ServiceManagerService_ListApplicationPresets",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ListApplicationPresetsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "Application Presets"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/orgs/{org_id}/projects": {
+      "get": {
+        "summary": "List organization projects",
+        "description": "Lists all projects and their build settings within an organization workspace. Requires `project:read`.",
+        "operationId": "ServiceManagerService_ListProjects",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ListProjectsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "caller.user_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.kind",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_org_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_permissions",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "caller.session_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "tags": [
+          "Projects \u0026 Build Settings"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Create a repository-linked project",
+        "description": "Creates an organization-scoped project linked to an active GitHub App installation repository with root directory, application preset, and toggleable build settings. Requires `project:create`.",
+        "operationId": "ServiceManagerService_CreateProject",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1CreateProjectResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ServiceManagerServiceCreateProjectBody"
+            }
+          }
+        ],
+        "tags": [
+          "Projects \u0026 Build Settings"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/orgs/{org_id}/projects/{project_id}": {
+      "get": {
+        "summary": "Get project details",
+        "description": "Retrieves a single project, its repository linkage, revision metadata, and toggleable build settings. Requires `project:read`.",
+        "operationId": "ServiceManagerService_GetProject",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GetProjectResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "caller.user_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.kind",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_org_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_permissions",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "caller.session_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Projects \u0026 Build Settings"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "Delete project",
+        "description": "Permanently deletes an organization project and cascades removal of its build settings. Requires `project:delete`.",
+        "operationId": "ServiceManagerService_DeleteProject",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1DeleteProjectResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "caller.user_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.kind",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_org_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_permissions",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "caller.session_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Projects \u0026 Build Settings"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "summary": "Update project configuration",
+        "description": "Updates project metadata, root directory, production branch, or application preset, atomically incrementing the project revision number. Requires `project:update`.",
+        "operationId": "ServiceManagerService_UpdateProject",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1UpdateProjectResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ServiceManagerServiceUpdateProjectBody"
+            }
+          }
+        ],
+        "tags": [
+          "Projects \u0026 Build Settings"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/orgs/{org_id}/projects/{project_id}/build-settings": {
+      "put": {
+        "summary": "Update project build settings",
+        "description": "Updates a project's install command, build command, and output directory along with their explicit on/off override toggles, atomically incrementing the project revision. Requires `project:update`.",
+        "operationId": "ServiceManagerService_UpdateProjectBuildSettings",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1UpdateProjectBuildSettingsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "project_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/ServiceManagerServiceUpdateProjectBuildSettingsBody"
+            }
+          }
+        ],
+        "tags": [
+          "Projects \u0026 Build Settings"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "ServiceManagerServiceCreateProjectBody": {
+      "type": "object",
+      "properties": {
+        "caller": {
+          "$ref": "#/definitions/v1CallerPrincipal"
+        },
+        "name": {
+          "type": "string"
+        },
+        "slug": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "github_installation_id": {
+          "type": "string",
+          "format": "int64"
+        },
+        "repo_id": {
+          "type": "string",
+          "format": "int64"
+        },
+        "repo_owner": {
+          "type": "string"
+        },
+        "repo_name": {
+          "type": "string"
+        },
+        "production_branch": {
+          "type": "string"
+        },
+        "root_directory": {
+          "type": "string"
+        },
+        "application_preset": {
+          "type": "string"
+        },
+        "build_settings": {
+          "$ref": "#/definitions/v1BuildSettingsInput"
+        }
+      }
+    },
+    "ServiceManagerServiceUpdateProjectBody": {
+      "type": "object",
+      "properties": {
+        "caller": {
+          "$ref": "#/definitions/v1CallerPrincipal"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "production_branch": {
+          "type": "string"
+        },
+        "root_directory": {
+          "type": "string"
+        },
+        "application_preset": {
+          "type": "string"
+        },
+        "expected_revision": {
+          "type": "string",
+          "format": "int64",
+          "description": "Optional optimistic concurrency guard; when \u003e 0, update fails with 409 Conflict if current revision differs."
+        }
+      }
+    },
+    "ServiceManagerServiceUpdateProjectBuildSettingsBody": {
+      "type": "object",
+      "properties": {
+        "caller": {
+          "$ref": "#/definitions/v1CallerPrincipal"
+        },
+        "build_settings": {
+          "$ref": "#/definitions/v1BuildSettingsInput"
+        },
+        "expected_revision": {
+          "type": "string",
+          "format": "int64",
+          "description": "Optional optimistic concurrency guard; when \u003e 0, update fails with 409 Conflict if current revision differs."
+        }
+      }
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "rpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    },
+    "v1ApplicationPresetInfo": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "display_name": {
+          "type": "string"
+        },
+        "railpack_provider": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "default_install_command": {
+          "type": "string"
+        },
+        "default_build_command": {
+          "type": "string"
+        },
+        "default_output_directory": {
+          "type": "string"
+        }
+      }
+    },
+    "v1BuildSettingsInfo": {
+      "type": "object",
+      "properties": {
+        "install_command": {
+          "type": "string"
+        },
+        "install_command_override": {
+          "type": "boolean"
+        },
+        "build_command": {
+          "type": "string"
+        },
+        "build_command_override": {
+          "type": "boolean"
+        },
+        "output_directory": {
+          "type": "string"
+        },
+        "output_directory_override": {
+          "type": "boolean"
+        },
+        "effective_install_command": {
+          "type": "string"
+        },
+        "effective_build_command": {
+          "type": "string"
+        },
+        "effective_output_directory": {
+          "type": "string"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "v1BuildSettingsInput": {
+      "type": "object",
+      "properties": {
+        "install_command": {
+          "type": "string"
+        },
+        "install_command_override": {
+          "type": "boolean"
+        },
+        "build_command": {
+          "type": "string"
+        },
+        "build_command_override": {
+          "type": "boolean"
+        },
+        "output_directory": {
+          "type": "string"
+        },
+        "output_directory_override": {
+          "type": "boolean"
+        }
+      }
+    },
+    "v1CallerPrincipal": {
+      "type": "object",
+      "properties": {
+        "user_id": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "token_org_id": {
+          "type": "string"
+        },
+        "token_permissions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "session_id": {
+          "type": "string"
+        }
+      }
+    },
+    "v1CreateProjectResponse": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/definitions/v1ProjectInfo"
+        }
+      }
+    },
+    "v1DeleteProjectResponse": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string"
+        }
+      }
+    },
+    "v1GetProjectResponse": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/definitions/v1ProjectInfo"
+        }
+      }
+    },
+    "v1ListApplicationPresetsResponse": {
+      "type": "object",
+      "properties": {
+        "presets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1ApplicationPresetInfo"
+          }
+        }
+      }
+    },
+    "v1ListProjectsResponse": {
+      "type": "object",
+      "properties": {
+        "projects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1ProjectInfo"
+          }
+        }
+      }
+    },
+    "v1ProjectInfo": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "org_id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "slug": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "github_installation_id": {
+          "type": "string",
+          "format": "int64"
+        },
+        "repo_id": {
+          "type": "string",
+          "format": "int64"
+        },
+        "repo_owner": {
+          "type": "string"
+        },
+        "repo_name": {
+          "type": "string"
+        },
+        "repo_full_name": {
+          "type": "string"
+        },
+        "production_branch": {
+          "type": "string"
+        },
+        "root_directory": {
+          "type": "string"
+        },
+        "application_preset": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "string",
+          "format": "int64"
+        },
+        "created_by_user_id": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "build_settings": {
+          "$ref": "#/definitions/v1BuildSettingsInfo"
+        }
+      }
+    },
+    "v1UpdateProjectBuildSettingsResponse": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/definitions/v1ProjectInfo"
+        }
+      }
+    },
+    "v1UpdateProjectResponse": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/definitions/v1ProjectInfo"
+        }
+      }
+    }
+  },
+  "securityDefinitions": {
+    "BearerAuth": {
+      "type": "apiKey",
+      "description": "Standard JWT Bearer token format: `Bearer \u003caccess_token\u003e`",
+      "name": "Authorization",
+      "in": "header"
+    }
+  }
+}

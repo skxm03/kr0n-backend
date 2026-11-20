@@ -1,0 +1,49 @@
+# .air.servicemanager.toml - Hot reload config for Service Manager Microservice
+root = "."
+testdata_dir = "testdata"
+tmp_dir = "tmp/servicemanager"
+
+[build]
+  args_bin = []
+  bin = "./tmp/servicemanager/kr0n-servicemanager"
+  cmd = "go build -o ./tmp/servicemanager/kr0n-servicemanager ./cmd/servicemanager"
+  delay = 1000
+  entrypoint = ["./tmp/servicemanager/kr0n-servicemanager"]
+  exclude_dir = ["bin", "tmp", "vendor", "test", "certs", "scripts"]
+  exclude_file = []
+  exclude_regex = ["_test.go"]
+  exclude_unchanged = false
+  follow_symlink = false
+  full_bin = ""
+  include_dir = ["cmd/servicemanager", "internal/servicemanager", "internal/database", "pkg/audit", "gen/servicemanager"]
+  include_ext = ["go", "yaml", "yml", "json", "env"]
+  include_file = []
+  kill_delay = "500ms"
+  log = "build-errors.log"
+  poll = false
+  poll_interval = 0
+  post_cmd = []
+  pre_cmd = []
+  rerun = false
+  rerun_delay = 500
+  send_interrupt = true
+  stop_on_error = true
+
+[color]
+  app = ""
+  build = "yellow"
+  main = "magenta"
+  runner = "green"
+  watcher = "cyan"
+
+[log]
+  main_only = false
+  silent = false
+  time = false
+
+[misc]
+  clean_on_exit = true
+
+[screen]
+  clear_on_rebuild = false
+  keep_scroll = true
