@@ -4,6 +4,10 @@
     "title": "github/v1/github.proto",
     "version": "version not set"
   },
+  "host": "localhost:8080",
+  "schemes": [
+    "http"
+  ],
   "tags": [
     {
       "name": "GitHubService"

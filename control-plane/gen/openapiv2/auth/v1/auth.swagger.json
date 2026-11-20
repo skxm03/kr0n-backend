@@ -4,6 +4,10 @@
     "title": "auth/v1/auth.proto",
     "version": "version not set"
   },
+  "host": "localhost:8080",
+  "schemes": [
+    "http"
+  ],
   "tags": [
     {
       "name": "AuthService"

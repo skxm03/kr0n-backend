@@ -31,3 +31,5 @@ plugins:
     opt:
       - json_names_for_fields=false
       - output_format=json
+      - host=localhost:8080
+      - schemes=http
