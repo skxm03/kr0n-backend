@@ -79,17 +79,13 @@ func NewApp(cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("dial auth gRPC service %q: %w", authAddr, err)
 	}
 
-	// 4. Set up JWT Verifier
+	// 4. Set up JWT Verifier (optional static keys, or dynamically resolved via JWKS over gRPC)
 	var pubKeys map[string]ed25519.PublicKey
 	if cfg.JWTPublicKeys != "" {
 		pubKeys, err = jwtkeys.ParsePublicKeys(cfg.JWTPublicKeys)
 		if err != nil {
 			_ = authConn.Close()
 			return nil, fmt.Errorf("invalid JWT_PUBLIC_KEYS: %w", err)
-		}
-	} else if isDev {
-		pubKeys = map[string]ed25519.PublicKey{
-			cfg.JWTKeyID: jwtkeys.DevPrivateKey().Public().(ed25519.PublicKey),
 		}
 	}
 
