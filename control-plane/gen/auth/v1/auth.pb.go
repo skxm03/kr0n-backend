@@ -5317,27 +5317,27 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12!\n" +
 	"\fdisplay_name\x18\x03 \x01(\tR\vdisplayName\x12\x16\n" +
-	"\x06status\x18\x04 \x01(\tR\x06status\"\xbd\x01\n" +
-	"\rLoginResponse\x12!\n" +
-	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\x12#\n" +
-	"\rrefresh_token\x18\x02 \x01(\tR\frefreshToken\x12\x1d\n" +
+	"\x06status\x18\x04 \x01(\tR\x06status\"\xd5\x02\n" +
+	"\rLoginResponse\x12m\n" +
+	"\faccess_token\x18\x01 \x01(\tBJ\x92AG2CDelivered strictly via HttpOnly Set-Cookie; excluded from JSON body@\x01R\vaccessToken\x12o\n" +
+	"\rrefresh_token\x18\x02 \x01(\tBJ\x92AG2CDelivered strictly via HttpOnly Set-Cookie; excluded from JSON body@\x01R\frefreshToken\x12\x1d\n" +
 	"\n" +
 	"token_type\x18\x03 \x01(\tR\ttokenType\x12\x1d\n" +
 	"\n" +
 	"expires_in\x18\x04 \x01(\x05R\texpiresIn\x12&\n" +
-	"\x04user\x18\x05 \x01(\v2\x12.auth.v1.LoginUserR\x04user\"5\n" +
-	"\x0eRefreshRequest\x12#\n" +
-	"\rrefresh_token\x18\x01 \x01(\tR\frefreshToken\"\x97\x01\n" +
-	"\x0fRefreshResponse\x12!\n" +
-	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\x12#\n" +
-	"\rrefresh_token\x18\x02 \x01(\tR\frefreshToken\x12\x1d\n" +
+	"\x04user\x18\x05 \x01(\v2\x12.auth.v1.LoginUserR\x04user\"t\n" +
+	"\x0eRefreshRequest\x12b\n" +
+	"\rrefresh_token\x18\x01 \x01(\tB=\x92A:28Optional if provided via HttpOnly 'refresh_token' cookieR\frefreshToken\"\xaf\x02\n" +
+	"\x0fRefreshResponse\x12m\n" +
+	"\faccess_token\x18\x01 \x01(\tBJ\x92AG2CDelivered strictly via HttpOnly Set-Cookie; excluded from JSON body@\x01R\vaccessToken\x12o\n" +
+	"\rrefresh_token\x18\x02 \x01(\tBJ\x92AG2CDelivered strictly via HttpOnly Set-Cookie; excluded from JSON body@\x01R\frefreshToken\x12\x1d\n" +
 	"\n" +
 	"token_type\x18\x03 \x01(\tR\ttokenType\x12\x1d\n" +
 	"\n" +
-	"expires_in\x18\x04 \x01(\x05R\texpiresIn\"f\n" +
+	"expires_in\x18\x04 \x01(\x05R\texpiresIn\"\xa5\x01\n" +
 	"\rLogoutRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12#\n" +
-	"\rrefresh_token\x18\x02 \x01(\tR\frefreshToken\"*\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12b\n" +
+	"\rrefresh_token\x18\x02 \x01(\tB=\x92A:28Optional if provided via HttpOnly 'refresh_token' cookieR\frefreshToken\"*\n" +
 	"\x0eLogoutResponse\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\"*\n" +
 	"\x12VerifyEmailRequest\x12\x14\n" +
@@ -5424,10 +5424,10 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\rcode_verifier\x18\x02 \x01(\tR\fcodeVerifier\x12h\n" +
 	"\n" +
 	"user_agent\x18\x03 \x01(\tBI\x92AF2BExtracted automatically by API Gateway from User-Agent HTTP header@\x01R\tuserAgent\x12k\n" +
-	"\tclient_ip\x18\x04 \x01(\tBN\x92AK2GExtracted automatically by API Gateway from client IP / X-Forwarded-For@\x01R\bclientIp\"\xcb\x01\n" +
-	"\x1bCompleteGitHubOAuthResponse\x12!\n" +
-	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\x12#\n" +
-	"\rrefresh_token\x18\x02 \x01(\tR\frefreshToken\x12\x1d\n" +
+	"\tclient_ip\x18\x04 \x01(\tBN\x92AK2GExtracted automatically by API Gateway from client IP / X-Forwarded-For@\x01R\bclientIp\"\xe3\x02\n" +
+	"\x1bCompleteGitHubOAuthResponse\x12m\n" +
+	"\faccess_token\x18\x01 \x01(\tBJ\x92AG2CDelivered strictly via HttpOnly Set-Cookie; excluded from JSON body@\x01R\vaccessToken\x12o\n" +
+	"\rrefresh_token\x18\x02 \x01(\tBJ\x92AG2CDelivered strictly via HttpOnly Set-Cookie; excluded from JSON body@\x01R\frefreshToken\x12\x1d\n" +
 	"\n" +
 	"token_type\x18\x03 \x01(\tR\ttokenType\x12\x1d\n" +
 	"\n" +
@@ -5696,16 +5696,16 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\"GetGitHubInstallationTokenResponse\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12'\n" +
 	"\x0finstallation_id\x18\x02 \x01(\x03R\x0einstallationId\x12&\n" +
-	"\x0fexpires_at_unix\x18\x03 \x01(\x03R\rexpiresAtUnix2\xaa]\n" +
+	"\x0fexpires_at_unix\x18\x03 \x01(\x03R\rexpiresAtUnix2\x85^\n" +
 	"\vAuthService\x12\xc4\x02\n" +
 	"\bRegister\x12\x18.auth.v1.RegisterRequest\x1a\x19.auth.v1.RegisterResponse\"\x82\x02\x92A\xde\x01\n" +
-	"\x19Authentication & Sessions\x12\x19Register new user account\x1a\xa5\x01Creates a new user profile with email, password, and display name. If email verification is enabled, an unverified account is created and an activation code is sent.\x82\xd3\xe4\x93\x02\x1a:\x01*\"\x15/api/v1/auth/register\x12\xc9\x02\n" +
-	"\x05Login\x12\x15.auth.v1.LoginRequest\x1a\x16.auth.v1.LoginResponse\"\x90\x02\x92A\xef\x01\n" +
-	"\x19Authentication & Sessions\x12)Authenticate credentials & create session\x1a\xa6\x01Authenticates user credentials (email & password). Upon success, returns an Ed25519-signed JWT access token, a long-lived refresh token, and initial session metadata.\x82\xd3\xe4\x93\x02\x17:\x01*\"\x12/api/v1/auth/login\x12\x9c\x02\n" +
-	"\aRefresh\x12\x17.auth.v1.RefreshRequest\x1a\x18.auth.v1.RefreshResponse\"\xdd\x01\x92A\xba\x01\n" +
-	"\x19Authentication & Sessions\x12\x15Rotate session tokens\x1a\x85\x01Exchanges a valid refresh token for a fresh short-lived JWT access token and a newly rotated refresh token to prevent replay attacks.\x82\xd3\xe4\x93\x02\x19:\x01*\"\x14/api/v1/auth/refresh\x12\xfb\x01\n" +
-	"\x06Logout\x12\x16.auth.v1.LogoutRequest\x1a\x17.auth.v1.LogoutResponse\"\xbf\x01\x92A\x9d\x01\n" +
-	"\x19Authentication & Sessions\x12\x18Terminate active session\x1afRevokes the active session and destroys the associated refresh token state in the Redis session store.\x82\xd3\xe4\x93\x02\x18:\x01*\"\x13/api/v1/auth/logout\x12\xc2\x02\n" +
+	"\x19Authentication & Sessions\x12\x19Register new user account\x1a\xa5\x01Creates a new user profile with email, password, and display name. If email verification is enabled, an unverified account is created and an activation code is sent.\x82\xd3\xe4\x93\x02\x1a:\x01*\"\x15/api/v1/auth/register\x12\xdd\x02\n" +
+	"\x05Login\x12\x15.auth.v1.LoginRequest\x1a\x16.auth.v1.LoginResponse\"\xa4\x02\x92A\x83\x02\n" +
+	"\x19Authentication & Sessions\x12)Authenticate credentials & create session\x1a\xba\x01Authenticates user credentials. Upon success, issues access_token and refresh_token strictly via HttpOnly SameSite cookies; tokens are omitted from the JSON response body to prevent XSS.\x82\xd3\xe4\x93\x02\x17:\x01*\"\x12/api/v1/auth/login\x12\xc1\x02\n" +
+	"\aRefresh\x12\x17.auth.v1.RefreshRequest\x1a\x18.auth.v1.RefreshResponse\"\x82\x02\x92A\xdf\x01\n" +
+	"\x19Authentication & Sessions\x12\x15Rotate session tokens\x1a\xaa\x01Rotates session tokens using the HttpOnly refresh_token cookie and returns updated access_token and refresh_token cookies. Tokens are omitted from the JSON response body.\x82\xd3\xe4\x93\x02\x19:\x01*\"\x14/api/v1/auth/refresh\x12\x9d\x02\n" +
+	"\x06Logout\x12\x16.auth.v1.LogoutRequest\x1a\x17.auth.v1.LogoutResponse\"\xe1\x01\x92A\xbf\x01\n" +
+	"\x19Authentication & Sessions\x12\x18Terminate active session\x1a\x87\x01Revokes the active session, destroys session state in Redis/Postgres, and clears access_token and refresh_token cookies via Set-Cookie.\x82\xd3\xe4\x93\x02\x18:\x01*\"\x13/api/v1/auth/logout\x12\xc2\x02\n" +
 	"\fListSessions\x12\x1c.auth.v1.ListSessionsRequest\x1a\x1d.auth.v1.ListSessionsResponse\"\xf4\x01\x92A\xd3\x01\n" +
 	"\x19Authentication & Sessions\x12\x19List active user sessions\x1a\x88\x01Retrieves all active device and browser sessions for the authenticated user, including client IP, user agent, and last active timestamp.b\x10\n" +
 	"\x0e\n" +

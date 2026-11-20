@@ -93,18 +93,32 @@ func Authenticate(v TokenVerifier, patVerifiers ...APITokenVerifier) Middleware 
 				next.ServeHTTP(w, r)
 				return
 			}
-			if r.Header.Get("Authorization") == "" && v == nil {
-				if _, ok := PrincipalFromContext(r.Context()); ok {
-					next.ServeHTTP(w, r)
+			rawHeader := r.Header.Get("Authorization")
+			var rawToken string
+			if rawHeader != "" {
+				scheme, token, ok := strings.Cut(rawHeader, " ")
+				if !ok || subtle.ConstantTimeCompare([]byte(strings.ToLower(scheme)), []byte("bearer")) != 1 || token == "" {
+					unauthorized(w, r)
 					return
 				}
+				rawToken = strings.TrimSpace(token)
+			} else {
+				// Cookie-based authentication: extract access_token from HttpOnly cookie
+				if c, err := r.Cookie("access_token"); err == nil && strings.TrimSpace(c.Value) != "" {
+					rawToken = strings.TrimSpace(c.Value)
+				}
 			}
-			scheme, token, ok := strings.Cut(r.Header.Get("Authorization"), " ")
-			if !ok || subtle.ConstantTimeCompare([]byte(strings.ToLower(scheme)), []byte("bearer")) != 1 || token == "" {
+
+			if rawToken == "" {
+				if v == nil {
+					if _, ok := PrincipalFromContext(r.Context()); ok {
+						next.ServeHTTP(w, r)
+						return
+					}
+				}
 				unauthorized(w, r)
 				return
 			}
-			rawToken := strings.TrimSpace(token)
 			if strings.HasPrefix(rawToken, "kr0n_pat_") {
 				if pat == nil {
 					unauthorized(w, r)

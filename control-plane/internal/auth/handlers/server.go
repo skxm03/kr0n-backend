@@ -253,11 +253,17 @@ func (s *Server) Refresh(ctx context.Context, req *authv1.RefreshRequest) (*auth
 		return nil, status.Error(codes.Unimplemented, "session service not configured")
 	}
 
-	if req.GetRefreshToken() == "" {
+	refreshToken := strings.TrimSpace(req.GetRefreshToken())
+	if refreshToken == "" {
+		if mdToken := metadataValue(ctx, "x-refresh-token"); mdToken != "" {
+			refreshToken = mdToken
+		}
+	}
+	if refreshToken == "" {
 		return nil, status.Error(codes.InvalidArgument, "refresh token is required")
 	}
 
-	res, err := s.sessionService.Refresh(ctx, req.GetRefreshToken())
+	res, err := s.sessionService.Refresh(ctx, refreshToken)
 	if err != nil {
 		switch {
 		case errors.Is(err, repository.ErrInvalidRefreshToken),
@@ -295,11 +301,17 @@ func (s *Server) Logout(ctx context.Context, req *authv1.LogoutRequest) (*authv1
 		return nil, status.Error(codes.Unimplemented, "session service not configured")
 	}
 
-	if req.GetRefreshToken() == "" {
+	refreshToken := strings.TrimSpace(req.GetRefreshToken())
+	if refreshToken == "" {
+		if mdToken := metadataValue(ctx, "x-refresh-token"); mdToken != "" {
+			refreshToken = mdToken
+		}
+	}
+	if refreshToken == "" {
 		return nil, status.Error(codes.InvalidArgument, "refresh token is required")
 	}
 
-	sess, err := s.sessionService.Logout(ctx, req.GetRefreshToken())
+	sess, err := s.sessionService.Logout(ctx, refreshToken)
 	if err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):

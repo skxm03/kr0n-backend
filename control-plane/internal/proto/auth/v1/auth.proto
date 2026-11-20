@@ -112,7 +112,7 @@ service AuthService {
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       tags: ["Authentication & Sessions"]
       summary: "Authenticate credentials & create session"
-      description: "Authenticates user credentials (email & password). Upon success, returns an Ed25519-signed JWT access token, a long-lived refresh token, and initial session metadata."
+      description: "Authenticates user credentials. Upon success, issues access_token and refresh_token strictly via HttpOnly SameSite cookies; tokens are omitted from the JSON response body to prevent XSS."
     };
   }
 
@@ -125,7 +125,7 @@ service AuthService {
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       tags: ["Authentication & Sessions"]
       summary: "Rotate session tokens"
-      description: "Exchanges a valid refresh token for a fresh short-lived JWT access token and a newly rotated refresh token to prevent replay attacks."
+      description: "Rotates session tokens using the HttpOnly refresh_token cookie and returns updated access_token and refresh_token cookies. Tokens are omitted from the JSON response body."
     };
   }
 
@@ -138,7 +138,7 @@ service AuthService {
     option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
       tags: ["Authentication & Sessions"]
       summary: "Terminate active session"
-      description: "Revokes the active session and destroys the associated refresh token state in the Redis session store."
+      description: "Revokes the active session, destroys session state in Redis/Postgres, and clears access_token and refresh_token cookies via Set-Cookie."
     };
   }
 
@@ -768,27 +768,27 @@ message LoginUser {
 }
 
 message LoginResponse {
-  string access_token = 1;
-  string refresh_token = 2;
+  string access_token = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true, description: "Delivered strictly via HttpOnly Set-Cookie; excluded from JSON body"}];
+  string refresh_token = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true, description: "Delivered strictly via HttpOnly Set-Cookie; excluded from JSON body"}];
   string token_type = 3;
   int32 expires_in = 4;
   LoginUser user = 5;
 }
 
 message RefreshRequest {
-  string refresh_token = 1;
+  string refresh_token = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Optional if provided via HttpOnly 'refresh_token' cookie"}];
 }
 
 message RefreshResponse {
-  string access_token = 1;
-  string refresh_token = 2;
+  string access_token = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true, description: "Delivered strictly via HttpOnly Set-Cookie; excluded from JSON body"}];
+  string refresh_token = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true, description: "Delivered strictly via HttpOnly Set-Cookie; excluded from JSON body"}];
   string token_type = 3;
   int32 expires_in = 4;
 }
 
 message LogoutRequest {
   CallerPrincipal caller = 1;
-  string refresh_token = 2;
+  string refresh_token = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {description: "Optional if provided via HttpOnly 'refresh_token' cookie"}];
 }
 
 message LogoutResponse {
@@ -917,8 +917,8 @@ message CompleteGitHubOAuthRequest {
 }
 
 message CompleteGitHubOAuthResponse {
-  string access_token = 1;
-  string refresh_token = 2;
+  string access_token = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true, description: "Delivered strictly via HttpOnly Set-Cookie; excluded from JSON body"}];
+  string refresh_token = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true, description: "Delivered strictly via HttpOnly Set-Cookie; excluded from JSON body"}];
   string token_type = 3;
   int32 expires_in = 4;
   LoginUser user = 5;

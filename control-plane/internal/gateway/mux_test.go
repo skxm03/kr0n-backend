@@ -240,4 +240,106 @@ func TestGatewayResponseModifier(t *testing.T) {
 			t.Fatalf("expected default 200 OK, got %d", rec.Code)
 		}
 	})
+
+	t.Run("login response sets HttpOnly cookies and wipes tokens from response message", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		loginResp := &authv1.LoginResponse{
+			AccessToken:  "secret-access-token",
+			RefreshToken: "secret-refresh-token",
+			ExpiresIn:    900,
+		}
+
+		if err := GatewayResponseModifier(context.Background(), rec, loginResp); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		// Body fields must be strictly wiped out
+		if loginResp.AccessToken != "" {
+			t.Fatalf("expected AccessToken to be wiped from response body, got %q", loginResp.AccessToken)
+		}
+		if loginResp.RefreshToken != "" {
+			t.Fatalf("expected RefreshToken to be wiped from response body, got %q", loginResp.RefreshToken)
+		}
+
+		// Cookies must be set with HttpOnly, Path=/, SameSite=Lax
+		cookies := rec.Result().Cookies()
+		var foundAccess, foundRefresh *http.Cookie
+		for _, c := range cookies {
+			if c.Name == AccessTokenCookieName {
+				foundAccess = c
+			}
+			if c.Name == RefreshTokenCookieName {
+				foundRefresh = c
+			}
+		}
+
+		if foundAccess == nil {
+			t.Fatal("expected access_token cookie to be set")
+		}
+		if foundAccess.Value != "secret-access-token" || !foundAccess.HttpOnly || foundAccess.Path != "/" || foundAccess.MaxAge != 900 {
+			t.Fatalf("unexpected access_token cookie attributes: %+v", foundAccess)
+		}
+
+		if foundRefresh == nil {
+			t.Fatal("expected refresh_token cookie to be set")
+		}
+		if foundRefresh.Value != "secret-refresh-token" || !foundRefresh.HttpOnly || foundRefresh.Path != "/" || foundRefresh.MaxAge != 30*24*3600 {
+			t.Fatalf("unexpected refresh_token cookie attributes: %+v", foundRefresh)
+		}
+	})
+
+	t.Run("refresh response sets HttpOnly cookies and wipes tokens from response message", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		refResp := &authv1.RefreshResponse{
+			AccessToken:  "new-access-token",
+			RefreshToken: "new-refresh-token",
+			ExpiresIn:    900,
+		}
+
+		if err := GatewayResponseModifier(context.Background(), rec, refResp); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if refResp.AccessToken != "" || refResp.RefreshToken != "" {
+			t.Fatalf("expected tokens wiped from body, got access=%q refresh=%q", refResp.AccessToken, refResp.RefreshToken)
+		}
+
+		cookies := rec.Result().Cookies()
+		if len(cookies) < 2 {
+			t.Fatalf("expected at least 2 cookies, got %d", len(cookies))
+		}
+	})
+
+	t.Run("logout response clears authentication cookies", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		logoutResp := &authv1.LogoutResponse{Message: "session revoked"}
+
+		if err := GatewayResponseModifier(context.Background(), rec, logoutResp); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		cookies := rec.Result().Cookies()
+		for _, c := range cookies {
+			if c.Name == AccessTokenCookieName || c.Name == RefreshTokenCookieName {
+				if c.MaxAge != -1 || c.Value != "" {
+					t.Fatalf("expected cookie %s to be cleared, got MaxAge=%d Value=%q", c.Name, c.MaxAge, c.Value)
+				}
+			}
+		}
+	})
+}
+
+func TestGatewayMetadataAnnotator_RefreshTokenCookie(t *testing.T) {
+	annotator := GatewayMetadataAnnotator(nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/refresh", nil)
+	req.AddCookie(&http.Cookie{
+		Name:  RefreshTokenCookieName,
+		Value: "cookie-refresh-token-123",
+	})
+
+	md := annotator(context.Background(), req)
+	tokens := md.Get("x-refresh-token")
+	if len(tokens) != 1 || tokens[0] != "cookie-refresh-token-123" {
+		t.Fatalf("expected x-refresh-token in gRPC metadata to be cookie-refresh-token-123, got %v", tokens)
+	}
 }

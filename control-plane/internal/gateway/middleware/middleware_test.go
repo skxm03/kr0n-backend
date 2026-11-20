@@ -1,9 +1,14 @@
 package middleware
 
 import (
+	"context"
 	"net"
+	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
+
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/jwtkeys"
 )
 
 func TestClientIP(t *testing.T) {
@@ -33,4 +38,74 @@ func TestClientIP(t *testing.T) {
 			}
 		})
 	}
+}
+
+type testTokenVerifier struct {
+	token  string
+	claims *jwtkeys.Claims
+	err    error
+}
+
+func (m *testTokenVerifier) VerifyContext(ctx context.Context, token string, now time.Time) (*jwtkeys.Claims, error) {
+	m.token = token
+	if m.err != nil {
+		return nil, m.err
+	}
+	return m.claims, nil
+}
+
+func TestAuthenticate_CookieSupport(t *testing.T) {
+	verifier := &testTokenVerifier{
+		claims: &jwtkeys.Claims{
+			Subject:   "u-cookie-user",
+			SessionID: "s-12345",
+		},
+	}
+
+	mw := Authenticate(verifier)
+	var authenticatedPrincipal *Principal
+	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p, ok := PrincipalFromContext(r.Context())
+		if ok {
+			authenticatedPrincipal = p
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	t.Run("authenticates via access_token cookie when Authorization header is absent", func(t *testing.T) {
+		authenticatedPrincipal = nil
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/me", nil)
+		req.AddCookie(&http.Cookie{
+			Name:  "access_token",
+			Value: "jwt-cookie-token",
+		})
+		rec := httptest.NewRecorder()
+
+		handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200 OK, got %d", rec.Code)
+		}
+		if verifier.token != "jwt-cookie-token" {
+			t.Fatalf("expected verifier to receive cookie token, got %q", verifier.token)
+		}
+		if authenticatedPrincipal == nil || authenticatedPrincipal.UserID != "u-cookie-user" {
+			t.Fatalf("unexpected principal: %+v", authenticatedPrincipal)
+		}
+	})
+
+	t.Run("returns 401 when neither Authorization header nor cookie is present", func(t *testing.T) {
+		authenticatedPrincipal = nil
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/me", nil)
+		rec := httptest.NewRecorder()
+
+		handler.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusUnauthorized {
+			t.Fatalf("expected 401 Unauthorized, got %d", rec.Code)
+		}
+		if authenticatedPrincipal != nil {
+			t.Fatalf("expected no principal, got %+v", authenticatedPrincipal)
+		}
+	})
 }
