@@ -27,17 +27,41 @@ type Principal struct {
 	Permissions []string
 }
 
-const principalKey ctxKey = iota + 100
+const (
+	principalKey ctxKey = iota + 100
+	principalTrackerKey
+)
 
-// WithPrincipal attaches an authenticated Principal to ctx.
+type principalTracker struct {
+	p *Principal
+}
+
+// WithPrincipalTracker attaches a mutable holder to ctx so outer middlewares (such as audit_log)
+// that run before Authenticate can still inspect the resolved Principal after downstream handlers return.
+func WithPrincipalTracker(ctx context.Context) context.Context {
+	if _, ok := ctx.Value(principalTrackerKey).(*principalTracker); ok {
+		return ctx
+	}
+	return context.WithValue(ctx, principalTrackerKey, &principalTracker{})
+}
+
+// WithPrincipal attaches an authenticated Principal to ctx (and updates any outer principalTracker).
 func WithPrincipal(ctx context.Context, p *Principal) context.Context {
+	if tracker, ok := ctx.Value(principalTrackerKey).(*principalTracker); ok && tracker != nil {
+		tracker.p = p
+	}
 	return context.WithValue(ctx, principalKey, p)
 }
 
 // PrincipalFromContext returns the authenticated principal, if any.
 func PrincipalFromContext(ctx context.Context) (*Principal, bool) {
-	p, ok := ctx.Value(principalKey).(*Principal)
-	return p, ok
+	if p, ok := ctx.Value(principalKey).(*Principal); ok && p != nil {
+		return p, true
+	}
+	if tracker, ok := ctx.Value(principalTrackerKey).(*principalTracker); ok && tracker != nil && tracker.p != nil {
+		return tracker.p, true
+	}
+	return nil, false
 }
 
 // TokenVerifier validates an access token.
@@ -94,7 +118,7 @@ func Authenticate(v TokenVerifier, patVerifiers ...APITokenVerifier) Middleware 
 				if p.Kind == "" {
 					p.Kind = PrincipalKindAPIToken
 				}
-				next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), principalKey, p)))
+				next.ServeHTTP(w, r.WithContext(WithPrincipal(r.Context(), p)))
 				return
 			}
 
@@ -112,7 +136,7 @@ func Authenticate(v TokenVerifier, patVerifiers ...APITokenVerifier) Middleware 
 				SessionID: claims.SessionID,
 				Kind:      PrincipalKindSession,
 			}
-			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), principalKey, p)))
+			next.ServeHTTP(w, r.WithContext(WithPrincipal(r.Context(), p)))
 		})
 	}
 }

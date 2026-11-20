@@ -98,7 +98,7 @@ func deduplicateMiddleware(items []MiddlewareItem) []MiddlewareItem {
 
 	for _, item := range items {
 		// Dedup purely stateless global wrappers if config is empty
-		if len(item.Config) == 0 && (item.Name == "request_id" || item.Name == "recovery" || item.Name == "access_log" || item.Name == "authentication") {
+		if len(item.Config) == 0 && (item.Name == "request_id" || item.Name == "recovery" || item.Name == "access_log" || item.Name == "authentication" || item.Name == "audit_log") {
 			if seenStateless[item.Name] {
 				continue
 			}

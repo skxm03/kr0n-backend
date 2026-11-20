@@ -20,6 +20,7 @@ middleware_profiles:
 
   authenticated_api:
     - cors
+    - audit_log
     - authentication:
         allow_api_tokens: true
     - rate_limit:
@@ -28,9 +29,9 @@ middleware_profiles:
 
   sensitive_api:
     - cors
+    - audit_log
     - authentication:
         allow_api_tokens: true
-    - audit_log
     - rate_limit:
         requests: 50
         window: 1m
