@@ -1,0 +1,49 @@
+# .air.github.toml - Hot reload config for GitHub VCS Microservice
+root = "."
+testdata_dir = "testdata"
+tmp_dir = "tmp/github"
+
+[build]
+  args_bin = []
+  bin = "./tmp/github/kr0n-github"
+  cmd = "go build -o ./tmp/github/kr0n-github ./cmd/github"
+  delay = 1000
+  entrypoint = ["./tmp/github/kr0n-github"]
+  exclude_dir = ["bin", "tmp", "vendor", "test", "certs", "scripts"]
+  exclude_file = []
+  exclude_regex = ["_test.go"]
+  exclude_unchanged = false
+  follow_symlink = false
+  full_bin = ""
+  include_dir = ["cmd/github", "internal"]
+  include_ext = ["go", "yaml", "yml", "json", "env"]
+  include_file = []
+  kill_delay = "500ms"
+  log = "build-errors.log"
+  poll = false
+  poll_interval = 0
+  post_cmd = []
+  pre_cmd = []
+  rerun = false
+  rerun_delay = 500
+  send_interrupt = true
+  stop_on_error = true
+
+[color]
+  app = ""
+  build = "yellow"
+  main = "magenta"
+  runner = "green"
+  watcher = "cyan"
+
+[log]
+  main_only = false
+  silent = false
+  time = false
+
+[misc]
+  clean_on_exit = true
+
+[screen]
+  clear_on_rebuild = false
+  keep_scroll = true

@@ -1,0 +1,68 @@
+name: kr0n-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kr0n-dev-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${AUTH_POSTGRES_USER:-kr0n}
+      POSTGRES_PASSWORD: ${AUTH_POSTGRES_PASSWORD:-kr0n_dev_password}
+      POSTGRES_DB: ${AUTH_POSTGRES_DB:-kr0n}
+    ports:
+      - "5433:5432"
+    volumes:
+      - kr0n_dev_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-kr0n} -d $${POSTGRES_DB:-kr0n}"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: kr0n-dev-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - kr0n_dev_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: kr0n-dev-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - kr0n_dev_rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: kr0n-dev-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025" # SMTP
+      - "8025:8025" # Web UI
+
+volumes:
+  kr0n_dev_postgres_data:
+    name: kr0n_dev_postgres_data
+  kr0n_dev_redis_data:
+    name: kr0n_dev_redis_data
+  kr0n_dev_rabbitmq_data:
+    name: kr0n_dev_rabbitmq_data

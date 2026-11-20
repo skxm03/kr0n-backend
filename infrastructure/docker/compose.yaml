@@ -3,6 +3,7 @@ name: kr0n
 include:
   - path: ./mailer/compose.yaml
   - path: ./auth/compose.yaml
+  - path: ./github/compose.yaml
   - path: ./gateway/compose.yaml
 
 services:
@@ -10,7 +11,13 @@ services:
     depends_on:
       mailer-rabbitmq:
         condition: service_healthy
+  github:
+    depends_on:
+      auth:
+        condition: service_healthy
   gateway:
     depends_on:
       auth:
         condition: service_healthy
+      github:
+        condition: service_started

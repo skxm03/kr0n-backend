@@ -1,17 +1,25 @@
 # Binaries & build artifacts
 bin/
+tmp/
+*/tmp/
 /auth
 /migrate
 /gateway
+/github
+/mailer
 /control-plane/auth
 /control-plane/migrate
 /control-plane/gateway
+/control-plane/github
+/control-plane/mailer
 kr0n-*
 *.exe
 *.dll
 *.so
 *.dylib
 *.test
+build-errors.log
+*/build-errors.log
 
 # Certificates & Private Keys
 certs/
