@@ -1,4 +1,4 @@
-.PHONY: all certs test test-race e2e build clean dev dev-infra dev-infra-down dev-infra-logs migrate-up migrate-down migrate-status dev-auth dev-gateway dev-github dev-mailer dev-audit docker-build docker-up docker-down check-env doctor
+.PHONY: all certs test test-race e2e build clean dev dev-infra dev-infra-down dev-infra-logs migrate-up migrate-down migrate-status dev-auth dev-gateway dev-github dev-mailer dev-audit docker-build docker-up docker-down check-env doctor swagger-ui
 
 DEV_COMPOSE := infrastructure/docker/docker-compose.dev.yml
 FULL_COMPOSE := infrastructure/docker/compose.yaml
@@ -111,6 +111,15 @@ docker-down:
 certs:
 	@chmod +x scripts/gen-certs.sh
 	@./scripts/gen-certs.sh ./certs
+
+## swagger-ui: Launch an interactive Swagger UI container at http://localhost:8081
+swagger-ui:
+	@echo "Starting Swagger UI at http://localhost:8081..."
+	@docker run --rm -p 8081:8080 \
+		-e URLS="[{url: 'specs/auth.swagger.json', name: 'Auth API'}, {url: 'specs/github.swagger.json', name: 'GitHub VCS API'}]" \
+		-v $(PWD)/control-plane/gen/openapiv2/auth/v1/auth.swagger.json:/usr/share/nginx/html/specs/auth.swagger.json:ro \
+		-v $(PWD)/control-plane/gen/openapiv2/github/v1/github.swagger.json:/usr/share/nginx/html/specs/github.swagger.json:ro \
+		swaggerapi/swagger-ui
 
 ## test: Run control-plane unit tests
 test:
