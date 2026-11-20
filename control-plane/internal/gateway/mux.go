@@ -116,12 +116,31 @@ func GatewayResponseModifier(ctx context.Context, w http.ResponseWriter, resp pr
 					m.Status = "ok"
 				}
 			}
+		case *authv1.StartGitHubOAuthResponse:
+			if m.CodeVerifier != "" {
+				http.SetCookie(w, &http.Cookie{
+					Name:     "github_oauth_verifier",
+					Value:    m.CodeVerifier,
+					Path:     "/",
+					HttpOnly: true,
+					SameSite: http.SameSiteLaxMode,
+					MaxAge:   600, // 10 minutes
+				})
+			}
 		case *authv1.CompleteGitHubOAuthResponse:
 			if m.AccessToken != "" || m.RefreshToken != "" {
 				SetAuthCookies(w, m.AccessToken, m.RefreshToken)
 				m.AccessToken = ""
 				m.RefreshToken = ""
 			}
+			http.SetCookie(w, &http.Cookie{
+				Name:     "github_oauth_verifier",
+				Value:    "",
+				Path:     "/",
+				HttpOnly: true,
+				SameSite: http.SameSiteLaxMode,
+				MaxAge:   -1,
+			})
 			frontendURL := strings.TrimSpace(os.Getenv("FRONTEND_URL"))
 			if frontendURL == "" {
 				frontendURL = "http://localhost:3000"
@@ -185,6 +204,9 @@ func GatewayMetadataAnnotator(trustedProxies []*net.IPNet) func(ctx context.Cont
 			md.Set("x-refresh-token", strings.TrimSpace(c.Value))
 		} else if h := r.Header.Get("X-Refresh-Token"); strings.TrimSpace(h) != "" {
 			md.Set("x-refresh-token", strings.TrimSpace(h))
+		}
+		if c, err := r.Cookie("github_oauth_verifier"); err == nil && strings.TrimSpace(c.Value) != "" {
+			md.Set("x-code-verifier", strings.TrimSpace(c.Value))
 		}
 
 		return md

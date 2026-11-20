@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -675,9 +676,16 @@ func (s *Server) CompleteGitHubOAuth(ctx context.Context, req *authv1.CompleteGi
 		return nil, status.Error(codes.FailedPrecondition, "github oauth is not configured")
 	}
 	code := strings.TrimSpace(req.GetCode())
+	if code == "" {
+		return nil, status.Error(codes.InvalidArgument, "code is required")
+	}
 	verifier := strings.TrimSpace(req.GetCodeVerifier())
-	if code == "" || verifier == "" {
-		return nil, status.Error(codes.InvalidArgument, "code and code_verifier are required")
+	if verifier == "" {
+		if md, ok := metadata.FromIncomingContext(ctx); ok {
+			if vals := md.Get("x-code-verifier"); len(vals) > 0 {
+				verifier = strings.TrimSpace(vals[0])
+			}
+		}
 	}
 
 	if s.regService == nil {

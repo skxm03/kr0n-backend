@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -175,7 +176,9 @@ func (p *GitHubProvider) exchangeToken(ctx context.Context, code, codeVerifier s
 		"client_secret": {p.cfg.ClientSecret},
 		"code":          {code},
 		"redirect_uri":  {p.cfg.RedirectURL},
-		"code_verifier": {codeVerifier},
+	}
+	if v := strings.TrimSpace(codeVerifier); v != "" {
+		form.Set("code_verifier", v)
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.cfg.TokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
@@ -190,18 +193,23 @@ func (p *GitHubProvider) exchangeToken(ctx context.Context, code, codeVerifier s
 	}
 	defer resp.Body.Close()
 
+	bodyBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<16))
 	if resp.StatusCode != http.StatusOK {
+		log.Printf("github oauth token exchange http status %d: %s", resp.StatusCode, string(bodyBytes))
 		return "", ErrExchangeFailed
 	}
 
 	var tokResp struct {
-		AccessToken string `json:"access_token"`
-		Error       string `json:"error"`
+		AccessToken      string `json:"access_token"`
+		Error            string `json:"error"`
+		ErrorDescription string `json:"error_description"`
 	}
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<16)).Decode(&tokResp); err != nil {
+	if err := json.Unmarshal(bodyBytes, &tokResp); err != nil {
+		log.Printf("github oauth token exchange json decode error: %v (raw: %s)", err, string(bodyBytes))
 		return "", ErrExchangeFailed
 	}
 	if tokResp.Error != "" || strings.TrimSpace(tokResp.AccessToken) == "" {
+		log.Printf("github oauth token exchange rejected: error=%q description=%q", tokResp.Error, tokResp.ErrorDescription)
 		return "", ErrExchangeFailed
 	}
 	return tokResp.AccessToken, nil
@@ -221,10 +229,13 @@ func (p *GitHubProvider) getJSON(ctx context.Context, endpoint, accessToken stri
 	}
 	defer resp.Body.Close()
 
+	bodyBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if resp.StatusCode != http.StatusOK {
+		log.Printf("github api error: endpoint=%s status=%d body=%s", endpoint, resp.StatusCode, string(bodyBytes))
 		return ErrExchangeFailed
 	}
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(dst); err != nil {
+	if err := json.Unmarshal(bodyBytes, dst); err != nil {
+		log.Printf("github api decode error: endpoint=%s err=%v", endpoint, err)
 		return ErrExchangeFailed
 	}
 	return nil
