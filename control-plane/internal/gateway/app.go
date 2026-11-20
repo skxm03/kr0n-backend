@@ -72,7 +72,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 		KeyFile:    cfg.AuthGRPCTLSKeyFile,
 		CAFile:     cfg.AuthGRPCTLSCAFile,
 		ServerName: cfg.AuthGRPCServerName,
-	}, cfg.AuthServiceToken)
+	}, "")
 	if err != nil {
 		return nil, fmt.Errorf("dial auth gRPC service %q: %w", authAddr, err)
 	}
