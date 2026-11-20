@@ -75,6 +75,11 @@ func NewGitHubAppProvider(cfg GitHubAppConfig) (*GitHubAppProvider, error) {
 	if cfg.HTTPClient == nil {
 		cfg.HTTPClient = &http.Client{Timeout: 10 * time.Second}
 	}
+	if strings.TrimSpace(cfg.AppID) != "" || strings.TrimSpace(cfg.AppSlug) != "" {
+		if strings.TrimSpace(cfg.StateSecret) == "" {
+			return nil, errors.New("GITHUB_APP_STATE_SECRET is required when GitHub App is configured")
+		}
+	}
 	var priv *rsa.PrivateKey
 	if raw := strings.TrimSpace(cfg.PrivateKeyPEM); raw != "" {
 		parsed, err := parseRSAPrivateKey(raw)
@@ -129,15 +134,7 @@ func (p *GitHubAppProvider) Configured() bool {
 }
 
 func (p *GitHubAppProvider) stateKey() []byte {
-	if s := strings.TrimSpace(p.cfg.StateSecret); s != "" {
-		return []byte(s)
-	}
-	if p.privateKey != nil && p.privateKey.D != nil {
-		// Use SHA-256 hash of the RSA private exponent (D) so secret material is strictly private
-		h := sha256.Sum256(p.privateKey.D.Bytes())
-		return h[:]
-	}
-	return nil
+	return []byte(strings.TrimSpace(p.cfg.StateSecret))
 }
 
 // StartInstallation generates a signed, 15-minute state token bound to orgID and userID and returns the GitHub App installation URL.

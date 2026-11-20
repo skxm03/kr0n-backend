@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -25,6 +27,7 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/service"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/email"
+	pkgAudit "github.com/skxm03/kr0n-backend/control-plane/pkg/audit"
 )
 
 // App encapsulates the Auth gRPC service dependencies and lifecycle.
@@ -32,6 +35,7 @@ type App struct {
 	cfg          *config.Config
 	dbPool       *pgxpool.Pool
 	rmqSender    *email.RabbitMQSender
+	auditEmitter pkgAudit.Emitter
 	outboxWorker *outbox.Worker
 	grpcServer   *grpc.Server
 }
@@ -74,20 +78,51 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 	verifRepo := repository.NewPostgresVerificationRepository(dbPool)
 	verifService := service.NewVerificationService(verifRepo)
 
+	var auditEmitter pkgAudit.Emitter
+	if cfg.AuditRabbitMQURL != "" {
+		auditEmitter, err = pkgAudit.NewRabbitMQEmitter(pkgAudit.EmitterConfig{
+			AMQPURL:      cfg.AuditRabbitMQURL,
+			ServiceName:  "auth",
+			ExchangeName: cfg.AuditExchangeName,
+		})
+		if err != nil {
+			if rmqSender != nil {
+				_ = rmqSender.Close()
+			}
+			dbPool.Close()
+			return nil, fmt.Errorf("connect audit rabbitmq emitter: %w", err)
+		}
+	}
+
 	cleanup := func() {
+		if auditEmitter != nil {
+			_ = auditEmitter.Close()
+		}
 		if rmqSender != nil {
 			_ = rmqSender.Close()
 		}
 		dbPool.Close()
 	}
 
-	jwtPrivateKey := jwtkeys.DevPrivateKey()
+	isDev := cfg.Env == "dev" || cfg.Env == "development"
+
+	var jwtPrivateKey ed25519.PrivateKey
 	if cfg.JWTPrivateKey != "" {
 		jwtPrivateKey, err = jwtkeys.ParsePrivateKey(cfg.JWTPrivateKey)
 		if err != nil {
 			cleanup()
 			return nil, fmt.Errorf("invalid JWT_PRIVATE_KEY: %w", err)
 		}
+	} else if isDev {
+		_, jwtPrivateKey, err = ed25519.GenerateKey(rand.Reader)
+		if err != nil {
+			cleanup()
+			return nil, fmt.Errorf("generate ephemeral dev jwt key: %w", err)
+		}
+		log.Println("auth: generated ephemeral in-memory Ed25519 key for local development (zero hardcoding)")
+	} else {
+		cleanup()
+		return nil, errors.New("JWT_PRIVATE_KEY is mandatory when KR0N_ENV != dev")
 	}
 
 	jwtSigner, err := jwtkeys.NewSigner(jwtPrivateKey, cfg.JWTKeyID, cfg.JWTIssuer, cfg.JWTAudience, cfg.AccessTokenLifetime)
@@ -128,9 +163,8 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 	)
 
 	auditRepo := repository.NewPostgresAuditRepository(dbPool)
-	auditService := service.NewAuditService(auditRepo)
+	auditService := service.NewAuditService(auditRepo, service.WithAuditEmitter(auditEmitter))
 
-	isDev := cfg.Env == "dev" || cfg.Env == "development"
 	serviceAuthConfig := handlers.ServiceAuthConfig{
 		Enabled:            !isDev || cfg.AuthGRPCClientCAFile != "",
 		RequireClientCert:  !isDev || cfg.AuthGRPCClientCAFile != "",
@@ -189,6 +223,7 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 		cfg:          cfg,
 		dbPool:       dbPool,
 		rmqSender:    rmqSender,
+		auditEmitter: auditEmitter,
 		outboxWorker: outboxWorker,
 		grpcServer:   grpcServer,
 	}, nil
@@ -199,6 +234,9 @@ func (a *App) Run(ctx context.Context) error {
 	defer a.dbPool.Close()
 	if a.rmqSender != nil {
 		defer a.rmqSender.Close()
+	}
+	if a.auditEmitter != nil {
+		defer a.auditEmitter.Close()
 	}
 
 	workerCtx, cancelWorker := context.WithCancel(ctx)

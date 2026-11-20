@@ -190,6 +190,14 @@ else
   pass "GITHUB_APP_ID=${GITHUB_APP_ID}"
 fi
 
+if [ -n "${GITHUB_APP_ID:-}" ] || [ -n "${GITHUB_APP_SLUG:-}" ]; then
+  if [ -z "${GITHUB_APP_STATE_SECRET:-}" ]; then
+    fail "GITHUB_APP_STATE_SECRET is empty! (Required when GitHub App is set; generate with: openssl rand -hex 32)"
+  else
+    pass "GITHUB_APP_STATE_SECRET is configured"
+  fi
+fi
+
 if [ -z "${GITHUB_CLIENT_ID:-}" ] || [ -z "${GITHUB_CLIENT_SECRET:-}" ]; then
   info "GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET are empty (GitHub OAuth login disabled)"
 else
