@@ -104,10 +104,15 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 		RedirectURL:  cfg.GitHubRedirectURL,
 	})
 
+	privKeyPEM := cfg.GitHubAppPrivateKey
+	if privKeyPEM == "" {
+		privKeyPEM = cfg.GitHubAppPrivateKeyPath
+	}
+
 	githubApp, err := oauth.NewGitHubAppProvider(oauth.GitHubAppConfig{
 		AppID:         cfg.GitHubAppID,
 		AppSlug:       cfg.GitHubAppSlug,
-		PrivateKeyPEM: cfg.GitHubAppPrivateKey,
+		PrivateKeyPEM: privKeyPEM,
 		StateSecret:   cfg.GitHubAppStateSecret,
 	})
 	if err != nil {

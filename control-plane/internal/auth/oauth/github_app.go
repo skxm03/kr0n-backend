@@ -16,6 +16,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -89,7 +91,17 @@ func NewGitHubAppProvider(cfg GitHubAppConfig) (*GitHubAppProvider, error) {
 }
 
 func parseRSAPrivateKey(pemStr string) (*rsa.PrivateKey, error) {
-	normalized := strings.ReplaceAll(pemStr, `\n`, "\n")
+	raw := strings.TrimSpace(pemStr)
+	if !strings.HasPrefix(raw, "-----BEGIN") {
+		data, err := os.ReadFile(raw)
+		if err != nil {
+			data, err = os.ReadFile(filepath.Join("..", raw))
+		}
+		if err == nil {
+			raw = strings.TrimSpace(string(data))
+		}
+	}
+	normalized := strings.ReplaceAll(raw, `\n`, "\n")
 	block, _ := pem.Decode([]byte(normalized))
 	if block == nil {
 		return nil, errors.New("invalid PEM block")

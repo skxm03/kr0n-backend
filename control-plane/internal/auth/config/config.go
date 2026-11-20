@@ -29,6 +29,7 @@ type Config struct {
 	GitHubAppID                    string        `env:"GITHUB_APP_ID"`
 	GitHubAppSlug                  string        `env:"GITHUB_APP_SLUG"`
 	GitHubAppPrivateKey            string        `env:"GITHUB_APP_PRIVATE_KEY"`
+	GitHubAppPrivateKeyPath        string        `env:"GITHUB_APP_PRIVATE_KEY_PATH"`
 	GitHubAppStateSecret           string        `env:"GITHUB_APP_STATE_SECRET"`
 	AuthGRPCTLSCertFile            string        `env:"AUTH_GRPC_TLS_CERT_FILE"`
 	AuthGRPCTLSKeyFile             string        `env:"AUTH_GRPC_TLS_KEY_FILE"`
