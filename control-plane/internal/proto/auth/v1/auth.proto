@@ -755,8 +755,9 @@ message RegisterResponse {
 message LoginRequest {
   string email = 1;
   string password = 2;
-  string user_agent = 3;
-  string client_ip = 4;
+  // user_agent and client_ip are populated by the API Gateway from HTTP headers and client transport metadata.
+  string user_agent = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true, description: "Extracted automatically by API Gateway from User-Agent HTTP header"}];
+  string client_ip = 4 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true, description: "Extracted automatically by API Gateway from client IP / X-Forwarded-For"}];
 }
 
 message LoginUser {
@@ -910,8 +911,9 @@ message StartGitHubOAuthResponse {
 message CompleteGitHubOAuthRequest {
   string code = 1;
   string code_verifier = 2;
-  string user_agent = 3;
-  string client_ip = 4;
+  // user_agent and client_ip are populated by the API Gateway from HTTP headers and client transport metadata.
+  string user_agent = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true, description: "Extracted automatically by API Gateway from User-Agent HTTP header"}];
+  string client_ip = 4 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true, description: "Extracted automatically by API Gateway from client IP / X-Forwarded-For"}];
 }
 
 message CompleteGitHubOAuthResponse {

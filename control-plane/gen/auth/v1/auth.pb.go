@@ -161,11 +161,12 @@ func (x *RegisterResponse) GetCreatedAt() *timestamppb.Timestamp {
 }
 
 type LoginRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Email         string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
-	Password      string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
-	UserAgent     string                 `protobuf:"bytes,3,opt,name=user_agent,json=userAgent,proto3" json:"user_agent,omitempty"`
-	ClientIp      string                 `protobuf:"bytes,4,opt,name=client_ip,json=clientIp,proto3" json:"client_ip,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Email    string                 `protobuf:"bytes,1,opt,name=email,proto3" json:"email,omitempty"`
+	Password string                 `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
+	// user_agent and client_ip are populated by the API Gateway from HTTP headers and client transport metadata.
+	UserAgent     string `protobuf:"bytes,3,opt,name=user_agent,json=userAgent,proto3" json:"user_agent,omitempty"`
+	ClientIp      string `protobuf:"bytes,4,opt,name=client_ip,json=clientIp,proto3" json:"client_ip,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1749,11 +1750,12 @@ func (x *StartGitHubOAuthResponse) GetCodeVerifier() string {
 }
 
 type CompleteGitHubOAuthRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Code          string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
-	CodeVerifier  string                 `protobuf:"bytes,2,opt,name=code_verifier,json=codeVerifier,proto3" json:"code_verifier,omitempty"`
-	UserAgent     string                 `protobuf:"bytes,3,opt,name=user_agent,json=userAgent,proto3" json:"user_agent,omitempty"`
-	ClientIp      string                 `protobuf:"bytes,4,opt,name=client_ip,json=clientIp,proto3" json:"client_ip,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Code         string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
+	CodeVerifier string                 `protobuf:"bytes,2,opt,name=code_verifier,json=codeVerifier,proto3" json:"code_verifier,omitempty"`
+	// user_agent and client_ip are populated by the API Gateway from HTTP headers and client transport metadata.
+	UserAgent     string `protobuf:"bytes,3,opt,name=user_agent,json=userAgent,proto3" json:"user_agent,omitempty"`
+	ClientIp      string `protobuf:"bytes,4,opt,name=client_ip,json=clientIp,proto3" json:"client_ip,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5304,13 +5306,13 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\fdisplay_name\x18\x03 \x01(\tR\vdisplayName\x12\x16\n" +
 	"\x06status\x18\x04 \x01(\tR\x06status\x129\n" +
 	"\n" +
-	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"|\n" +
+	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\"\x97\x02\n" +
 	"\fLoginRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\x12\x1a\n" +
-	"\bpassword\x18\x02 \x01(\tR\bpassword\x12\x1d\n" +
+	"\bpassword\x18\x02 \x01(\tR\bpassword\x12h\n" +
 	"\n" +
-	"user_agent\x18\x03 \x01(\tR\tuserAgent\x12\x1b\n" +
-	"\tclient_ip\x18\x04 \x01(\tR\bclientIp\"l\n" +
+	"user_agent\x18\x03 \x01(\tBI\x92AF2BExtracted automatically by API Gateway from User-Agent HTTP header@\x01R\tuserAgent\x12k\n" +
+	"\tclient_ip\x18\x04 \x01(\tBN\x92AK2GExtracted automatically by API Gateway from client IP / X-Forwarded-For@\x01R\bclientIp\"l\n" +
 	"\tLoginUser\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05email\x18\x02 \x01(\tR\x05email\x12!\n" +
@@ -5416,13 +5418,13 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\x18StartGitHubOAuthResponse\x12#\n" +
 	"\rauthorize_url\x18\x01 \x01(\tR\fauthorizeUrl\x12\x14\n" +
 	"\x05state\x18\x02 \x01(\tR\x05state\x12#\n" +
-	"\rcode_verifier\x18\x03 \x01(\tR\fcodeVerifier\"\x91\x01\n" +
+	"\rcode_verifier\x18\x03 \x01(\tR\fcodeVerifier\"\xac\x02\n" +
 	"\x1aCompleteGitHubOAuthRequest\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\tR\x04code\x12#\n" +
-	"\rcode_verifier\x18\x02 \x01(\tR\fcodeVerifier\x12\x1d\n" +
+	"\rcode_verifier\x18\x02 \x01(\tR\fcodeVerifier\x12h\n" +
 	"\n" +
-	"user_agent\x18\x03 \x01(\tR\tuserAgent\x12\x1b\n" +
-	"\tclient_ip\x18\x04 \x01(\tR\bclientIp\"\xcb\x01\n" +
+	"user_agent\x18\x03 \x01(\tBI\x92AF2BExtracted automatically by API Gateway from User-Agent HTTP header@\x01R\tuserAgent\x12k\n" +
+	"\tclient_ip\x18\x04 \x01(\tBN\x92AK2GExtracted automatically by API Gateway from client IP / X-Forwarded-For@\x01R\bclientIp\"\xcb\x01\n" +
 	"\x1bCompleteGitHubOAuthResponse\x12!\n" +
 	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\x12#\n" +
 	"\rrefresh_token\x18\x02 \x01(\tR\frefreshToken\x12\x1d\n" +

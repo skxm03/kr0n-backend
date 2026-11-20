@@ -656,12 +656,14 @@
           },
           {
             "name": "user_agent",
+            "description": "Extracted automatically by API Gateway from User-Agent HTTP header",
             "in": "query",
             "required": false,
             "type": "string"
           },
           {
             "name": "client_ip",
+            "description": "Extracted automatically by API Gateway from client IP / X-Forwarded-For",
             "in": "query",
             "required": false,
             "type": "string"
@@ -2626,10 +2628,14 @@
           "type": "string"
         },
         "user_agent": {
-          "type": "string"
+          "type": "string",
+          "description": "Extracted automatically by API Gateway from User-Agent HTTP header",
+          "readOnly": true
         },
         "client_ip": {
-          "type": "string"
+          "type": "string",
+          "description": "Extracted automatically by API Gateway from client IP / X-Forwarded-For",
+          "readOnly": true
         }
       }
     },
