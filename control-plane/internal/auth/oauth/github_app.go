@@ -132,8 +132,10 @@ func (p *GitHubAppProvider) stateKey() []byte {
 	if s := strings.TrimSpace(p.cfg.StateSecret); s != "" {
 		return []byte(s)
 	}
-	if p.privateKey != nil {
-		return p.privateKey.N.Bytes()
+	if p.privateKey != nil && p.privateKey.D != nil {
+		// Use SHA-256 hash of the RSA private exponent (D) so secret material is strictly private
+		h := sha256.Sum256(p.privateKey.D.Bytes())
+		return h[:]
 	}
 	return nil
 }
