@@ -246,16 +246,49 @@ func (r *PostgresOrgRepository) UpdateOrg(ctx context.Context, orgID uuid.UUID, 
 	return &o, nil
 }
 
-// DeleteOrg permanently deletes an organization.
+// DeleteOrg permanently deletes an organization, ensuring no member is left with 0 organizations.
 func (r *PostgresOrgRepository) DeleteOrg(ctx context.Context, orgID uuid.UUID) error {
-	tag, err := r.pool.Exec(ctx, `DELETE FROM organizations WHERE id = $1;`, orgID)
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var exists bool
+	err = tx.QueryRow(ctx, `SELECT true FROM organizations WHERE id = $1 FOR UPDATE;`, orgID).Scan(&exists)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrOrgNotFound
+		}
+		return fmt.Errorf("check org exists: %w", err)
+	}
+
+	var membersWithoutOtherOrgs int
+	err = tx.QueryRow(ctx, `
+		SELECT count(DISTINCT om.user_id)
+		FROM organization_memberships om
+		WHERE om.organization_id = $1
+		  AND (
+			  SELECT count(*)
+			  FROM organization_memberships om2
+			  WHERE om2.user_id = om.user_id
+		  ) <= 1;
+	`, orgID).Scan(&membersWithoutOtherOrgs)
+	if err != nil {
+		return fmt.Errorf("check member sole org: %w", err)
+	}
+	if membersWithoutOtherOrgs > 0 {
+		return ErrSoleOrg
+	}
+
+	tag, err := tx.Exec(ctx, `DELETE FROM organizations WHERE id = $1;`, orgID)
 	if err != nil {
 		return fmt.Errorf("delete organization: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
 		return ErrOrgNotFound
 	}
-	return nil
+	return tx.Commit(ctx)
 }
 
 // ListMembers returns all members of an organization.
@@ -380,6 +413,19 @@ func (r *PostgresOrgRepository) RemoveMember(ctx context.Context, orgID, targetU
 		if err := ensureMultipleOwners(ctx, tx, orgID); err != nil {
 			return err
 		}
+	}
+
+	var orgCount int
+	err = tx.QueryRow(ctx, `
+		SELECT count(*)
+		FROM organization_memberships
+		WHERE user_id = $1;
+	`, targetUserID).Scan(&orgCount)
+	if err != nil {
+		return fmt.Errorf("query user org count: %w", err)
+	}
+	if orgCount <= 1 {
+		return ErrSoleOrg
 	}
 
 	if _, err := tx.Exec(ctx, `

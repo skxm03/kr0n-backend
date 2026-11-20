@@ -93,6 +93,9 @@ var (
 	// ErrLastOwner indicates an action would remove or demote the sole owner of an organization.
 	ErrLastOwner = errors.New("cannot remove or demote the last organization owner")
 
+	// ErrSoleOrg indicates an action would remove or delete a user's only organization membership.
+	ErrSoleOrg = errors.New("cannot leave or delete sole organization: user must belong to at least one organization at all times")
+
 	// ErrMemberNotFound indicates the user is not a member of the organization.
 	ErrMemberNotFound = errors.New("organization member not found")
 

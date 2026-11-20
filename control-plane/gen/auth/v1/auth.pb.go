@@ -1846,6 +1846,231 @@ func (x *CompleteGitHubOAuthResponse) GetUser() *LoginUser {
 	return nil
 }
 
+type StartGoogleOAuthRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StartGoogleOAuthRequest) Reset() {
+	*x = StartGoogleOAuthRequest{}
+	mi := &file_auth_v1_auth_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StartGoogleOAuthRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StartGoogleOAuthRequest) ProtoMessage() {}
+
+func (x *StartGoogleOAuthRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_v1_auth_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StartGoogleOAuthRequest.ProtoReflect.Descriptor instead.
+func (*StartGoogleOAuthRequest) Descriptor() ([]byte, []int) {
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{33}
+}
+
+type StartGoogleOAuthResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AuthorizeUrl  string                 `protobuf:"bytes,1,opt,name=authorize_url,json=authorizeUrl,proto3" json:"authorize_url,omitempty"`
+	State         string                 `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
+	CodeVerifier  string                 `protobuf:"bytes,3,opt,name=code_verifier,json=codeVerifier,proto3" json:"code_verifier,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StartGoogleOAuthResponse) Reset() {
+	*x = StartGoogleOAuthResponse{}
+	mi := &file_auth_v1_auth_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StartGoogleOAuthResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StartGoogleOAuthResponse) ProtoMessage() {}
+
+func (x *StartGoogleOAuthResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_v1_auth_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StartGoogleOAuthResponse.ProtoReflect.Descriptor instead.
+func (*StartGoogleOAuthResponse) Descriptor() ([]byte, []int) {
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *StartGoogleOAuthResponse) GetAuthorizeUrl() string {
+	if x != nil {
+		return x.AuthorizeUrl
+	}
+	return ""
+}
+
+func (x *StartGoogleOAuthResponse) GetState() string {
+	if x != nil {
+		return x.State
+	}
+	return ""
+}
+
+func (x *StartGoogleOAuthResponse) GetCodeVerifier() string {
+	if x != nil {
+		return x.CodeVerifier
+	}
+	return ""
+}
+
+type CompleteGoogleOAuthRequest struct {
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Code         string                 `protobuf:"bytes,1,opt,name=code,proto3" json:"code,omitempty"`
+	CodeVerifier string                 `protobuf:"bytes,2,opt,name=code_verifier,json=codeVerifier,proto3" json:"code_verifier,omitempty"`
+	// user_agent and client_ip are populated by the API Gateway from HTTP headers and client transport metadata.
+	UserAgent     string `protobuf:"bytes,3,opt,name=user_agent,json=userAgent,proto3" json:"user_agent,omitempty"`
+	ClientIp      string `protobuf:"bytes,4,opt,name=client_ip,json=clientIp,proto3" json:"client_ip,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CompleteGoogleOAuthRequest) Reset() {
+	*x = CompleteGoogleOAuthRequest{}
+	mi := &file_auth_v1_auth_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompleteGoogleOAuthRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompleteGoogleOAuthRequest) ProtoMessage() {}
+
+func (x *CompleteGoogleOAuthRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_v1_auth_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CompleteGoogleOAuthRequest.ProtoReflect.Descriptor instead.
+func (*CompleteGoogleOAuthRequest) Descriptor() ([]byte, []int) {
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *CompleteGoogleOAuthRequest) GetCode() string {
+	if x != nil {
+		return x.Code
+	}
+	return ""
+}
+
+func (x *CompleteGoogleOAuthRequest) GetCodeVerifier() string {
+	if x != nil {
+		return x.CodeVerifier
+	}
+	return ""
+}
+
+func (x *CompleteGoogleOAuthRequest) GetUserAgent() string {
+	if x != nil {
+		return x.UserAgent
+	}
+	return ""
+}
+
+func (x *CompleteGoogleOAuthRequest) GetClientIp() string {
+	if x != nil {
+		return x.ClientIp
+	}
+	return ""
+}
+
+type CompleteGoogleOAuthResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccessToken   string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
+	RefreshToken  string                 `protobuf:"bytes,2,opt,name=refresh_token,json=refreshToken,proto3" json:"refresh_token,omitempty"`
+	User          *LoginUser             `protobuf:"bytes,3,opt,name=user,proto3" json:"user,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CompleteGoogleOAuthResponse) Reset() {
+	*x = CompleteGoogleOAuthResponse{}
+	mi := &file_auth_v1_auth_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompleteGoogleOAuthResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompleteGoogleOAuthResponse) ProtoMessage() {}
+
+func (x *CompleteGoogleOAuthResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_v1_auth_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CompleteGoogleOAuthResponse.ProtoReflect.Descriptor instead.
+func (*CompleteGoogleOAuthResponse) Descriptor() ([]byte, []int) {
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *CompleteGoogleOAuthResponse) GetAccessToken() string {
+	if x != nil {
+		return x.AccessToken
+	}
+	return ""
+}
+
+func (x *CompleteGoogleOAuthResponse) GetRefreshToken() string {
+	if x != nil {
+		return x.RefreshToken
+	}
+	return ""
+}
+
+func (x *CompleteGoogleOAuthResponse) GetUser() *LoginUser {
+	if x != nil {
+		return x.User
+	}
+	return nil
+}
+
 type CallerPrincipal struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	UserId           string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
@@ -1859,7 +2084,7 @@ type CallerPrincipal struct {
 
 func (x *CallerPrincipal) Reset() {
 	*x = CallerPrincipal{}
-	mi := &file_auth_v1_auth_proto_msgTypes[33]
+	mi := &file_auth_v1_auth_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1871,7 +2096,7 @@ func (x *CallerPrincipal) String() string {
 func (*CallerPrincipal) ProtoMessage() {}
 
 func (x *CallerPrincipal) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[33]
+	mi := &file_auth_v1_auth_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1884,7 +2109,7 @@ func (x *CallerPrincipal) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CallerPrincipal.ProtoReflect.Descriptor instead.
 func (*CallerPrincipal) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{33}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *CallerPrincipal) GetUserId() string {
@@ -1933,7 +2158,7 @@ type CheckPermissionRequest struct {
 
 func (x *CheckPermissionRequest) Reset() {
 	*x = CheckPermissionRequest{}
-	mi := &file_auth_v1_auth_proto_msgTypes[34]
+	mi := &file_auth_v1_auth_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1945,7 +2170,7 @@ func (x *CheckPermissionRequest) String() string {
 func (*CheckPermissionRequest) ProtoMessage() {}
 
 func (x *CheckPermissionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[34]
+	mi := &file_auth_v1_auth_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1958,7 +2183,7 @@ func (x *CheckPermissionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckPermissionRequest.ProtoReflect.Descriptor instead.
 func (*CheckPermissionRequest) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{34}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *CheckPermissionRequest) GetCaller() *CallerPrincipal {
@@ -1991,7 +2216,7 @@ type CheckPermissionResponse struct {
 
 func (x *CheckPermissionResponse) Reset() {
 	*x = CheckPermissionResponse{}
-	mi := &file_auth_v1_auth_proto_msgTypes[35]
+	mi := &file_auth_v1_auth_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2003,7 +2228,7 @@ func (x *CheckPermissionResponse) String() string {
 func (*CheckPermissionResponse) ProtoMessage() {}
 
 func (x *CheckPermissionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[35]
+	mi := &file_auth_v1_auth_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2016,7 +2241,7 @@ func (x *CheckPermissionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckPermissionResponse.ProtoReflect.Descriptor instead.
 func (*CheckPermissionResponse) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{35}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *CheckPermissionResponse) GetAllowed() bool {
@@ -2034,7 +2259,7 @@ type ListRolesRequest struct {
 
 func (x *ListRolesRequest) Reset() {
 	*x = ListRolesRequest{}
-	mi := &file_auth_v1_auth_proto_msgTypes[36]
+	mi := &file_auth_v1_auth_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2046,7 +2271,7 @@ func (x *ListRolesRequest) String() string {
 func (*ListRolesRequest) ProtoMessage() {}
 
 func (x *ListRolesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[36]
+	mi := &file_auth_v1_auth_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2059,7 +2284,7 @@ func (x *ListRolesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRolesRequest.ProtoReflect.Descriptor instead.
 func (*ListRolesRequest) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{36}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{40}
 }
 
 type RoleInfo struct {
@@ -2074,7 +2299,7 @@ type RoleInfo struct {
 
 func (x *RoleInfo) Reset() {
 	*x = RoleInfo{}
-	mi := &file_auth_v1_auth_proto_msgTypes[37]
+	mi := &file_auth_v1_auth_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2086,7 +2311,7 @@ func (x *RoleInfo) String() string {
 func (*RoleInfo) ProtoMessage() {}
 
 func (x *RoleInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[37]
+	mi := &file_auth_v1_auth_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2099,7 +2324,7 @@ func (x *RoleInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RoleInfo.ProtoReflect.Descriptor instead.
 func (*RoleInfo) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{37}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *RoleInfo) GetId() string {
@@ -2139,7 +2364,7 @@ type ListRolesResponse struct {
 
 func (x *ListRolesResponse) Reset() {
 	*x = ListRolesResponse{}
-	mi := &file_auth_v1_auth_proto_msgTypes[38]
+	mi := &file_auth_v1_auth_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2151,7 +2376,7 @@ func (x *ListRolesResponse) String() string {
 func (*ListRolesResponse) ProtoMessage() {}
 
 func (x *ListRolesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[38]
+	mi := &file_auth_v1_auth_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2164,7 +2389,7 @@ func (x *ListRolesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRolesResponse.ProtoReflect.Descriptor instead.
 func (*ListRolesResponse) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{38}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *ListRolesResponse) GetRoles() []*RoleInfo {
@@ -2185,7 +2410,7 @@ type CreateOrganizationRequest struct {
 
 func (x *CreateOrganizationRequest) Reset() {
 	*x = CreateOrganizationRequest{}
-	mi := &file_auth_v1_auth_proto_msgTypes[39]
+	mi := &file_auth_v1_auth_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2197,7 +2422,7 @@ func (x *CreateOrganizationRequest) String() string {
 func (*CreateOrganizationRequest) ProtoMessage() {}
 
 func (x *CreateOrganizationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[39]
+	mi := &file_auth_v1_auth_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2210,7 +2435,7 @@ func (x *CreateOrganizationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateOrganizationRequest.ProtoReflect.Descriptor instead.
 func (*CreateOrganizationRequest) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{39}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *CreateOrganizationRequest) GetCaller() *CallerPrincipal {
@@ -2248,7 +2473,7 @@ type CreateOrganizationResponse struct {
 
 func (x *CreateOrganizationResponse) Reset() {
 	*x = CreateOrganizationResponse{}
-	mi := &file_auth_v1_auth_proto_msgTypes[40]
+	mi := &file_auth_v1_auth_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2260,7 +2485,7 @@ func (x *CreateOrganizationResponse) String() string {
 func (*CreateOrganizationResponse) ProtoMessage() {}
 
 func (x *CreateOrganizationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[40]
+	mi := &file_auth_v1_auth_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2273,7 +2498,7 @@ func (x *CreateOrganizationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateOrganizationResponse.ProtoReflect.Descriptor instead.
 func (*CreateOrganizationResponse) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{40}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *CreateOrganizationResponse) GetId() string {
@@ -2332,7 +2557,7 @@ type OrganizationResponse struct {
 
 func (x *OrganizationResponse) Reset() {
 	*x = OrganizationResponse{}
-	mi := &file_auth_v1_auth_proto_msgTypes[41]
+	mi := &file_auth_v1_auth_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2344,7 +2569,7 @@ func (x *OrganizationResponse) String() string {
 func (*OrganizationResponse) ProtoMessage() {}
 
 func (x *OrganizationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[41]
+	mi := &file_auth_v1_auth_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2357,7 +2582,7 @@ func (x *OrganizationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use OrganizationResponse.ProtoReflect.Descriptor instead.
 func (*OrganizationResponse) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{41}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *OrganizationResponse) GetId() string {
@@ -2411,7 +2636,7 @@ type ListOrganizationsRequest struct {
 
 func (x *ListOrganizationsRequest) Reset() {
 	*x = ListOrganizationsRequest{}
-	mi := &file_auth_v1_auth_proto_msgTypes[42]
+	mi := &file_auth_v1_auth_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2423,7 +2648,7 @@ func (x *ListOrganizationsRequest) String() string {
 func (*ListOrganizationsRequest) ProtoMessage() {}
 
 func (x *ListOrganizationsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[42]
+	mi := &file_auth_v1_auth_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2436,7 +2661,7 @@ func (x *ListOrganizationsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListOrganizationsRequest.ProtoReflect.Descriptor instead.
 func (*ListOrganizationsRequest) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{42}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *ListOrganizationsRequest) GetCaller() *CallerPrincipal {
@@ -2455,7 +2680,7 @@ type ListOrganizationsResponse struct {
 
 func (x *ListOrganizationsResponse) Reset() {
 	*x = ListOrganizationsResponse{}
-	mi := &file_auth_v1_auth_proto_msgTypes[43]
+	mi := &file_auth_v1_auth_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2467,7 +2692,7 @@ func (x *ListOrganizationsResponse) String() string {
 func (*ListOrganizationsResponse) ProtoMessage() {}
 
 func (x *ListOrganizationsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[43]
+	mi := &file_auth_v1_auth_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2480,7 +2705,7 @@ func (x *ListOrganizationsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListOrganizationsResponse.ProtoReflect.Descriptor instead.
 func (*ListOrganizationsResponse) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{43}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *ListOrganizationsResponse) GetOrganizations() []*OrganizationResponse {
@@ -2500,7 +2725,7 @@ type GetOrganizationRequest struct {
 
 func (x *GetOrganizationRequest) Reset() {
 	*x = GetOrganizationRequest{}
-	mi := &file_auth_v1_auth_proto_msgTypes[44]
+	mi := &file_auth_v1_auth_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2512,7 +2737,7 @@ func (x *GetOrganizationRequest) String() string {
 func (*GetOrganizationRequest) ProtoMessage() {}
 
 func (x *GetOrganizationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[44]
+	mi := &file_auth_v1_auth_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2525,7 +2750,7 @@ func (x *GetOrganizationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOrganizationRequest.ProtoReflect.Descriptor instead.
 func (*GetOrganizationRequest) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{44}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *GetOrganizationRequest) GetCaller() *CallerPrincipal {
@@ -2556,7 +2781,7 @@ type GetOrganizationResponse struct {
 
 func (x *GetOrganizationResponse) Reset() {
 	*x = GetOrganizationResponse{}
-	mi := &file_auth_v1_auth_proto_msgTypes[45]
+	mi := &file_auth_v1_auth_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2568,7 +2793,7 @@ func (x *GetOrganizationResponse) String() string {
 func (*GetOrganizationResponse) ProtoMessage() {}
 
 func (x *GetOrganizationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[45]
+	mi := &file_auth_v1_auth_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2581,7 +2806,7 @@ func (x *GetOrganizationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetOrganizationResponse.ProtoReflect.Descriptor instead.
 func (*GetOrganizationResponse) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{45}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *GetOrganizationResponse) GetId() string {
@@ -2637,7 +2862,7 @@ type UpdateOrganizationRequest struct {
 
 func (x *UpdateOrganizationRequest) Reset() {
 	*x = UpdateOrganizationRequest{}
-	mi := &file_auth_v1_auth_proto_msgTypes[46]
+	mi := &file_auth_v1_auth_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2649,7 +2874,7 @@ func (x *UpdateOrganizationRequest) String() string {
 func (*UpdateOrganizationRequest) ProtoMessage() {}
 
 func (x *UpdateOrganizationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[46]
+	mi := &file_auth_v1_auth_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2662,7 +2887,7 @@ func (x *UpdateOrganizationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateOrganizationRequest.ProtoReflect.Descriptor instead.
 func (*UpdateOrganizationRequest) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{46}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *UpdateOrganizationRequest) GetCaller() *CallerPrincipal {
@@ -2700,7 +2925,7 @@ type UpdateOrganizationResponse struct {
 
 func (x *UpdateOrganizationResponse) Reset() {
 	*x = UpdateOrganizationResponse{}
-	mi := &file_auth_v1_auth_proto_msgTypes[47]
+	mi := &file_auth_v1_auth_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2712,7 +2937,7 @@ func (x *UpdateOrganizationResponse) String() string {
 func (*UpdateOrganizationResponse) ProtoMessage() {}
 
 func (x *UpdateOrganizationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[47]
+	mi := &file_auth_v1_auth_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2725,7 +2950,7 @@ func (x *UpdateOrganizationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateOrganizationResponse.ProtoReflect.Descriptor instead.
 func (*UpdateOrganizationResponse) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{47}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *UpdateOrganizationResponse) GetId() string {
@@ -2780,7 +3005,7 @@ type DeleteOrganizationRequest struct {
 
 func (x *DeleteOrganizationRequest) Reset() {
 	*x = DeleteOrganizationRequest{}
-	mi := &file_auth_v1_auth_proto_msgTypes[48]
+	mi := &file_auth_v1_auth_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2792,7 +3017,7 @@ func (x *DeleteOrganizationRequest) String() string {
 func (*DeleteOrganizationRequest) ProtoMessage() {}
 
 func (x *DeleteOrganizationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[48]
+	mi := &file_auth_v1_auth_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2805,7 +3030,7 @@ func (x *DeleteOrganizationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteOrganizationRequest.ProtoReflect.Descriptor instead.
 func (*DeleteOrganizationRequest) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{48}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *DeleteOrganizationRequest) GetCaller() *CallerPrincipal {
@@ -2831,7 +3056,7 @@ type DeleteOrganizationResponse struct {
 
 func (x *DeleteOrganizationResponse) Reset() {
 	*x = DeleteOrganizationResponse{}
-	mi := &file_auth_v1_auth_proto_msgTypes[49]
+	mi := &file_auth_v1_auth_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2843,7 +3068,7 @@ func (x *DeleteOrganizationResponse) String() string {
 func (*DeleteOrganizationResponse) ProtoMessage() {}
 
 func (x *DeleteOrganizationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[49]
+	mi := &file_auth_v1_auth_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2856,7 +3081,7 @@ func (x *DeleteOrganizationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteOrganizationResponse.ProtoReflect.Descriptor instead.
 func (*DeleteOrganizationResponse) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{49}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *DeleteOrganizationResponse) GetMessage() string {
@@ -2876,7 +3101,7 @@ type ListMembersRequest struct {
 
 func (x *ListMembersRequest) Reset() {
 	*x = ListMembersRequest{}
-	mi := &file_auth_v1_auth_proto_msgTypes[50]
+	mi := &file_auth_v1_auth_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2888,7 +3113,7 @@ func (x *ListMembersRequest) String() string {
 func (*ListMembersRequest) ProtoMessage() {}
 
 func (x *ListMembersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[50]
+	mi := &file_auth_v1_auth_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2901,7 +3126,7 @@ func (x *ListMembersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMembersRequest.ProtoReflect.Descriptor instead.
 func (*ListMembersRequest) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{50}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *ListMembersRequest) GetCaller() *CallerPrincipal {
@@ -2931,7 +3156,7 @@ type MemberInfo struct {
 
 func (x *MemberInfo) Reset() {
 	*x = MemberInfo{}
-	mi := &file_auth_v1_auth_proto_msgTypes[51]
+	mi := &file_auth_v1_auth_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2943,7 +3168,7 @@ func (x *MemberInfo) String() string {
 func (*MemberInfo) ProtoMessage() {}
 
 func (x *MemberInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[51]
+	mi := &file_auth_v1_auth_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2956,7 +3181,7 @@ func (x *MemberInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemberInfo.ProtoReflect.Descriptor instead.
 func (*MemberInfo) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{51}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *MemberInfo) GetUserId() string {
@@ -3003,7 +3228,7 @@ type ListMembersResponse struct {
 
 func (x *ListMembersResponse) Reset() {
 	*x = ListMembersResponse{}
-	mi := &file_auth_v1_auth_proto_msgTypes[52]
+	mi := &file_auth_v1_auth_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3015,7 +3240,7 @@ func (x *ListMembersResponse) String() string {
 func (*ListMembersResponse) ProtoMessage() {}
 
 func (x *ListMembersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[52]
+	mi := &file_auth_v1_auth_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3028,7 +3253,7 @@ func (x *ListMembersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListMembersResponse.ProtoReflect.Descriptor instead.
 func (*ListMembersResponse) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{52}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *ListMembersResponse) GetMembers() []*MemberInfo {
@@ -3050,7 +3275,7 @@ type AddMemberRequest struct {
 
 func (x *AddMemberRequest) Reset() {
 	*x = AddMemberRequest{}
-	mi := &file_auth_v1_auth_proto_msgTypes[53]
+	mi := &file_auth_v1_auth_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3062,7 +3287,7 @@ func (x *AddMemberRequest) String() string {
 func (*AddMemberRequest) ProtoMessage() {}
 
 func (x *AddMemberRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[53]
+	mi := &file_auth_v1_auth_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3075,7 +3300,7 @@ func (x *AddMemberRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddMemberRequest.ProtoReflect.Descriptor instead.
 func (*AddMemberRequest) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{53}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *AddMemberRequest) GetCaller() *CallerPrincipal {
@@ -3119,7 +3344,7 @@ type AddMemberResponse struct {
 
 func (x *AddMemberResponse) Reset() {
 	*x = AddMemberResponse{}
-	mi := &file_auth_v1_auth_proto_msgTypes[54]
+	mi := &file_auth_v1_auth_proto_msgTypes[58]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3131,7 +3356,7 @@ func (x *AddMemberResponse) String() string {
 func (*AddMemberResponse) ProtoMessage() {}
 
 func (x *AddMemberResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[54]
+	mi := &file_auth_v1_auth_proto_msgTypes[58]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3144,7 +3369,7 @@ func (x *AddMemberResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AddMemberResponse.ProtoReflect.Descriptor instead.
 func (*AddMemberResponse) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{54}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{58}
 }
 
 func (x *AddMemberResponse) GetUserId() string {
@@ -3194,7 +3419,7 @@ type UpdateMemberRoleRequest struct {
 
 func (x *UpdateMemberRoleRequest) Reset() {
 	*x = UpdateMemberRoleRequest{}
-	mi := &file_auth_v1_auth_proto_msgTypes[55]
+	mi := &file_auth_v1_auth_proto_msgTypes[59]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3206,7 +3431,7 @@ func (x *UpdateMemberRoleRequest) String() string {
 func (*UpdateMemberRoleRequest) ProtoMessage() {}
 
 func (x *UpdateMemberRoleRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[55]
+	mi := &file_auth_v1_auth_proto_msgTypes[59]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3219,7 +3444,7 @@ func (x *UpdateMemberRoleRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateMemberRoleRequest.ProtoReflect.Descriptor instead.
 func (*UpdateMemberRoleRequest) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{55}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{59}
 }
 
 func (x *UpdateMemberRoleRequest) GetCaller() *CallerPrincipal {
@@ -3259,7 +3484,7 @@ type UpdateMemberRoleResponse struct {
 
 func (x *UpdateMemberRoleResponse) Reset() {
 	*x = UpdateMemberRoleResponse{}
-	mi := &file_auth_v1_auth_proto_msgTypes[56]
+	mi := &file_auth_v1_auth_proto_msgTypes[60]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3271,7 +3496,7 @@ func (x *UpdateMemberRoleResponse) String() string {
 func (*UpdateMemberRoleResponse) ProtoMessage() {}
 
 func (x *UpdateMemberRoleResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[56]
+	mi := &file_auth_v1_auth_proto_msgTypes[60]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3284,7 +3509,7 @@ func (x *UpdateMemberRoleResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateMemberRoleResponse.ProtoReflect.Descriptor instead.
 func (*UpdateMemberRoleResponse) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{56}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{60}
 }
 
 func (x *UpdateMemberRoleResponse) GetMessage() string {
@@ -3305,7 +3530,7 @@ type RemoveMemberRequest struct {
 
 func (x *RemoveMemberRequest) Reset() {
 	*x = RemoveMemberRequest{}
-	mi := &file_auth_v1_auth_proto_msgTypes[57]
+	mi := &file_auth_v1_auth_proto_msgTypes[61]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3317,7 +3542,7 @@ func (x *RemoveMemberRequest) String() string {
 func (*RemoveMemberRequest) ProtoMessage() {}
 
 func (x *RemoveMemberRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[57]
+	mi := &file_auth_v1_auth_proto_msgTypes[61]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3330,7 +3555,7 @@ func (x *RemoveMemberRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveMemberRequest.ProtoReflect.Descriptor instead.
 func (*RemoveMemberRequest) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{57}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{61}
 }
 
 func (x *RemoveMemberRequest) GetCaller() *CallerPrincipal {
@@ -3363,7 +3588,7 @@ type RemoveMemberResponse struct {
 
 func (x *RemoveMemberResponse) Reset() {
 	*x = RemoveMemberResponse{}
-	mi := &file_auth_v1_auth_proto_msgTypes[58]
+	mi := &file_auth_v1_auth_proto_msgTypes[62]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3375,7 +3600,7 @@ func (x *RemoveMemberResponse) String() string {
 func (*RemoveMemberResponse) ProtoMessage() {}
 
 func (x *RemoveMemberResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[58]
+	mi := &file_auth_v1_auth_proto_msgTypes[62]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3388,7 +3613,7 @@ func (x *RemoveMemberResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RemoveMemberResponse.ProtoReflect.Descriptor instead.
 func (*RemoveMemberResponse) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{58}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{62}
 }
 
 func (x *RemoveMemberResponse) GetMessage() string {
@@ -3410,7 +3635,7 @@ type CreateInviteRequest struct {
 
 func (x *CreateInviteRequest) Reset() {
 	*x = CreateInviteRequest{}
-	mi := &file_auth_v1_auth_proto_msgTypes[59]
+	mi := &file_auth_v1_auth_proto_msgTypes[63]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3422,7 +3647,7 @@ func (x *CreateInviteRequest) String() string {
 func (*CreateInviteRequest) ProtoMessage() {}
 
 func (x *CreateInviteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[59]
+	mi := &file_auth_v1_auth_proto_msgTypes[63]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3435,7 +3660,7 @@ func (x *CreateInviteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateInviteRequest.ProtoReflect.Descriptor instead.
 func (*CreateInviteRequest) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{59}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{63}
 }
 
 func (x *CreateInviteRequest) GetCaller() *CallerPrincipal {
@@ -3481,7 +3706,7 @@ type CreateInviteResponse struct {
 
 func (x *CreateInviteResponse) Reset() {
 	*x = CreateInviteResponse{}
-	mi := &file_auth_v1_auth_proto_msgTypes[60]
+	mi := &file_auth_v1_auth_proto_msgTypes[64]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3493,7 +3718,7 @@ func (x *CreateInviteResponse) String() string {
 func (*CreateInviteResponse) ProtoMessage() {}
 
 func (x *CreateInviteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[60]
+	mi := &file_auth_v1_auth_proto_msgTypes[64]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3506,7 +3731,7 @@ func (x *CreateInviteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateInviteResponse.ProtoReflect.Descriptor instead.
 func (*CreateInviteResponse) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{60}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{64}
 }
 
 func (x *CreateInviteResponse) GetId() string {
@@ -3568,7 +3793,7 @@ type AcceptInviteRequest struct {
 
 func (x *AcceptInviteRequest) Reset() {
 	*x = AcceptInviteRequest{}
-	mi := &file_auth_v1_auth_proto_msgTypes[61]
+	mi := &file_auth_v1_auth_proto_msgTypes[65]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3580,7 +3805,7 @@ func (x *AcceptInviteRequest) String() string {
 func (*AcceptInviteRequest) ProtoMessage() {}
 
 func (x *AcceptInviteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[61]
+	mi := &file_auth_v1_auth_proto_msgTypes[65]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3593,7 +3818,7 @@ func (x *AcceptInviteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AcceptInviteRequest.ProtoReflect.Descriptor instead.
 func (*AcceptInviteRequest) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{61}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{65}
 }
 
 func (x *AcceptInviteRequest) GetCaller() *CallerPrincipal {
@@ -3624,7 +3849,7 @@ type AcceptInviteResponse struct {
 
 func (x *AcceptInviteResponse) Reset() {
 	*x = AcceptInviteResponse{}
-	mi := &file_auth_v1_auth_proto_msgTypes[62]
+	mi := &file_auth_v1_auth_proto_msgTypes[66]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3636,7 +3861,7 @@ func (x *AcceptInviteResponse) String() string {
 func (*AcceptInviteResponse) ProtoMessage() {}
 
 func (x *AcceptInviteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[62]
+	mi := &file_auth_v1_auth_proto_msgTypes[66]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3649,7 +3874,7 @@ func (x *AcceptInviteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AcceptInviteResponse.ProtoReflect.Descriptor instead.
 func (*AcceptInviteResponse) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{62}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{66}
 }
 
 func (x *AcceptInviteResponse) GetId() string {
@@ -3705,7 +3930,7 @@ type RevokeInviteRequest struct {
 
 func (x *RevokeInviteRequest) Reset() {
 	*x = RevokeInviteRequest{}
-	mi := &file_auth_v1_auth_proto_msgTypes[63]
+	mi := &file_auth_v1_auth_proto_msgTypes[67]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3717,7 +3942,7 @@ func (x *RevokeInviteRequest) String() string {
 func (*RevokeInviteRequest) ProtoMessage() {}
 
 func (x *RevokeInviteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[63]
+	mi := &file_auth_v1_auth_proto_msgTypes[67]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3730,7 +3955,7 @@ func (x *RevokeInviteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeInviteRequest.ProtoReflect.Descriptor instead.
 func (*RevokeInviteRequest) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{63}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{67}
 }
 
 func (x *RevokeInviteRequest) GetCaller() *CallerPrincipal {
@@ -3763,7 +3988,7 @@ type RevokeInviteResponse struct {
 
 func (x *RevokeInviteResponse) Reset() {
 	*x = RevokeInviteResponse{}
-	mi := &file_auth_v1_auth_proto_msgTypes[64]
+	mi := &file_auth_v1_auth_proto_msgTypes[68]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3775,7 +4000,7 @@ func (x *RevokeInviteResponse) String() string {
 func (*RevokeInviteResponse) ProtoMessage() {}
 
 func (x *RevokeInviteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[64]
+	mi := &file_auth_v1_auth_proto_msgTypes[68]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3788,7 +4013,7 @@ func (x *RevokeInviteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeInviteResponse.ProtoReflect.Descriptor instead.
 func (*RevokeInviteResponse) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{64}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{68}
 }
 
 func (x *RevokeInviteResponse) GetMessage() string {
@@ -3811,7 +4036,7 @@ type CreateAPITokenRequest struct {
 
 func (x *CreateAPITokenRequest) Reset() {
 	*x = CreateAPITokenRequest{}
-	mi := &file_auth_v1_auth_proto_msgTypes[65]
+	mi := &file_auth_v1_auth_proto_msgTypes[69]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3823,7 +4048,7 @@ func (x *CreateAPITokenRequest) String() string {
 func (*CreateAPITokenRequest) ProtoMessage() {}
 
 func (x *CreateAPITokenRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[65]
+	mi := &file_auth_v1_auth_proto_msgTypes[69]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3836,7 +4061,7 @@ func (x *CreateAPITokenRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateAPITokenRequest.ProtoReflect.Descriptor instead.
 func (*CreateAPITokenRequest) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{65}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{69}
 }
 
 func (x *CreateAPITokenRequest) GetCaller() *CallerPrincipal {
@@ -3891,7 +4116,7 @@ type APITokenInfo struct {
 
 func (x *APITokenInfo) Reset() {
 	*x = APITokenInfo{}
-	mi := &file_auth_v1_auth_proto_msgTypes[66]
+	mi := &file_auth_v1_auth_proto_msgTypes[70]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3903,7 +4128,7 @@ func (x *APITokenInfo) String() string {
 func (*APITokenInfo) ProtoMessage() {}
 
 func (x *APITokenInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[66]
+	mi := &file_auth_v1_auth_proto_msgTypes[70]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3916,7 +4141,7 @@ func (x *APITokenInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use APITokenInfo.ProtoReflect.Descriptor instead.
 func (*APITokenInfo) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{66}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{70}
 }
 
 func (x *APITokenInfo) GetId() string {
@@ -3992,7 +4217,7 @@ type CreateAPITokenResponse struct {
 
 func (x *CreateAPITokenResponse) Reset() {
 	*x = CreateAPITokenResponse{}
-	mi := &file_auth_v1_auth_proto_msgTypes[67]
+	mi := &file_auth_v1_auth_proto_msgTypes[71]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4004,7 +4229,7 @@ func (x *CreateAPITokenResponse) String() string {
 func (*CreateAPITokenResponse) ProtoMessage() {}
 
 func (x *CreateAPITokenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[67]
+	mi := &file_auth_v1_auth_proto_msgTypes[71]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4017,7 +4242,7 @@ func (x *CreateAPITokenResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateAPITokenResponse.ProtoReflect.Descriptor instead.
 func (*CreateAPITokenResponse) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{67}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{71}
 }
 
 func (x *CreateAPITokenResponse) GetToken() *APITokenInfo {
@@ -4044,7 +4269,7 @@ type ListAPITokensRequest struct {
 
 func (x *ListAPITokensRequest) Reset() {
 	*x = ListAPITokensRequest{}
-	mi := &file_auth_v1_auth_proto_msgTypes[68]
+	mi := &file_auth_v1_auth_proto_msgTypes[72]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4056,7 +4281,7 @@ func (x *ListAPITokensRequest) String() string {
 func (*ListAPITokensRequest) ProtoMessage() {}
 
 func (x *ListAPITokensRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[68]
+	mi := &file_auth_v1_auth_proto_msgTypes[72]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4069,7 +4294,7 @@ func (x *ListAPITokensRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAPITokensRequest.ProtoReflect.Descriptor instead.
 func (*ListAPITokensRequest) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{68}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{72}
 }
 
 func (x *ListAPITokensRequest) GetCaller() *CallerPrincipal {
@@ -4095,7 +4320,7 @@ type ListAPITokensResponse struct {
 
 func (x *ListAPITokensResponse) Reset() {
 	*x = ListAPITokensResponse{}
-	mi := &file_auth_v1_auth_proto_msgTypes[69]
+	mi := &file_auth_v1_auth_proto_msgTypes[73]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4107,7 +4332,7 @@ func (x *ListAPITokensResponse) String() string {
 func (*ListAPITokensResponse) ProtoMessage() {}
 
 func (x *ListAPITokensResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[69]
+	mi := &file_auth_v1_auth_proto_msgTypes[73]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4120,7 +4345,7 @@ func (x *ListAPITokensResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAPITokensResponse.ProtoReflect.Descriptor instead.
 func (*ListAPITokensResponse) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{69}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{73}
 }
 
 func (x *ListAPITokensResponse) GetTokens() []*APITokenInfo {
@@ -4141,7 +4366,7 @@ type RevokeAPITokenRequest struct {
 
 func (x *RevokeAPITokenRequest) Reset() {
 	*x = RevokeAPITokenRequest{}
-	mi := &file_auth_v1_auth_proto_msgTypes[70]
+	mi := &file_auth_v1_auth_proto_msgTypes[74]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4153,7 +4378,7 @@ func (x *RevokeAPITokenRequest) String() string {
 func (*RevokeAPITokenRequest) ProtoMessage() {}
 
 func (x *RevokeAPITokenRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[70]
+	mi := &file_auth_v1_auth_proto_msgTypes[74]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4166,7 +4391,7 @@ func (x *RevokeAPITokenRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeAPITokenRequest.ProtoReflect.Descriptor instead.
 func (*RevokeAPITokenRequest) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{70}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{74}
 }
 
 func (x *RevokeAPITokenRequest) GetCaller() *CallerPrincipal {
@@ -4199,7 +4424,7 @@ type RevokeAPITokenResponse struct {
 
 func (x *RevokeAPITokenResponse) Reset() {
 	*x = RevokeAPITokenResponse{}
-	mi := &file_auth_v1_auth_proto_msgTypes[71]
+	mi := &file_auth_v1_auth_proto_msgTypes[75]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4211,7 +4436,7 @@ func (x *RevokeAPITokenResponse) String() string {
 func (*RevokeAPITokenResponse) ProtoMessage() {}
 
 func (x *RevokeAPITokenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[71]
+	mi := &file_auth_v1_auth_proto_msgTypes[75]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4224,7 +4449,7 @@ func (x *RevokeAPITokenResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RevokeAPITokenResponse.ProtoReflect.Descriptor instead.
 func (*RevokeAPITokenResponse) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{71}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{75}
 }
 
 func (x *RevokeAPITokenResponse) GetMessage() string {
@@ -4243,7 +4468,7 @@ type ValidateAPITokenRequest struct {
 
 func (x *ValidateAPITokenRequest) Reset() {
 	*x = ValidateAPITokenRequest{}
-	mi := &file_auth_v1_auth_proto_msgTypes[72]
+	mi := &file_auth_v1_auth_proto_msgTypes[76]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4255,7 +4480,7 @@ func (x *ValidateAPITokenRequest) String() string {
 func (*ValidateAPITokenRequest) ProtoMessage() {}
 
 func (x *ValidateAPITokenRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[72]
+	mi := &file_auth_v1_auth_proto_msgTypes[76]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4268,7 +4493,7 @@ func (x *ValidateAPITokenRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidateAPITokenRequest.ProtoReflect.Descriptor instead.
 func (*ValidateAPITokenRequest) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{72}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{76}
 }
 
 func (x *ValidateAPITokenRequest) GetToken() string {
@@ -4290,7 +4515,7 @@ type ValidateAPITokenResponse struct {
 
 func (x *ValidateAPITokenResponse) Reset() {
 	*x = ValidateAPITokenResponse{}
-	mi := &file_auth_v1_auth_proto_msgTypes[73]
+	mi := &file_auth_v1_auth_proto_msgTypes[77]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4302,7 +4527,7 @@ func (x *ValidateAPITokenResponse) String() string {
 func (*ValidateAPITokenResponse) ProtoMessage() {}
 
 func (x *ValidateAPITokenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[73]
+	mi := &file_auth_v1_auth_proto_msgTypes[77]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4315,7 +4540,7 @@ func (x *ValidateAPITokenResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ValidateAPITokenResponse.ProtoReflect.Descriptor instead.
 func (*ValidateAPITokenResponse) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{73}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{77}
 }
 
 func (x *ValidateAPITokenResponse) GetTokenId() string {
@@ -4360,7 +4585,7 @@ type ListAuditEventsRequest struct {
 
 func (x *ListAuditEventsRequest) Reset() {
 	*x = ListAuditEventsRequest{}
-	mi := &file_auth_v1_auth_proto_msgTypes[74]
+	mi := &file_auth_v1_auth_proto_msgTypes[78]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4372,7 +4597,7 @@ func (x *ListAuditEventsRequest) String() string {
 func (*ListAuditEventsRequest) ProtoMessage() {}
 
 func (x *ListAuditEventsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[74]
+	mi := &file_auth_v1_auth_proto_msgTypes[78]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4385,7 +4610,7 @@ func (x *ListAuditEventsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAuditEventsRequest.ProtoReflect.Descriptor instead.
 func (*ListAuditEventsRequest) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{74}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{78}
 }
 
 func (x *ListAuditEventsRequest) GetCaller() *CallerPrincipal {
@@ -4442,7 +4667,7 @@ type AuditEventInfo struct {
 
 func (x *AuditEventInfo) Reset() {
 	*x = AuditEventInfo{}
-	mi := &file_auth_v1_auth_proto_msgTypes[75]
+	mi := &file_auth_v1_auth_proto_msgTypes[79]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4454,7 +4679,7 @@ func (x *AuditEventInfo) String() string {
 func (*AuditEventInfo) ProtoMessage() {}
 
 func (x *AuditEventInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[75]
+	mi := &file_auth_v1_auth_proto_msgTypes[79]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4467,7 +4692,7 @@ func (x *AuditEventInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AuditEventInfo.ProtoReflect.Descriptor instead.
 func (*AuditEventInfo) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{75}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{79}
 }
 
 func (x *AuditEventInfo) GetId() string {
@@ -4556,7 +4781,7 @@ type ListAuditEventsResponse struct {
 
 func (x *ListAuditEventsResponse) Reset() {
 	*x = ListAuditEventsResponse{}
-	mi := &file_auth_v1_auth_proto_msgTypes[76]
+	mi := &file_auth_v1_auth_proto_msgTypes[80]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4568,7 +4793,7 @@ func (x *ListAuditEventsResponse) String() string {
 func (*ListAuditEventsResponse) ProtoMessage() {}
 
 func (x *ListAuditEventsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[76]
+	mi := &file_auth_v1_auth_proto_msgTypes[80]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4581,7 +4806,7 @@ func (x *ListAuditEventsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAuditEventsResponse.ProtoReflect.Descriptor instead.
 func (*ListAuditEventsResponse) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{76}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{80}
 }
 
 func (x *ListAuditEventsResponse) GetEvents() []*AuditEventInfo {
@@ -4609,7 +4834,7 @@ type GitHubInstallationInfo struct {
 
 func (x *GitHubInstallationInfo) Reset() {
 	*x = GitHubInstallationInfo{}
-	mi := &file_auth_v1_auth_proto_msgTypes[77]
+	mi := &file_auth_v1_auth_proto_msgTypes[81]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4621,7 +4846,7 @@ func (x *GitHubInstallationInfo) String() string {
 func (*GitHubInstallationInfo) ProtoMessage() {}
 
 func (x *GitHubInstallationInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[77]
+	mi := &file_auth_v1_auth_proto_msgTypes[81]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4634,7 +4859,7 @@ func (x *GitHubInstallationInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GitHubInstallationInfo.ProtoReflect.Descriptor instead.
 func (*GitHubInstallationInfo) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{77}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{81}
 }
 
 func (x *GitHubInstallationInfo) GetId() string {
@@ -4717,7 +4942,7 @@ type StartGitHubInstallationRequest struct {
 
 func (x *StartGitHubInstallationRequest) Reset() {
 	*x = StartGitHubInstallationRequest{}
-	mi := &file_auth_v1_auth_proto_msgTypes[78]
+	mi := &file_auth_v1_auth_proto_msgTypes[82]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4729,7 +4954,7 @@ func (x *StartGitHubInstallationRequest) String() string {
 func (*StartGitHubInstallationRequest) ProtoMessage() {}
 
 func (x *StartGitHubInstallationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[78]
+	mi := &file_auth_v1_auth_proto_msgTypes[82]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4742,7 +4967,7 @@ func (x *StartGitHubInstallationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartGitHubInstallationRequest.ProtoReflect.Descriptor instead.
 func (*StartGitHubInstallationRequest) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{78}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{82}
 }
 
 func (x *StartGitHubInstallationRequest) GetCaller() *CallerPrincipal {
@@ -4769,7 +4994,7 @@ type StartGitHubInstallationResponse struct {
 
 func (x *StartGitHubInstallationResponse) Reset() {
 	*x = StartGitHubInstallationResponse{}
-	mi := &file_auth_v1_auth_proto_msgTypes[79]
+	mi := &file_auth_v1_auth_proto_msgTypes[83]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4781,7 +5006,7 @@ func (x *StartGitHubInstallationResponse) String() string {
 func (*StartGitHubInstallationResponse) ProtoMessage() {}
 
 func (x *StartGitHubInstallationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[79]
+	mi := &file_auth_v1_auth_proto_msgTypes[83]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4794,7 +5019,7 @@ func (x *StartGitHubInstallationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StartGitHubInstallationResponse.ProtoReflect.Descriptor instead.
 func (*StartGitHubInstallationResponse) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{79}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{83}
 }
 
 func (x *StartGitHubInstallationResponse) GetInstallUrl() string {
@@ -4823,7 +5048,7 @@ type CompleteGitHubInstallationRequest struct {
 
 func (x *CompleteGitHubInstallationRequest) Reset() {
 	*x = CompleteGitHubInstallationRequest{}
-	mi := &file_auth_v1_auth_proto_msgTypes[80]
+	mi := &file_auth_v1_auth_proto_msgTypes[84]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4835,7 +5060,7 @@ func (x *CompleteGitHubInstallationRequest) String() string {
 func (*CompleteGitHubInstallationRequest) ProtoMessage() {}
 
 func (x *CompleteGitHubInstallationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[80]
+	mi := &file_auth_v1_auth_proto_msgTypes[84]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4848,7 +5073,7 @@ func (x *CompleteGitHubInstallationRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use CompleteGitHubInstallationRequest.ProtoReflect.Descriptor instead.
 func (*CompleteGitHubInstallationRequest) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{80}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{84}
 }
 
 func (x *CompleteGitHubInstallationRequest) GetCaller() *CallerPrincipal {
@@ -4888,7 +5113,7 @@ type CompleteGitHubInstallationResponse struct {
 
 func (x *CompleteGitHubInstallationResponse) Reset() {
 	*x = CompleteGitHubInstallationResponse{}
-	mi := &file_auth_v1_auth_proto_msgTypes[81]
+	mi := &file_auth_v1_auth_proto_msgTypes[85]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4900,7 +5125,7 @@ func (x *CompleteGitHubInstallationResponse) String() string {
 func (*CompleteGitHubInstallationResponse) ProtoMessage() {}
 
 func (x *CompleteGitHubInstallationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[81]
+	mi := &file_auth_v1_auth_proto_msgTypes[85]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4913,7 +5138,7 @@ func (x *CompleteGitHubInstallationResponse) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use CompleteGitHubInstallationResponse.ProtoReflect.Descriptor instead.
 func (*CompleteGitHubInstallationResponse) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{81}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{85}
 }
 
 func (x *CompleteGitHubInstallationResponse) GetInstallation() *GitHubInstallationInfo {
@@ -4933,7 +5158,7 @@ type ListGitHubInstallationsRequest struct {
 
 func (x *ListGitHubInstallationsRequest) Reset() {
 	*x = ListGitHubInstallationsRequest{}
-	mi := &file_auth_v1_auth_proto_msgTypes[82]
+	mi := &file_auth_v1_auth_proto_msgTypes[86]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4945,7 +5170,7 @@ func (x *ListGitHubInstallationsRequest) String() string {
 func (*ListGitHubInstallationsRequest) ProtoMessage() {}
 
 func (x *ListGitHubInstallationsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[82]
+	mi := &file_auth_v1_auth_proto_msgTypes[86]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4958,7 +5183,7 @@ func (x *ListGitHubInstallationsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListGitHubInstallationsRequest.ProtoReflect.Descriptor instead.
 func (*ListGitHubInstallationsRequest) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{82}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{86}
 }
 
 func (x *ListGitHubInstallationsRequest) GetCaller() *CallerPrincipal {
@@ -4984,7 +5209,7 @@ type ListGitHubInstallationsResponse struct {
 
 func (x *ListGitHubInstallationsResponse) Reset() {
 	*x = ListGitHubInstallationsResponse{}
-	mi := &file_auth_v1_auth_proto_msgTypes[83]
+	mi := &file_auth_v1_auth_proto_msgTypes[87]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4996,7 +5221,7 @@ func (x *ListGitHubInstallationsResponse) String() string {
 func (*ListGitHubInstallationsResponse) ProtoMessage() {}
 
 func (x *ListGitHubInstallationsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[83]
+	mi := &file_auth_v1_auth_proto_msgTypes[87]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5009,7 +5234,7 @@ func (x *ListGitHubInstallationsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListGitHubInstallationsResponse.ProtoReflect.Descriptor instead.
 func (*ListGitHubInstallationsResponse) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{83}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{87}
 }
 
 func (x *ListGitHubInstallationsResponse) GetInstallations() []*GitHubInstallationInfo {
@@ -5030,7 +5255,7 @@ type DisconnectGitHubInstallationRequest struct {
 
 func (x *DisconnectGitHubInstallationRequest) Reset() {
 	*x = DisconnectGitHubInstallationRequest{}
-	mi := &file_auth_v1_auth_proto_msgTypes[84]
+	mi := &file_auth_v1_auth_proto_msgTypes[88]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5042,7 +5267,7 @@ func (x *DisconnectGitHubInstallationRequest) String() string {
 func (*DisconnectGitHubInstallationRequest) ProtoMessage() {}
 
 func (x *DisconnectGitHubInstallationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[84]
+	mi := &file_auth_v1_auth_proto_msgTypes[88]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5055,7 +5280,7 @@ func (x *DisconnectGitHubInstallationRequest) ProtoReflect() protoreflect.Messag
 
 // Deprecated: Use DisconnectGitHubInstallationRequest.ProtoReflect.Descriptor instead.
 func (*DisconnectGitHubInstallationRequest) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{84}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{88}
 }
 
 func (x *DisconnectGitHubInstallationRequest) GetCaller() *CallerPrincipal {
@@ -5088,7 +5313,7 @@ type DisconnectGitHubInstallationResponse struct {
 
 func (x *DisconnectGitHubInstallationResponse) Reset() {
 	*x = DisconnectGitHubInstallationResponse{}
-	mi := &file_auth_v1_auth_proto_msgTypes[85]
+	mi := &file_auth_v1_auth_proto_msgTypes[89]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5100,7 +5325,7 @@ func (x *DisconnectGitHubInstallationResponse) String() string {
 func (*DisconnectGitHubInstallationResponse) ProtoMessage() {}
 
 func (x *DisconnectGitHubInstallationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[85]
+	mi := &file_auth_v1_auth_proto_msgTypes[89]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5113,7 +5338,7 @@ func (x *DisconnectGitHubInstallationResponse) ProtoReflect() protoreflect.Messa
 
 // Deprecated: Use DisconnectGitHubInstallationResponse.ProtoReflect.Descriptor instead.
 func (*DisconnectGitHubInstallationResponse) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{85}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{89}
 }
 
 func (x *DisconnectGitHubInstallationResponse) GetMessage() string {
@@ -5134,7 +5359,7 @@ type GetGitHubInstallationTokenRequest struct {
 
 func (x *GetGitHubInstallationTokenRequest) Reset() {
 	*x = GetGitHubInstallationTokenRequest{}
-	mi := &file_auth_v1_auth_proto_msgTypes[86]
+	mi := &file_auth_v1_auth_proto_msgTypes[90]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5146,7 +5371,7 @@ func (x *GetGitHubInstallationTokenRequest) String() string {
 func (*GetGitHubInstallationTokenRequest) ProtoMessage() {}
 
 func (x *GetGitHubInstallationTokenRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[86]
+	mi := &file_auth_v1_auth_proto_msgTypes[90]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5159,7 +5384,7 @@ func (x *GetGitHubInstallationTokenRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use GetGitHubInstallationTokenRequest.ProtoReflect.Descriptor instead.
 func (*GetGitHubInstallationTokenRequest) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{86}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{90}
 }
 
 func (x *GetGitHubInstallationTokenRequest) GetCaller() *CallerPrincipal {
@@ -5194,7 +5419,7 @@ type GetGitHubInstallationTokenResponse struct {
 
 func (x *GetGitHubInstallationTokenResponse) Reset() {
 	*x = GetGitHubInstallationTokenResponse{}
-	mi := &file_auth_v1_auth_proto_msgTypes[87]
+	mi := &file_auth_v1_auth_proto_msgTypes[91]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5206,7 +5431,7 @@ func (x *GetGitHubInstallationTokenResponse) String() string {
 func (*GetGitHubInstallationTokenResponse) ProtoMessage() {}
 
 func (x *GetGitHubInstallationTokenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[87]
+	mi := &file_auth_v1_auth_proto_msgTypes[91]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5219,7 +5444,7 @@ func (x *GetGitHubInstallationTokenResponse) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use GetGitHubInstallationTokenResponse.ProtoReflect.Descriptor instead.
 func (*GetGitHubInstallationTokenResponse) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{87}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{91}
 }
 
 func (x *GetGitHubInstallationTokenResponse) GetToken() string {
@@ -5255,7 +5480,7 @@ type HandleGitHubWebhookRequest struct {
 
 func (x *HandleGitHubWebhookRequest) Reset() {
 	*x = HandleGitHubWebhookRequest{}
-	mi := &file_auth_v1_auth_proto_msgTypes[88]
+	mi := &file_auth_v1_auth_proto_msgTypes[92]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5267,7 +5492,7 @@ func (x *HandleGitHubWebhookRequest) String() string {
 func (*HandleGitHubWebhookRequest) ProtoMessage() {}
 
 func (x *HandleGitHubWebhookRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[88]
+	mi := &file_auth_v1_auth_proto_msgTypes[92]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5280,7 +5505,7 @@ func (x *HandleGitHubWebhookRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HandleGitHubWebhookRequest.ProtoReflect.Descriptor instead.
 func (*HandleGitHubWebhookRequest) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{88}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{92}
 }
 
 func (x *HandleGitHubWebhookRequest) GetPayload() []byte {
@@ -5320,7 +5545,7 @@ type HandleGitHubWebhookResponse struct {
 
 func (x *HandleGitHubWebhookResponse) Reset() {
 	*x = HandleGitHubWebhookResponse{}
-	mi := &file_auth_v1_auth_proto_msgTypes[89]
+	mi := &file_auth_v1_auth_proto_msgTypes[93]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5332,7 +5557,7 @@ func (x *HandleGitHubWebhookResponse) String() string {
 func (*HandleGitHubWebhookResponse) ProtoMessage() {}
 
 func (x *HandleGitHubWebhookResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[89]
+	mi := &file_auth_v1_auth_proto_msgTypes[93]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5345,7 +5570,7 @@ func (x *HandleGitHubWebhookResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HandleGitHubWebhookResponse.ProtoReflect.Descriptor instead.
 func (*HandleGitHubWebhookResponse) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{89}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{93}
 }
 
 func (x *HandleGitHubWebhookResponse) GetStatus() string {
@@ -5490,7 +5715,22 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\rrefresh_token\x18\x02 \x01(\tBJ\x92AG2CDelivered strictly via HttpOnly Set-Cookie; excluded from JSON body@\x01R\frefreshToken\x12&\n" +
 	"\x04user\x18\x05 \x01(\v2\x12.auth.v1.LoginUserR\x04userJ\x04\b\x03\x10\x04J\x04\b\x04\x10\x05R\n" +
 	"token_typeR\n" +
-	"expires_in\"\xac\x01\n" +
+	"expires_in\"\x19\n" +
+	"\x17StartGoogleOAuthRequest\"z\n" +
+	"\x18StartGoogleOAuthResponse\x12#\n" +
+	"\rauthorize_url\x18\x01 \x01(\tR\fauthorizeUrl\x12\x14\n" +
+	"\x05state\x18\x02 \x01(\tR\x05state\x12#\n" +
+	"\rcode_verifier\x18\x03 \x01(\tR\fcodeVerifier\"\xac\x02\n" +
+	"\x1aCompleteGoogleOAuthRequest\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\x12#\n" +
+	"\rcode_verifier\x18\x02 \x01(\tR\fcodeVerifier\x12h\n" +
+	"\n" +
+	"user_agent\x18\x03 \x01(\tBI\x92AF2BExtracted automatically by API Gateway from User-Agent HTTP header@\x01R\tuserAgent\x12k\n" +
+	"\tclient_ip\x18\x04 \x01(\tBN\x92AK2GExtracted automatically by API Gateway from client IP / X-Forwarded-For@\x01R\bclientIp\"\xa5\x02\n" +
+	"\x1bCompleteGoogleOAuthResponse\x12m\n" +
+	"\faccess_token\x18\x01 \x01(\tBJ\x92AG2CDelivered strictly via HttpOnly Set-Cookie; excluded from JSON body@\x01R\vaccessToken\x12o\n" +
+	"\rrefresh_token\x18\x02 \x01(\tBJ\x92AG2CDelivered strictly via HttpOnly Set-Cookie; excluded from JSON body@\x01R\frefreshToken\x12&\n" +
+	"\x04user\x18\x03 \x01(\v2\x12.auth.v1.LoginUserR\x04user\"\xac\x01\n" +
 	"\x0fCallerPrincipal\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x12\n" +
 	"\x04kind\x18\x02 \x01(\tR\x04kind\x12 \n" +
@@ -5763,7 +6003,7 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\vdelivery_id\x18\x04 \x01(\tR\n" +
 	"deliveryId\"5\n" +
 	"\x1bHandleGitHubWebhookResponse\x12\x16\n" +
-	"\x06status\x18\x01 \x01(\tR\x06status2\xd1^\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status2\xd0c\n" +
 	"\vAuthService\x12\xc4\x02\n" +
 	"\bRegister\x12\x18.auth.v1.RegisterRequest\x1a\x19.auth.v1.RegisterResponse\"\x82\x02\x92A\xde\x01\n" +
 	"\x19Authentication & Sessions\x12\x19Register new user account\x1a\xa5\x01Creates a new user profile with email, password, and display name. If email verification is enabled, an unverified account is created and an activation code is sent.\x82\xd3\xe4\x93\x02\x1a:\x01*\"\x15/api/v1/auth/register\x12\xdd\x02\n" +
@@ -5807,7 +6047,11 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\x10StartGitHubOAuth\x12 .auth.v1.StartGitHubOAuthRequest\x1a!.auth.v1.StartGitHubOAuthResponse\"\xe1\x01\x92A\xbc\x01\n" +
 	"\x15GitHub Authentication\x12\x18Start GitHub OAuth login\x1a\x88\x01Generates an RFC 7636 PKCE challenge and HMAC-signed state token, returning the GitHub authorization URL for the browser to redirect to.\x82\xd3\xe4\x93\x02\x1b\x12\x19/api/v1/auth/github/start\x12\xcb\x02\n" +
 	"\x13CompleteGitHubOAuth\x12#.auth.v1.CompleteGitHubOAuthRequest\x1a$.auth.v1.CompleteGitHubOAuthResponse\"\xe8\x01\x92A\xc0\x01\n" +
-	"\x15GitHub Authentication\x12\x1eComplete GitHub OAuth callback\x1a\x86\x01Exchanges the authorization code and PKCE code verifier with GitHub, links or provisions the user account, and returns session tokens.\x82\xd3\xe4\x93\x02\x1e\x12\x1c/api/v1/auth/github/callback\x12\xbe\x02\n" +
+	"\x15GitHub Authentication\x12\x1eComplete GitHub OAuth callback\x1a\x86\x01Exchanges the authorization code and PKCE code verifier with GitHub, links or provisions the user account, and returns session tokens.\x82\xd3\xe4\x93\x02\x1e\x12\x1c/api/v1/auth/github/callback\x12\xae\x02\n" +
+	"\x10StartGoogleOAuth\x12 .auth.v1.StartGoogleOAuthRequest\x1a!.auth.v1.StartGoogleOAuthResponse\"\xd4\x01\x92A\xaf\x01\n" +
+	"\x15Google Authentication\x12\x18Start Google OAuth login\x1a|Generates an RFC 7636 PKCE challenge and state token, returning the Google authorization URL for the browser to redirect to.\x82\xd3\xe4\x93\x02\x1b\x12\x19/api/v1/auth/google/start\x12\xcb\x02\n" +
+	"\x13CompleteGoogleOAuth\x12#.auth.v1.CompleteGoogleOAuthRequest\x1a$.auth.v1.CompleteGoogleOAuthResponse\"\xe8\x01\x92A\xc0\x01\n" +
+	"\x15Google Authentication\x12\x1eComplete Google OAuth callback\x1a\x86\x01Exchanges the authorization code and PKCE code verifier with Google, links or provisions the user account, and returns session tokens.\x82\xd3\xe4\x93\x02\x1e\x12\x1c/api/v1/auth/google/callback\x12\xbe\x02\n" +
 	"\x12CreateOrganization\x12\".auth.v1.CreateOrganizationRequest\x1a#.auth.v1.CreateOrganizationResponse\"\xde\x01\x92A\xc3\x01\n" +
 	"\rOrganizations\x12!Create new organization workspace\x1a}Provisions a new multi-tenant organization workspace with a unique slug and designates the authenticated caller as the Owner.b\x10\n" +
 	"\x0e\n" +
@@ -5953,7 +6197,7 @@ func file_auth_v1_auth_proto_rawDescGZIP() []byte {
 	return file_auth_v1_auth_proto_rawDescData
 }
 
-var file_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 90)
+var file_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 94)
 var file_auth_v1_auth_proto_goTypes = []any{
 	(*RegisterRequest)(nil),                      // 0: auth.v1.RegisterRequest
 	(*RegisterResponse)(nil),                     // 1: auth.v1.RegisterResponse
@@ -5988,216 +6232,225 @@ var file_auth_v1_auth_proto_goTypes = []any{
 	(*StartGitHubOAuthResponse)(nil),             // 30: auth.v1.StartGitHubOAuthResponse
 	(*CompleteGitHubOAuthRequest)(nil),           // 31: auth.v1.CompleteGitHubOAuthRequest
 	(*CompleteGitHubOAuthResponse)(nil),          // 32: auth.v1.CompleteGitHubOAuthResponse
-	(*CallerPrincipal)(nil),                      // 33: auth.v1.CallerPrincipal
-	(*CheckPermissionRequest)(nil),               // 34: auth.v1.CheckPermissionRequest
-	(*CheckPermissionResponse)(nil),              // 35: auth.v1.CheckPermissionResponse
-	(*ListRolesRequest)(nil),                     // 36: auth.v1.ListRolesRequest
-	(*RoleInfo)(nil),                             // 37: auth.v1.RoleInfo
-	(*ListRolesResponse)(nil),                    // 38: auth.v1.ListRolesResponse
-	(*CreateOrganizationRequest)(nil),            // 39: auth.v1.CreateOrganizationRequest
-	(*CreateOrganizationResponse)(nil),           // 40: auth.v1.CreateOrganizationResponse
-	(*OrganizationResponse)(nil),                 // 41: auth.v1.OrganizationResponse
-	(*ListOrganizationsRequest)(nil),             // 42: auth.v1.ListOrganizationsRequest
-	(*ListOrganizationsResponse)(nil),            // 43: auth.v1.ListOrganizationsResponse
-	(*GetOrganizationRequest)(nil),               // 44: auth.v1.GetOrganizationRequest
-	(*GetOrganizationResponse)(nil),              // 45: auth.v1.GetOrganizationResponse
-	(*UpdateOrganizationRequest)(nil),            // 46: auth.v1.UpdateOrganizationRequest
-	(*UpdateOrganizationResponse)(nil),           // 47: auth.v1.UpdateOrganizationResponse
-	(*DeleteOrganizationRequest)(nil),            // 48: auth.v1.DeleteOrganizationRequest
-	(*DeleteOrganizationResponse)(nil),           // 49: auth.v1.DeleteOrganizationResponse
-	(*ListMembersRequest)(nil),                   // 50: auth.v1.ListMembersRequest
-	(*MemberInfo)(nil),                           // 51: auth.v1.MemberInfo
-	(*ListMembersResponse)(nil),                  // 52: auth.v1.ListMembersResponse
-	(*AddMemberRequest)(nil),                     // 53: auth.v1.AddMemberRequest
-	(*AddMemberResponse)(nil),                    // 54: auth.v1.AddMemberResponse
-	(*UpdateMemberRoleRequest)(nil),              // 55: auth.v1.UpdateMemberRoleRequest
-	(*UpdateMemberRoleResponse)(nil),             // 56: auth.v1.UpdateMemberRoleResponse
-	(*RemoveMemberRequest)(nil),                  // 57: auth.v1.RemoveMemberRequest
-	(*RemoveMemberResponse)(nil),                 // 58: auth.v1.RemoveMemberResponse
-	(*CreateInviteRequest)(nil),                  // 59: auth.v1.CreateInviteRequest
-	(*CreateInviteResponse)(nil),                 // 60: auth.v1.CreateInviteResponse
-	(*AcceptInviteRequest)(nil),                  // 61: auth.v1.AcceptInviteRequest
-	(*AcceptInviteResponse)(nil),                 // 62: auth.v1.AcceptInviteResponse
-	(*RevokeInviteRequest)(nil),                  // 63: auth.v1.RevokeInviteRequest
-	(*RevokeInviteResponse)(nil),                 // 64: auth.v1.RevokeInviteResponse
-	(*CreateAPITokenRequest)(nil),                // 65: auth.v1.CreateAPITokenRequest
-	(*APITokenInfo)(nil),                         // 66: auth.v1.APITokenInfo
-	(*CreateAPITokenResponse)(nil),               // 67: auth.v1.CreateAPITokenResponse
-	(*ListAPITokensRequest)(nil),                 // 68: auth.v1.ListAPITokensRequest
-	(*ListAPITokensResponse)(nil),                // 69: auth.v1.ListAPITokensResponse
-	(*RevokeAPITokenRequest)(nil),                // 70: auth.v1.RevokeAPITokenRequest
-	(*RevokeAPITokenResponse)(nil),               // 71: auth.v1.RevokeAPITokenResponse
-	(*ValidateAPITokenRequest)(nil),              // 72: auth.v1.ValidateAPITokenRequest
-	(*ValidateAPITokenResponse)(nil),             // 73: auth.v1.ValidateAPITokenResponse
-	(*ListAuditEventsRequest)(nil),               // 74: auth.v1.ListAuditEventsRequest
-	(*AuditEventInfo)(nil),                       // 75: auth.v1.AuditEventInfo
-	(*ListAuditEventsResponse)(nil),              // 76: auth.v1.ListAuditEventsResponse
-	(*GitHubInstallationInfo)(nil),               // 77: auth.v1.GitHubInstallationInfo
-	(*StartGitHubInstallationRequest)(nil),       // 78: auth.v1.StartGitHubInstallationRequest
-	(*StartGitHubInstallationResponse)(nil),      // 79: auth.v1.StartGitHubInstallationResponse
-	(*CompleteGitHubInstallationRequest)(nil),    // 80: auth.v1.CompleteGitHubInstallationRequest
-	(*CompleteGitHubInstallationResponse)(nil),   // 81: auth.v1.CompleteGitHubInstallationResponse
-	(*ListGitHubInstallationsRequest)(nil),       // 82: auth.v1.ListGitHubInstallationsRequest
-	(*ListGitHubInstallationsResponse)(nil),      // 83: auth.v1.ListGitHubInstallationsResponse
-	(*DisconnectGitHubInstallationRequest)(nil),  // 84: auth.v1.DisconnectGitHubInstallationRequest
-	(*DisconnectGitHubInstallationResponse)(nil), // 85: auth.v1.DisconnectGitHubInstallationResponse
-	(*GetGitHubInstallationTokenRequest)(nil),    // 86: auth.v1.GetGitHubInstallationTokenRequest
-	(*GetGitHubInstallationTokenResponse)(nil),   // 87: auth.v1.GetGitHubInstallationTokenResponse
-	(*HandleGitHubWebhookRequest)(nil),           // 88: auth.v1.HandleGitHubWebhookRequest
-	(*HandleGitHubWebhookResponse)(nil),          // 89: auth.v1.HandleGitHubWebhookResponse
-	(*timestamppb.Timestamp)(nil),                // 90: google.protobuf.Timestamp
+	(*StartGoogleOAuthRequest)(nil),              // 33: auth.v1.StartGoogleOAuthRequest
+	(*StartGoogleOAuthResponse)(nil),             // 34: auth.v1.StartGoogleOAuthResponse
+	(*CompleteGoogleOAuthRequest)(nil),           // 35: auth.v1.CompleteGoogleOAuthRequest
+	(*CompleteGoogleOAuthResponse)(nil),          // 36: auth.v1.CompleteGoogleOAuthResponse
+	(*CallerPrincipal)(nil),                      // 37: auth.v1.CallerPrincipal
+	(*CheckPermissionRequest)(nil),               // 38: auth.v1.CheckPermissionRequest
+	(*CheckPermissionResponse)(nil),              // 39: auth.v1.CheckPermissionResponse
+	(*ListRolesRequest)(nil),                     // 40: auth.v1.ListRolesRequest
+	(*RoleInfo)(nil),                             // 41: auth.v1.RoleInfo
+	(*ListRolesResponse)(nil),                    // 42: auth.v1.ListRolesResponse
+	(*CreateOrganizationRequest)(nil),            // 43: auth.v1.CreateOrganizationRequest
+	(*CreateOrganizationResponse)(nil),           // 44: auth.v1.CreateOrganizationResponse
+	(*OrganizationResponse)(nil),                 // 45: auth.v1.OrganizationResponse
+	(*ListOrganizationsRequest)(nil),             // 46: auth.v1.ListOrganizationsRequest
+	(*ListOrganizationsResponse)(nil),            // 47: auth.v1.ListOrganizationsResponse
+	(*GetOrganizationRequest)(nil),               // 48: auth.v1.GetOrganizationRequest
+	(*GetOrganizationResponse)(nil),              // 49: auth.v1.GetOrganizationResponse
+	(*UpdateOrganizationRequest)(nil),            // 50: auth.v1.UpdateOrganizationRequest
+	(*UpdateOrganizationResponse)(nil),           // 51: auth.v1.UpdateOrganizationResponse
+	(*DeleteOrganizationRequest)(nil),            // 52: auth.v1.DeleteOrganizationRequest
+	(*DeleteOrganizationResponse)(nil),           // 53: auth.v1.DeleteOrganizationResponse
+	(*ListMembersRequest)(nil),                   // 54: auth.v1.ListMembersRequest
+	(*MemberInfo)(nil),                           // 55: auth.v1.MemberInfo
+	(*ListMembersResponse)(nil),                  // 56: auth.v1.ListMembersResponse
+	(*AddMemberRequest)(nil),                     // 57: auth.v1.AddMemberRequest
+	(*AddMemberResponse)(nil),                    // 58: auth.v1.AddMemberResponse
+	(*UpdateMemberRoleRequest)(nil),              // 59: auth.v1.UpdateMemberRoleRequest
+	(*UpdateMemberRoleResponse)(nil),             // 60: auth.v1.UpdateMemberRoleResponse
+	(*RemoveMemberRequest)(nil),                  // 61: auth.v1.RemoveMemberRequest
+	(*RemoveMemberResponse)(nil),                 // 62: auth.v1.RemoveMemberResponse
+	(*CreateInviteRequest)(nil),                  // 63: auth.v1.CreateInviteRequest
+	(*CreateInviteResponse)(nil),                 // 64: auth.v1.CreateInviteResponse
+	(*AcceptInviteRequest)(nil),                  // 65: auth.v1.AcceptInviteRequest
+	(*AcceptInviteResponse)(nil),                 // 66: auth.v1.AcceptInviteResponse
+	(*RevokeInviteRequest)(nil),                  // 67: auth.v1.RevokeInviteRequest
+	(*RevokeInviteResponse)(nil),                 // 68: auth.v1.RevokeInviteResponse
+	(*CreateAPITokenRequest)(nil),                // 69: auth.v1.CreateAPITokenRequest
+	(*APITokenInfo)(nil),                         // 70: auth.v1.APITokenInfo
+	(*CreateAPITokenResponse)(nil),               // 71: auth.v1.CreateAPITokenResponse
+	(*ListAPITokensRequest)(nil),                 // 72: auth.v1.ListAPITokensRequest
+	(*ListAPITokensResponse)(nil),                // 73: auth.v1.ListAPITokensResponse
+	(*RevokeAPITokenRequest)(nil),                // 74: auth.v1.RevokeAPITokenRequest
+	(*RevokeAPITokenResponse)(nil),               // 75: auth.v1.RevokeAPITokenResponse
+	(*ValidateAPITokenRequest)(nil),              // 76: auth.v1.ValidateAPITokenRequest
+	(*ValidateAPITokenResponse)(nil),             // 77: auth.v1.ValidateAPITokenResponse
+	(*ListAuditEventsRequest)(nil),               // 78: auth.v1.ListAuditEventsRequest
+	(*AuditEventInfo)(nil),                       // 79: auth.v1.AuditEventInfo
+	(*ListAuditEventsResponse)(nil),              // 80: auth.v1.ListAuditEventsResponse
+	(*GitHubInstallationInfo)(nil),               // 81: auth.v1.GitHubInstallationInfo
+	(*StartGitHubInstallationRequest)(nil),       // 82: auth.v1.StartGitHubInstallationRequest
+	(*StartGitHubInstallationResponse)(nil),      // 83: auth.v1.StartGitHubInstallationResponse
+	(*CompleteGitHubInstallationRequest)(nil),    // 84: auth.v1.CompleteGitHubInstallationRequest
+	(*CompleteGitHubInstallationResponse)(nil),   // 85: auth.v1.CompleteGitHubInstallationResponse
+	(*ListGitHubInstallationsRequest)(nil),       // 86: auth.v1.ListGitHubInstallationsRequest
+	(*ListGitHubInstallationsResponse)(nil),      // 87: auth.v1.ListGitHubInstallationsResponse
+	(*DisconnectGitHubInstallationRequest)(nil),  // 88: auth.v1.DisconnectGitHubInstallationRequest
+	(*DisconnectGitHubInstallationResponse)(nil), // 89: auth.v1.DisconnectGitHubInstallationResponse
+	(*GetGitHubInstallationTokenRequest)(nil),    // 90: auth.v1.GetGitHubInstallationTokenRequest
+	(*GetGitHubInstallationTokenResponse)(nil),   // 91: auth.v1.GetGitHubInstallationTokenResponse
+	(*HandleGitHubWebhookRequest)(nil),           // 92: auth.v1.HandleGitHubWebhookRequest
+	(*HandleGitHubWebhookResponse)(nil),          // 93: auth.v1.HandleGitHubWebhookResponse
+	(*timestamppb.Timestamp)(nil),                // 94: google.protobuf.Timestamp
 }
 var file_auth_v1_auth_proto_depIdxs = []int32{
-	90,  // 0: auth.v1.RegisterResponse.created_at:type_name -> google.protobuf.Timestamp
+	94,  // 0: auth.v1.RegisterResponse.created_at:type_name -> google.protobuf.Timestamp
 	3,   // 1: auth.v1.LoginResponse.user:type_name -> auth.v1.LoginUser
-	33,  // 2: auth.v1.LogoutRequest.caller:type_name -> auth.v1.CallerPrincipal
+	37,  // 2: auth.v1.LogoutRequest.caller:type_name -> auth.v1.CallerPrincipal
 	12,  // 3: auth.v1.GetJWKSResponse.keys:type_name -> auth.v1.JWK
-	33,  // 4: auth.v1.ChangePasswordRequest.caller:type_name -> auth.v1.CallerPrincipal
-	33,  // 5: auth.v1.GetMeRequest.caller:type_name -> auth.v1.CallerPrincipal
-	90,  // 6: auth.v1.GetMeResponse.email_verified_at:type_name -> google.protobuf.Timestamp
-	90,  // 7: auth.v1.GetMeResponse.created_at:type_name -> google.protobuf.Timestamp
-	33,  // 8: auth.v1.ListSessionsRequest.caller:type_name -> auth.v1.CallerPrincipal
-	90,  // 9: auth.v1.SessionInfo.created_at:type_name -> google.protobuf.Timestamp
-	90,  // 10: auth.v1.SessionInfo.last_seen_at:type_name -> google.protobuf.Timestamp
-	90,  // 11: auth.v1.SessionInfo.expires_at:type_name -> google.protobuf.Timestamp
+	37,  // 4: auth.v1.ChangePasswordRequest.caller:type_name -> auth.v1.CallerPrincipal
+	37,  // 5: auth.v1.GetMeRequest.caller:type_name -> auth.v1.CallerPrincipal
+	94,  // 6: auth.v1.GetMeResponse.email_verified_at:type_name -> google.protobuf.Timestamp
+	94,  // 7: auth.v1.GetMeResponse.created_at:type_name -> google.protobuf.Timestamp
+	37,  // 8: auth.v1.ListSessionsRequest.caller:type_name -> auth.v1.CallerPrincipal
+	94,  // 9: auth.v1.SessionInfo.created_at:type_name -> google.protobuf.Timestamp
+	94,  // 10: auth.v1.SessionInfo.last_seen_at:type_name -> google.protobuf.Timestamp
+	94,  // 11: auth.v1.SessionInfo.expires_at:type_name -> google.protobuf.Timestamp
 	25,  // 12: auth.v1.ListSessionsResponse.sessions:type_name -> auth.v1.SessionInfo
-	33,  // 13: auth.v1.RevokeSessionRequest.caller:type_name -> auth.v1.CallerPrincipal
+	37,  // 13: auth.v1.RevokeSessionRequest.caller:type_name -> auth.v1.CallerPrincipal
 	3,   // 14: auth.v1.CompleteGitHubOAuthResponse.user:type_name -> auth.v1.LoginUser
-	33,  // 15: auth.v1.CheckPermissionRequest.caller:type_name -> auth.v1.CallerPrincipal
-	37,  // 16: auth.v1.ListRolesResponse.roles:type_name -> auth.v1.RoleInfo
-	33,  // 17: auth.v1.CreateOrganizationRequest.caller:type_name -> auth.v1.CallerPrincipal
-	90,  // 18: auth.v1.CreateOrganizationResponse.created_at:type_name -> google.protobuf.Timestamp
-	90,  // 19: auth.v1.CreateOrganizationResponse.updated_at:type_name -> google.protobuf.Timestamp
-	90,  // 20: auth.v1.OrganizationResponse.created_at:type_name -> google.protobuf.Timestamp
-	90,  // 21: auth.v1.OrganizationResponse.updated_at:type_name -> google.protobuf.Timestamp
-	33,  // 22: auth.v1.ListOrganizationsRequest.caller:type_name -> auth.v1.CallerPrincipal
-	41,  // 23: auth.v1.ListOrganizationsResponse.organizations:type_name -> auth.v1.OrganizationResponse
-	33,  // 24: auth.v1.GetOrganizationRequest.caller:type_name -> auth.v1.CallerPrincipal
-	90,  // 25: auth.v1.GetOrganizationResponse.created_at:type_name -> google.protobuf.Timestamp
-	90,  // 26: auth.v1.GetOrganizationResponse.updated_at:type_name -> google.protobuf.Timestamp
-	33,  // 27: auth.v1.UpdateOrganizationRequest.caller:type_name -> auth.v1.CallerPrincipal
-	90,  // 28: auth.v1.UpdateOrganizationResponse.created_at:type_name -> google.protobuf.Timestamp
-	90,  // 29: auth.v1.UpdateOrganizationResponse.updated_at:type_name -> google.protobuf.Timestamp
-	33,  // 30: auth.v1.DeleteOrganizationRequest.caller:type_name -> auth.v1.CallerPrincipal
-	33,  // 31: auth.v1.ListMembersRequest.caller:type_name -> auth.v1.CallerPrincipal
-	90,  // 32: auth.v1.MemberInfo.created_at:type_name -> google.protobuf.Timestamp
-	51,  // 33: auth.v1.ListMembersResponse.members:type_name -> auth.v1.MemberInfo
-	33,  // 34: auth.v1.AddMemberRequest.caller:type_name -> auth.v1.CallerPrincipal
-	90,  // 35: auth.v1.AddMemberResponse.created_at:type_name -> google.protobuf.Timestamp
-	33,  // 36: auth.v1.UpdateMemberRoleRequest.caller:type_name -> auth.v1.CallerPrincipal
-	33,  // 37: auth.v1.RemoveMemberRequest.caller:type_name -> auth.v1.CallerPrincipal
-	33,  // 38: auth.v1.CreateInviteRequest.caller:type_name -> auth.v1.CallerPrincipal
-	90,  // 39: auth.v1.CreateInviteResponse.expires_at:type_name -> google.protobuf.Timestamp
-	90,  // 40: auth.v1.CreateInviteResponse.created_at:type_name -> google.protobuf.Timestamp
-	33,  // 41: auth.v1.AcceptInviteRequest.caller:type_name -> auth.v1.CallerPrincipal
-	90,  // 42: auth.v1.AcceptInviteResponse.created_at:type_name -> google.protobuf.Timestamp
-	90,  // 43: auth.v1.AcceptInviteResponse.updated_at:type_name -> google.protobuf.Timestamp
-	33,  // 44: auth.v1.RevokeInviteRequest.caller:type_name -> auth.v1.CallerPrincipal
-	33,  // 45: auth.v1.CreateAPITokenRequest.caller:type_name -> auth.v1.CallerPrincipal
-	90,  // 46: auth.v1.APITokenInfo.expires_at:type_name -> google.protobuf.Timestamp
-	90,  // 47: auth.v1.APITokenInfo.last_used_at:type_name -> google.protobuf.Timestamp
-	90,  // 48: auth.v1.APITokenInfo.created_at:type_name -> google.protobuf.Timestamp
-	66,  // 49: auth.v1.CreateAPITokenResponse.token:type_name -> auth.v1.APITokenInfo
-	33,  // 50: auth.v1.ListAPITokensRequest.caller:type_name -> auth.v1.CallerPrincipal
-	66,  // 51: auth.v1.ListAPITokensResponse.tokens:type_name -> auth.v1.APITokenInfo
-	33,  // 52: auth.v1.RevokeAPITokenRequest.caller:type_name -> auth.v1.CallerPrincipal
-	33,  // 53: auth.v1.ListAuditEventsRequest.caller:type_name -> auth.v1.CallerPrincipal
-	90,  // 54: auth.v1.AuditEventInfo.created_at:type_name -> google.protobuf.Timestamp
-	75,  // 55: auth.v1.ListAuditEventsResponse.events:type_name -> auth.v1.AuditEventInfo
-	90,  // 56: auth.v1.GitHubInstallationInfo.created_at:type_name -> google.protobuf.Timestamp
-	90,  // 57: auth.v1.GitHubInstallationInfo.updated_at:type_name -> google.protobuf.Timestamp
-	33,  // 58: auth.v1.StartGitHubInstallationRequest.caller:type_name -> auth.v1.CallerPrincipal
-	33,  // 59: auth.v1.CompleteGitHubInstallationRequest.caller:type_name -> auth.v1.CallerPrincipal
-	77,  // 60: auth.v1.CompleteGitHubInstallationResponse.installation:type_name -> auth.v1.GitHubInstallationInfo
-	33,  // 61: auth.v1.ListGitHubInstallationsRequest.caller:type_name -> auth.v1.CallerPrincipal
-	77,  // 62: auth.v1.ListGitHubInstallationsResponse.installations:type_name -> auth.v1.GitHubInstallationInfo
-	33,  // 63: auth.v1.DisconnectGitHubInstallationRequest.caller:type_name -> auth.v1.CallerPrincipal
-	33,  // 64: auth.v1.GetGitHubInstallationTokenRequest.caller:type_name -> auth.v1.CallerPrincipal
-	0,   // 65: auth.v1.AuthService.Register:input_type -> auth.v1.RegisterRequest
-	2,   // 66: auth.v1.AuthService.Login:input_type -> auth.v1.LoginRequest
-	5,   // 67: auth.v1.AuthService.Refresh:input_type -> auth.v1.RefreshRequest
-	7,   // 68: auth.v1.AuthService.Logout:input_type -> auth.v1.LogoutRequest
-	24,  // 69: auth.v1.AuthService.ListSessions:input_type -> auth.v1.ListSessionsRequest
-	27,  // 70: auth.v1.AuthService.RevokeSession:input_type -> auth.v1.RevokeSessionRequest
-	11,  // 71: auth.v1.AuthService.GetJWKS:input_type -> auth.v1.GetJWKSRequest
-	22,  // 72: auth.v1.AuthService.GetMe:input_type -> auth.v1.GetMeRequest
-	9,   // 73: auth.v1.AuthService.VerifyEmail:input_type -> auth.v1.VerifyEmailRequest
-	14,  // 74: auth.v1.AuthService.ResendVerification:input_type -> auth.v1.ResendVerificationRequest
-	16,  // 75: auth.v1.AuthService.RequestPasswordReset:input_type -> auth.v1.RequestPasswordResetRequest
-	18,  // 76: auth.v1.AuthService.ConfirmPasswordReset:input_type -> auth.v1.ConfirmPasswordResetRequest
-	20,  // 77: auth.v1.AuthService.ChangePassword:input_type -> auth.v1.ChangePasswordRequest
-	29,  // 78: auth.v1.AuthService.StartGitHubOAuth:input_type -> auth.v1.StartGitHubOAuthRequest
-	31,  // 79: auth.v1.AuthService.CompleteGitHubOAuth:input_type -> auth.v1.CompleteGitHubOAuthRequest
-	39,  // 80: auth.v1.AuthService.CreateOrganization:input_type -> auth.v1.CreateOrganizationRequest
-	42,  // 81: auth.v1.AuthService.ListOrganizations:input_type -> auth.v1.ListOrganizationsRequest
-	44,  // 82: auth.v1.AuthService.GetOrganization:input_type -> auth.v1.GetOrganizationRequest
-	46,  // 83: auth.v1.AuthService.UpdateOrganization:input_type -> auth.v1.UpdateOrganizationRequest
-	48,  // 84: auth.v1.AuthService.DeleteOrganization:input_type -> auth.v1.DeleteOrganizationRequest
-	36,  // 85: auth.v1.AuthService.ListRoles:input_type -> auth.v1.ListRolesRequest
-	50,  // 86: auth.v1.AuthService.ListMembers:input_type -> auth.v1.ListMembersRequest
-	53,  // 87: auth.v1.AuthService.AddMember:input_type -> auth.v1.AddMemberRequest
-	55,  // 88: auth.v1.AuthService.UpdateMemberRole:input_type -> auth.v1.UpdateMemberRoleRequest
-	57,  // 89: auth.v1.AuthService.RemoveMember:input_type -> auth.v1.RemoveMemberRequest
-	34,  // 90: auth.v1.AuthService.CheckPermission:input_type -> auth.v1.CheckPermissionRequest
-	59,  // 91: auth.v1.AuthService.CreateInvite:input_type -> auth.v1.CreateInviteRequest
-	61,  // 92: auth.v1.AuthService.AcceptInvite:input_type -> auth.v1.AcceptInviteRequest
-	63,  // 93: auth.v1.AuthService.RevokeInvite:input_type -> auth.v1.RevokeInviteRequest
-	65,  // 94: auth.v1.AuthService.CreateAPIToken:input_type -> auth.v1.CreateAPITokenRequest
-	68,  // 95: auth.v1.AuthService.ListAPITokens:input_type -> auth.v1.ListAPITokensRequest
-	70,  // 96: auth.v1.AuthService.RevokeAPIToken:input_type -> auth.v1.RevokeAPITokenRequest
-	72,  // 97: auth.v1.AuthService.ValidateAPIToken:input_type -> auth.v1.ValidateAPITokenRequest
-	74,  // 98: auth.v1.AuthService.ListAuditEvents:input_type -> auth.v1.ListAuditEventsRequest
-	78,  // 99: auth.v1.AuthService.StartGitHubInstallation:input_type -> auth.v1.StartGitHubInstallationRequest
-	80,  // 100: auth.v1.AuthService.CompleteGitHubInstallation:input_type -> auth.v1.CompleteGitHubInstallationRequest
-	82,  // 101: auth.v1.AuthService.ListGitHubInstallations:input_type -> auth.v1.ListGitHubInstallationsRequest
-	84,  // 102: auth.v1.AuthService.DisconnectGitHubInstallation:input_type -> auth.v1.DisconnectGitHubInstallationRequest
-	86,  // 103: auth.v1.AuthService.GetGitHubInstallationToken:input_type -> auth.v1.GetGitHubInstallationTokenRequest
-	88,  // 104: auth.v1.AuthService.HandleGitHubWebhook:input_type -> auth.v1.HandleGitHubWebhookRequest
-	1,   // 105: auth.v1.AuthService.Register:output_type -> auth.v1.RegisterResponse
-	4,   // 106: auth.v1.AuthService.Login:output_type -> auth.v1.LoginResponse
-	6,   // 107: auth.v1.AuthService.Refresh:output_type -> auth.v1.RefreshResponse
-	8,   // 108: auth.v1.AuthService.Logout:output_type -> auth.v1.LogoutResponse
-	26,  // 109: auth.v1.AuthService.ListSessions:output_type -> auth.v1.ListSessionsResponse
-	28,  // 110: auth.v1.AuthService.RevokeSession:output_type -> auth.v1.RevokeSessionResponse
-	13,  // 111: auth.v1.AuthService.GetJWKS:output_type -> auth.v1.GetJWKSResponse
-	23,  // 112: auth.v1.AuthService.GetMe:output_type -> auth.v1.GetMeResponse
-	10,  // 113: auth.v1.AuthService.VerifyEmail:output_type -> auth.v1.VerifyEmailResponse
-	15,  // 114: auth.v1.AuthService.ResendVerification:output_type -> auth.v1.ResendVerificationResponse
-	17,  // 115: auth.v1.AuthService.RequestPasswordReset:output_type -> auth.v1.RequestPasswordResetResponse
-	19,  // 116: auth.v1.AuthService.ConfirmPasswordReset:output_type -> auth.v1.ConfirmPasswordResetResponse
-	21,  // 117: auth.v1.AuthService.ChangePassword:output_type -> auth.v1.ChangePasswordResponse
-	30,  // 118: auth.v1.AuthService.StartGitHubOAuth:output_type -> auth.v1.StartGitHubOAuthResponse
-	32,  // 119: auth.v1.AuthService.CompleteGitHubOAuth:output_type -> auth.v1.CompleteGitHubOAuthResponse
-	40,  // 120: auth.v1.AuthService.CreateOrganization:output_type -> auth.v1.CreateOrganizationResponse
-	43,  // 121: auth.v1.AuthService.ListOrganizations:output_type -> auth.v1.ListOrganizationsResponse
-	45,  // 122: auth.v1.AuthService.GetOrganization:output_type -> auth.v1.GetOrganizationResponse
-	47,  // 123: auth.v1.AuthService.UpdateOrganization:output_type -> auth.v1.UpdateOrganizationResponse
-	49,  // 124: auth.v1.AuthService.DeleteOrganization:output_type -> auth.v1.DeleteOrganizationResponse
-	38,  // 125: auth.v1.AuthService.ListRoles:output_type -> auth.v1.ListRolesResponse
-	52,  // 126: auth.v1.AuthService.ListMembers:output_type -> auth.v1.ListMembersResponse
-	54,  // 127: auth.v1.AuthService.AddMember:output_type -> auth.v1.AddMemberResponse
-	56,  // 128: auth.v1.AuthService.UpdateMemberRole:output_type -> auth.v1.UpdateMemberRoleResponse
-	58,  // 129: auth.v1.AuthService.RemoveMember:output_type -> auth.v1.RemoveMemberResponse
-	35,  // 130: auth.v1.AuthService.CheckPermission:output_type -> auth.v1.CheckPermissionResponse
-	60,  // 131: auth.v1.AuthService.CreateInvite:output_type -> auth.v1.CreateInviteResponse
-	62,  // 132: auth.v1.AuthService.AcceptInvite:output_type -> auth.v1.AcceptInviteResponse
-	64,  // 133: auth.v1.AuthService.RevokeInvite:output_type -> auth.v1.RevokeInviteResponse
-	67,  // 134: auth.v1.AuthService.CreateAPIToken:output_type -> auth.v1.CreateAPITokenResponse
-	69,  // 135: auth.v1.AuthService.ListAPITokens:output_type -> auth.v1.ListAPITokensResponse
-	71,  // 136: auth.v1.AuthService.RevokeAPIToken:output_type -> auth.v1.RevokeAPITokenResponse
-	73,  // 137: auth.v1.AuthService.ValidateAPIToken:output_type -> auth.v1.ValidateAPITokenResponse
-	76,  // 138: auth.v1.AuthService.ListAuditEvents:output_type -> auth.v1.ListAuditEventsResponse
-	79,  // 139: auth.v1.AuthService.StartGitHubInstallation:output_type -> auth.v1.StartGitHubInstallationResponse
-	81,  // 140: auth.v1.AuthService.CompleteGitHubInstallation:output_type -> auth.v1.CompleteGitHubInstallationResponse
-	83,  // 141: auth.v1.AuthService.ListGitHubInstallations:output_type -> auth.v1.ListGitHubInstallationsResponse
-	85,  // 142: auth.v1.AuthService.DisconnectGitHubInstallation:output_type -> auth.v1.DisconnectGitHubInstallationResponse
-	87,  // 143: auth.v1.AuthService.GetGitHubInstallationToken:output_type -> auth.v1.GetGitHubInstallationTokenResponse
-	89,  // 144: auth.v1.AuthService.HandleGitHubWebhook:output_type -> auth.v1.HandleGitHubWebhookResponse
-	105, // [105:145] is the sub-list for method output_type
-	65,  // [65:105] is the sub-list for method input_type
-	65,  // [65:65] is the sub-list for extension type_name
-	65,  // [65:65] is the sub-list for extension extendee
-	0,   // [0:65] is the sub-list for field type_name
+	3,   // 15: auth.v1.CompleteGoogleOAuthResponse.user:type_name -> auth.v1.LoginUser
+	37,  // 16: auth.v1.CheckPermissionRequest.caller:type_name -> auth.v1.CallerPrincipal
+	41,  // 17: auth.v1.ListRolesResponse.roles:type_name -> auth.v1.RoleInfo
+	37,  // 18: auth.v1.CreateOrganizationRequest.caller:type_name -> auth.v1.CallerPrincipal
+	94,  // 19: auth.v1.CreateOrganizationResponse.created_at:type_name -> google.protobuf.Timestamp
+	94,  // 20: auth.v1.CreateOrganizationResponse.updated_at:type_name -> google.protobuf.Timestamp
+	94,  // 21: auth.v1.OrganizationResponse.created_at:type_name -> google.protobuf.Timestamp
+	94,  // 22: auth.v1.OrganizationResponse.updated_at:type_name -> google.protobuf.Timestamp
+	37,  // 23: auth.v1.ListOrganizationsRequest.caller:type_name -> auth.v1.CallerPrincipal
+	45,  // 24: auth.v1.ListOrganizationsResponse.organizations:type_name -> auth.v1.OrganizationResponse
+	37,  // 25: auth.v1.GetOrganizationRequest.caller:type_name -> auth.v1.CallerPrincipal
+	94,  // 26: auth.v1.GetOrganizationResponse.created_at:type_name -> google.protobuf.Timestamp
+	94,  // 27: auth.v1.GetOrganizationResponse.updated_at:type_name -> google.protobuf.Timestamp
+	37,  // 28: auth.v1.UpdateOrganizationRequest.caller:type_name -> auth.v1.CallerPrincipal
+	94,  // 29: auth.v1.UpdateOrganizationResponse.created_at:type_name -> google.protobuf.Timestamp
+	94,  // 30: auth.v1.UpdateOrganizationResponse.updated_at:type_name -> google.protobuf.Timestamp
+	37,  // 31: auth.v1.DeleteOrganizationRequest.caller:type_name -> auth.v1.CallerPrincipal
+	37,  // 32: auth.v1.ListMembersRequest.caller:type_name -> auth.v1.CallerPrincipal
+	94,  // 33: auth.v1.MemberInfo.created_at:type_name -> google.protobuf.Timestamp
+	55,  // 34: auth.v1.ListMembersResponse.members:type_name -> auth.v1.MemberInfo
+	37,  // 35: auth.v1.AddMemberRequest.caller:type_name -> auth.v1.CallerPrincipal
+	94,  // 36: auth.v1.AddMemberResponse.created_at:type_name -> google.protobuf.Timestamp
+	37,  // 37: auth.v1.UpdateMemberRoleRequest.caller:type_name -> auth.v1.CallerPrincipal
+	37,  // 38: auth.v1.RemoveMemberRequest.caller:type_name -> auth.v1.CallerPrincipal
+	37,  // 39: auth.v1.CreateInviteRequest.caller:type_name -> auth.v1.CallerPrincipal
+	94,  // 40: auth.v1.CreateInviteResponse.expires_at:type_name -> google.protobuf.Timestamp
+	94,  // 41: auth.v1.CreateInviteResponse.created_at:type_name -> google.protobuf.Timestamp
+	37,  // 42: auth.v1.AcceptInviteRequest.caller:type_name -> auth.v1.CallerPrincipal
+	94,  // 43: auth.v1.AcceptInviteResponse.created_at:type_name -> google.protobuf.Timestamp
+	94,  // 44: auth.v1.AcceptInviteResponse.updated_at:type_name -> google.protobuf.Timestamp
+	37,  // 45: auth.v1.RevokeInviteRequest.caller:type_name -> auth.v1.CallerPrincipal
+	37,  // 46: auth.v1.CreateAPITokenRequest.caller:type_name -> auth.v1.CallerPrincipal
+	94,  // 47: auth.v1.APITokenInfo.expires_at:type_name -> google.protobuf.Timestamp
+	94,  // 48: auth.v1.APITokenInfo.last_used_at:type_name -> google.protobuf.Timestamp
+	94,  // 49: auth.v1.APITokenInfo.created_at:type_name -> google.protobuf.Timestamp
+	70,  // 50: auth.v1.CreateAPITokenResponse.token:type_name -> auth.v1.APITokenInfo
+	37,  // 51: auth.v1.ListAPITokensRequest.caller:type_name -> auth.v1.CallerPrincipal
+	70,  // 52: auth.v1.ListAPITokensResponse.tokens:type_name -> auth.v1.APITokenInfo
+	37,  // 53: auth.v1.RevokeAPITokenRequest.caller:type_name -> auth.v1.CallerPrincipal
+	37,  // 54: auth.v1.ListAuditEventsRequest.caller:type_name -> auth.v1.CallerPrincipal
+	94,  // 55: auth.v1.AuditEventInfo.created_at:type_name -> google.protobuf.Timestamp
+	79,  // 56: auth.v1.ListAuditEventsResponse.events:type_name -> auth.v1.AuditEventInfo
+	94,  // 57: auth.v1.GitHubInstallationInfo.created_at:type_name -> google.protobuf.Timestamp
+	94,  // 58: auth.v1.GitHubInstallationInfo.updated_at:type_name -> google.protobuf.Timestamp
+	37,  // 59: auth.v1.StartGitHubInstallationRequest.caller:type_name -> auth.v1.CallerPrincipal
+	37,  // 60: auth.v1.CompleteGitHubInstallationRequest.caller:type_name -> auth.v1.CallerPrincipal
+	81,  // 61: auth.v1.CompleteGitHubInstallationResponse.installation:type_name -> auth.v1.GitHubInstallationInfo
+	37,  // 62: auth.v1.ListGitHubInstallationsRequest.caller:type_name -> auth.v1.CallerPrincipal
+	81,  // 63: auth.v1.ListGitHubInstallationsResponse.installations:type_name -> auth.v1.GitHubInstallationInfo
+	37,  // 64: auth.v1.DisconnectGitHubInstallationRequest.caller:type_name -> auth.v1.CallerPrincipal
+	37,  // 65: auth.v1.GetGitHubInstallationTokenRequest.caller:type_name -> auth.v1.CallerPrincipal
+	0,   // 66: auth.v1.AuthService.Register:input_type -> auth.v1.RegisterRequest
+	2,   // 67: auth.v1.AuthService.Login:input_type -> auth.v1.LoginRequest
+	5,   // 68: auth.v1.AuthService.Refresh:input_type -> auth.v1.RefreshRequest
+	7,   // 69: auth.v1.AuthService.Logout:input_type -> auth.v1.LogoutRequest
+	24,  // 70: auth.v1.AuthService.ListSessions:input_type -> auth.v1.ListSessionsRequest
+	27,  // 71: auth.v1.AuthService.RevokeSession:input_type -> auth.v1.RevokeSessionRequest
+	11,  // 72: auth.v1.AuthService.GetJWKS:input_type -> auth.v1.GetJWKSRequest
+	22,  // 73: auth.v1.AuthService.GetMe:input_type -> auth.v1.GetMeRequest
+	9,   // 74: auth.v1.AuthService.VerifyEmail:input_type -> auth.v1.VerifyEmailRequest
+	14,  // 75: auth.v1.AuthService.ResendVerification:input_type -> auth.v1.ResendVerificationRequest
+	16,  // 76: auth.v1.AuthService.RequestPasswordReset:input_type -> auth.v1.RequestPasswordResetRequest
+	18,  // 77: auth.v1.AuthService.ConfirmPasswordReset:input_type -> auth.v1.ConfirmPasswordResetRequest
+	20,  // 78: auth.v1.AuthService.ChangePassword:input_type -> auth.v1.ChangePasswordRequest
+	29,  // 79: auth.v1.AuthService.StartGitHubOAuth:input_type -> auth.v1.StartGitHubOAuthRequest
+	31,  // 80: auth.v1.AuthService.CompleteGitHubOAuth:input_type -> auth.v1.CompleteGitHubOAuthRequest
+	33,  // 81: auth.v1.AuthService.StartGoogleOAuth:input_type -> auth.v1.StartGoogleOAuthRequest
+	35,  // 82: auth.v1.AuthService.CompleteGoogleOAuth:input_type -> auth.v1.CompleteGoogleOAuthRequest
+	43,  // 83: auth.v1.AuthService.CreateOrganization:input_type -> auth.v1.CreateOrganizationRequest
+	46,  // 84: auth.v1.AuthService.ListOrganizations:input_type -> auth.v1.ListOrganizationsRequest
+	48,  // 85: auth.v1.AuthService.GetOrganization:input_type -> auth.v1.GetOrganizationRequest
+	50,  // 86: auth.v1.AuthService.UpdateOrganization:input_type -> auth.v1.UpdateOrganizationRequest
+	52,  // 87: auth.v1.AuthService.DeleteOrganization:input_type -> auth.v1.DeleteOrganizationRequest
+	40,  // 88: auth.v1.AuthService.ListRoles:input_type -> auth.v1.ListRolesRequest
+	54,  // 89: auth.v1.AuthService.ListMembers:input_type -> auth.v1.ListMembersRequest
+	57,  // 90: auth.v1.AuthService.AddMember:input_type -> auth.v1.AddMemberRequest
+	59,  // 91: auth.v1.AuthService.UpdateMemberRole:input_type -> auth.v1.UpdateMemberRoleRequest
+	61,  // 92: auth.v1.AuthService.RemoveMember:input_type -> auth.v1.RemoveMemberRequest
+	38,  // 93: auth.v1.AuthService.CheckPermission:input_type -> auth.v1.CheckPermissionRequest
+	63,  // 94: auth.v1.AuthService.CreateInvite:input_type -> auth.v1.CreateInviteRequest
+	65,  // 95: auth.v1.AuthService.AcceptInvite:input_type -> auth.v1.AcceptInviteRequest
+	67,  // 96: auth.v1.AuthService.RevokeInvite:input_type -> auth.v1.RevokeInviteRequest
+	69,  // 97: auth.v1.AuthService.CreateAPIToken:input_type -> auth.v1.CreateAPITokenRequest
+	72,  // 98: auth.v1.AuthService.ListAPITokens:input_type -> auth.v1.ListAPITokensRequest
+	74,  // 99: auth.v1.AuthService.RevokeAPIToken:input_type -> auth.v1.RevokeAPITokenRequest
+	76,  // 100: auth.v1.AuthService.ValidateAPIToken:input_type -> auth.v1.ValidateAPITokenRequest
+	78,  // 101: auth.v1.AuthService.ListAuditEvents:input_type -> auth.v1.ListAuditEventsRequest
+	82,  // 102: auth.v1.AuthService.StartGitHubInstallation:input_type -> auth.v1.StartGitHubInstallationRequest
+	84,  // 103: auth.v1.AuthService.CompleteGitHubInstallation:input_type -> auth.v1.CompleteGitHubInstallationRequest
+	86,  // 104: auth.v1.AuthService.ListGitHubInstallations:input_type -> auth.v1.ListGitHubInstallationsRequest
+	88,  // 105: auth.v1.AuthService.DisconnectGitHubInstallation:input_type -> auth.v1.DisconnectGitHubInstallationRequest
+	90,  // 106: auth.v1.AuthService.GetGitHubInstallationToken:input_type -> auth.v1.GetGitHubInstallationTokenRequest
+	92,  // 107: auth.v1.AuthService.HandleGitHubWebhook:input_type -> auth.v1.HandleGitHubWebhookRequest
+	1,   // 108: auth.v1.AuthService.Register:output_type -> auth.v1.RegisterResponse
+	4,   // 109: auth.v1.AuthService.Login:output_type -> auth.v1.LoginResponse
+	6,   // 110: auth.v1.AuthService.Refresh:output_type -> auth.v1.RefreshResponse
+	8,   // 111: auth.v1.AuthService.Logout:output_type -> auth.v1.LogoutResponse
+	26,  // 112: auth.v1.AuthService.ListSessions:output_type -> auth.v1.ListSessionsResponse
+	28,  // 113: auth.v1.AuthService.RevokeSession:output_type -> auth.v1.RevokeSessionResponse
+	13,  // 114: auth.v1.AuthService.GetJWKS:output_type -> auth.v1.GetJWKSResponse
+	23,  // 115: auth.v1.AuthService.GetMe:output_type -> auth.v1.GetMeResponse
+	10,  // 116: auth.v1.AuthService.VerifyEmail:output_type -> auth.v1.VerifyEmailResponse
+	15,  // 117: auth.v1.AuthService.ResendVerification:output_type -> auth.v1.ResendVerificationResponse
+	17,  // 118: auth.v1.AuthService.RequestPasswordReset:output_type -> auth.v1.RequestPasswordResetResponse
+	19,  // 119: auth.v1.AuthService.ConfirmPasswordReset:output_type -> auth.v1.ConfirmPasswordResetResponse
+	21,  // 120: auth.v1.AuthService.ChangePassword:output_type -> auth.v1.ChangePasswordResponse
+	30,  // 121: auth.v1.AuthService.StartGitHubOAuth:output_type -> auth.v1.StartGitHubOAuthResponse
+	32,  // 122: auth.v1.AuthService.CompleteGitHubOAuth:output_type -> auth.v1.CompleteGitHubOAuthResponse
+	34,  // 123: auth.v1.AuthService.StartGoogleOAuth:output_type -> auth.v1.StartGoogleOAuthResponse
+	36,  // 124: auth.v1.AuthService.CompleteGoogleOAuth:output_type -> auth.v1.CompleteGoogleOAuthResponse
+	44,  // 125: auth.v1.AuthService.CreateOrganization:output_type -> auth.v1.CreateOrganizationResponse
+	47,  // 126: auth.v1.AuthService.ListOrganizations:output_type -> auth.v1.ListOrganizationsResponse
+	49,  // 127: auth.v1.AuthService.GetOrganization:output_type -> auth.v1.GetOrganizationResponse
+	51,  // 128: auth.v1.AuthService.UpdateOrganization:output_type -> auth.v1.UpdateOrganizationResponse
+	53,  // 129: auth.v1.AuthService.DeleteOrganization:output_type -> auth.v1.DeleteOrganizationResponse
+	42,  // 130: auth.v1.AuthService.ListRoles:output_type -> auth.v1.ListRolesResponse
+	56,  // 131: auth.v1.AuthService.ListMembers:output_type -> auth.v1.ListMembersResponse
+	58,  // 132: auth.v1.AuthService.AddMember:output_type -> auth.v1.AddMemberResponse
+	60,  // 133: auth.v1.AuthService.UpdateMemberRole:output_type -> auth.v1.UpdateMemberRoleResponse
+	62,  // 134: auth.v1.AuthService.RemoveMember:output_type -> auth.v1.RemoveMemberResponse
+	39,  // 135: auth.v1.AuthService.CheckPermission:output_type -> auth.v1.CheckPermissionResponse
+	64,  // 136: auth.v1.AuthService.CreateInvite:output_type -> auth.v1.CreateInviteResponse
+	66,  // 137: auth.v1.AuthService.AcceptInvite:output_type -> auth.v1.AcceptInviteResponse
+	68,  // 138: auth.v1.AuthService.RevokeInvite:output_type -> auth.v1.RevokeInviteResponse
+	71,  // 139: auth.v1.AuthService.CreateAPIToken:output_type -> auth.v1.CreateAPITokenResponse
+	73,  // 140: auth.v1.AuthService.ListAPITokens:output_type -> auth.v1.ListAPITokensResponse
+	75,  // 141: auth.v1.AuthService.RevokeAPIToken:output_type -> auth.v1.RevokeAPITokenResponse
+	77,  // 142: auth.v1.AuthService.ValidateAPIToken:output_type -> auth.v1.ValidateAPITokenResponse
+	80,  // 143: auth.v1.AuthService.ListAuditEvents:output_type -> auth.v1.ListAuditEventsResponse
+	83,  // 144: auth.v1.AuthService.StartGitHubInstallation:output_type -> auth.v1.StartGitHubInstallationResponse
+	85,  // 145: auth.v1.AuthService.CompleteGitHubInstallation:output_type -> auth.v1.CompleteGitHubInstallationResponse
+	87,  // 146: auth.v1.AuthService.ListGitHubInstallations:output_type -> auth.v1.ListGitHubInstallationsResponse
+	89,  // 147: auth.v1.AuthService.DisconnectGitHubInstallation:output_type -> auth.v1.DisconnectGitHubInstallationResponse
+	91,  // 148: auth.v1.AuthService.GetGitHubInstallationToken:output_type -> auth.v1.GetGitHubInstallationTokenResponse
+	93,  // 149: auth.v1.AuthService.HandleGitHubWebhook:output_type -> auth.v1.HandleGitHubWebhookResponse
+	108, // [108:150] is the sub-list for method output_type
+	66,  // [66:108] is the sub-list for method input_type
+	66,  // [66:66] is the sub-list for extension type_name
+	66,  // [66:66] is the sub-list for extension extendee
+	0,   // [0:66] is the sub-list for field type_name
 }
 
 func init() { file_auth_v1_auth_proto_init() }
@@ -6211,7 +6464,7 @@ func file_auth_v1_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_auth_v1_auth_proto_rawDesc), len(file_auth_v1_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   90,
+			NumMessages:   94,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -120,6 +122,10 @@ func (r *PostgresUserRepository) CreateWithPasswordAndVerificationToken(ctx cont
 		if err := insertOutboxEventTx(ctx, tx, outbox[0]); err != nil {
 			return err
 		}
+	}
+
+	if err := createDefaultOrgTx(ctx, tx, u.ID, u.DisplayName, u.Email, u.CreatedAt); err != nil {
+		return err
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -593,6 +599,12 @@ func (r *PostgresUserRepository) resolveOAuthUserTx(ctx context.Context, profile
 			u.EmailVerifiedAt = &now
 			u.UpdatedAt = now
 		}
+		var userOrgCount int
+		if err := tx.QueryRow(ctx, `SELECT count(*) FROM organization_memberships WHERE user_id = $1`, u.ID).Scan(&userOrgCount); err == nil && userOrgCount == 0 {
+			if err := createDefaultOrgTx(ctx, tx, u.ID, u.DisplayName, u.Email, now); err != nil {
+				return nil, false, fmt.Errorf("create default org for existing oauth user: %w", err)
+			}
+		}
 		if err := tx.Commit(ctx); err != nil {
 			return nil, false, fmt.Errorf("commit transaction: %w", err)
 		}
@@ -685,6 +697,12 @@ func (r *PostgresUserRepository) resolveOAuthUserTx(ctx context.Context, profile
 			u.LockedUntil = nil
 			u.UpdatedAt = now
 		}
+		var userOrgCount int
+		if err := tx.QueryRow(ctx, `SELECT count(*) FROM organization_memberships WHERE user_id = $1`, u.ID).Scan(&userOrgCount); err == nil && userOrgCount == 0 {
+			if err := createDefaultOrgTx(ctx, tx, u.ID, u.DisplayName, u.Email, now); err != nil {
+				return nil, false, fmt.Errorf("create default org for linked user: %w", err)
+			}
+		}
 		if err := tx.Commit(ctx); err != nil {
 			return nil, false, fmt.Errorf("commit transaction: %w", err)
 		}
@@ -729,8 +747,88 @@ func (r *PostgresUserRepository) resolveOAuthUserTx(ctx context.Context, profile
 		return nil, false, fmt.Errorf("insert oauth identity: %w", err)
 	}
 
+	if err := createDefaultOrgTx(ctx, tx, u.ID, u.DisplayName, u.Email, now); err != nil {
+		return nil, false, fmt.Errorf("create default org for oauth user: %w", err)
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return nil, false, fmt.Errorf("commit transaction: %w", err)
 	}
 	return &u, false, nil
+}
+
+var nonAlphaNumRegex = regexp.MustCompile(`[^a-z0-9]+`)
+
+func slugify(s string) string {
+	s = strings.TrimSpace(strings.ToLower(s))
+	s = nonAlphaNumRegex.ReplaceAllString(s, "-")
+	s = strings.Trim(s, "-")
+	if s == "" {
+		s = "default"
+	}
+	if len(s) > 40 {
+		s = s[:40]
+		s = strings.Trim(s, "-")
+	}
+	return s
+}
+
+func createDefaultOrgTx(ctx context.Context, tx pgx.Tx, userID uuid.UUID, displayName, email string, now time.Time) error {
+	var orgName string
+	trimmedName := strings.TrimSpace(displayName)
+	if trimmedName != "" {
+		orgName = trimmedName + "'s org"
+	} else {
+		prefix := strings.Split(email, "@")[0]
+		if prefix == "" {
+			prefix = "default"
+		}
+		orgName = prefix + "'s org"
+	}
+	if len(orgName) > 100 {
+		orgName = orgName[:100]
+	}
+
+	base := slugify(displayName)
+	if base == "default" && email != "" {
+		base = slugify(strings.Split(email, "@")[0])
+	}
+	baseSlug := base + "-org"
+	if len(baseSlug) > 50 {
+		baseSlug = strings.Trim(baseSlug[:50], "-")
+	}
+
+	slug := baseSlug
+	counter := 1
+	for {
+		var exists bool
+		err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM organizations WHERE slug = $1)`, slug).Scan(&exists)
+		if err != nil {
+			return fmt.Errorf("check org slug existence: %w", err)
+		}
+		if !exists {
+			break
+		}
+		slug = fmt.Sprintf("%s-%d", baseSlug, counter)
+		counter++
+	}
+
+	orgID := uuid.New()
+	_, err := tx.Exec(ctx, `
+		INSERT INTO organizations (id, name, slug, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $4);
+	`, orgID, orgName, slug, now)
+	if err != nil {
+		return fmt.Errorf("insert default organization: %w", err)
+	}
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO organization_memberships (id, organization_id, user_id, role_id, created_at, updated_at)
+		VALUES ($1, $2, $3, 'owner', $4, $4);
+	`, uuid.New(), orgID, userID, now)
+	if err != nil {
+		return fmt.Errorf("insert default organization membership: %w", err)
+	}
+
+	return nil
 }

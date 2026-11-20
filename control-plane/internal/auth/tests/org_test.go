@@ -113,11 +113,26 @@ func (m *memOrgRepo) UpdateOrg(ctx context.Context, orgID uuid.UUID, name string
 	return &cp, nil
 }
 
+func (m *memOrgRepo) userOrgCount(userID uuid.UUID) int {
+	n := 0
+	for _, members := range m.members {
+		if _, ok := members[userID]; ok {
+			n++
+		}
+	}
+	return n
+}
+
 func (m *memOrgRepo) DeleteOrg(ctx context.Context, orgID uuid.UUID) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if _, ok := m.orgs[orgID]; !ok {
 		return repository.ErrOrgNotFound
+	}
+	for uid := range m.members[orgID] {
+		if m.userOrgCount(uid) <= 1 {
+			return repository.ErrSoleOrg
+		}
 	}
 	delete(m.orgs, orgID)
 	delete(m.members, orgID)
@@ -171,6 +186,9 @@ func (m *memOrgRepo) RemoveMember(ctx context.Context, orgID, targetUserID uuid.
 	}
 	if current == "owner" && m.ownerCount(orgID) <= 1 {
 		return repository.ErrLastOwner
+	}
+	if m.userOrgCount(targetUserID) <= 1 {
+		return repository.ErrSoleOrg
 	}
 	delete(m.members[orgID], targetUserID)
 	return nil

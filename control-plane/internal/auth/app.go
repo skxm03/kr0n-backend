@@ -140,6 +140,12 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 		RedirectURL:  cfg.GitHubRedirectURL,
 	})
 
+	googleOAuth := oauth.NewGoogleProvider(oauth.GoogleConfig{
+		ClientID:     cfg.GoogleClientID,
+		ClientSecret: cfg.GoogleClientSecret,
+		RedirectURL:  cfg.GoogleRedirectURL,
+	})
+
 	privKeyPEM := cfg.GitHubAppPrivateKey
 	if privKeyPEM == "" {
 		privKeyPEM = cfg.GitHubAppPrivateKeyPath
@@ -180,6 +186,7 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 		handlers.WithVerificationService(verifService),
 		handlers.WithJWKS(jwtSigner.PublicJWK()),
 		handlers.WithGitHubOAuth(githubOAuth),
+		handlers.WithGoogleOAuth(googleOAuth),
 		handlers.WithOrgService(orgService),
 		handlers.WithAuditService(auditService),
 		handlers.WithGitHubWebhookHandler(webhookHandler),

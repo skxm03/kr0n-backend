@@ -28,6 +28,13 @@ type GitHubOAuthProvider interface {
 	ExchangeAndFetchProfile(ctx context.Context, code, codeVerifier string) (*repository.OAuthProfile, error)
 }
 
+// GoogleOAuthProvider defines the contract for Google OAuth 2.0 + PKCE operations.
+type GoogleOAuthProvider interface {
+	Configured() bool
+	Start() (authorizeURL, state, codeVerifier string, err error)
+	ExchangeAndFetchProfile(ctx context.Context, code, codeVerifier string) (*repository.OAuthProfile, error)
+}
+
 // RegistrationService defines user registration, account lifecycle, profile, and OAuth operations (satisfied by *service.UserService).
 type RegistrationService interface {
 	Register(ctx context.Context, params service.RegisterParams) (*repository.User, error)
@@ -78,6 +85,13 @@ func WithGitHubOAuth(gh GitHubOAuthProvider) Option {
 	}
 }
 
+// WithGoogleOAuth configures the Google OAuth 2.0 + PKCE provider for Server.
+func WithGoogleOAuth(g GoogleOAuthProvider) Option {
+	return func(s *Server) {
+		s.googleOAuth = g
+	}
+}
+
 // WithOrgService configures the organization, RBAC, and API token service for Server.
 func WithOrgService(orgSvc *service.OrgService) Option {
 	return func(s *Server) {
@@ -114,6 +128,7 @@ type Server struct {
 	verificationService VerificationService
 	jwks                []jwtkeys.JWK
 	githubOAuth         GitHubOAuthProvider
+	googleOAuth         GoogleOAuthProvider
 	orgService          *service.OrgService
 	auditService        *service.AuditService
 	webhookHandler      *webhook.WebhookHandler
@@ -764,6 +779,140 @@ func (s *Server) CompleteGitHubOAuth(ctx context.Context, req *authv1.CompleteGi
 		Metadata:     map[string]any{"provider": profile.Provider, "provider_user_id": profile.ProviderUserID},
 	})
 	return &authv1.CompleteGitHubOAuthResponse{
+		AccessToken:  res.AccessToken,
+		RefreshToken: res.RefreshToken,
+		User: &authv1.LoginUser{
+			Id:          res.User.ID.String(),
+			Email:       res.User.Email,
+			DisplayName: res.User.DisplayName,
+			Status:      string(res.User.Status),
+		},
+	}, nil
+}
+
+// StartGoogleOAuth generates a PKCE challenge, state, and Google authorize URL.
+func (s *Server) StartGoogleOAuth(ctx context.Context, req *authv1.StartGoogleOAuthRequest) (*authv1.StartGoogleOAuthResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request body cannot be empty")
+	}
+	if s.googleOAuth == nil || !s.googleOAuth.Configured() {
+		return nil, status.Error(codes.FailedPrecondition, "google oauth is not configured")
+	}
+	authURL, state, verifier, err := s.googleOAuth.Start()
+	if err != nil {
+		if errors.Is(err, oauth.ErrGoogleNotConfigured) {
+			return nil, status.Error(codes.FailedPrecondition, "google oauth is not configured")
+		}
+		log.Printf("internal google oauth start error: %v", err)
+		return nil, status.Error(codes.Internal, "internal server error")
+	}
+	return &authv1.StartGoogleOAuthResponse{
+		AuthorizeUrl: authURL,
+		State:        state,
+		CodeVerifier: verifier,
+	}, nil
+}
+
+// CompleteGoogleOAuth exchanges an OAuth code + PKCE verifier, links/creates the user, and issues a session.
+func (s *Server) CompleteGoogleOAuth(ctx context.Context, req *authv1.CompleteGoogleOAuthRequest) (*authv1.CompleteGoogleOAuthResponse, error) {
+	if s.serviceAuth.Enabled && !IsTrustedService(ctx) {
+		return nil, status.Error(codes.Unauthenticated, "trusted service authentication required")
+	}
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request body cannot be empty")
+	}
+	if s.googleOAuth == nil || !s.googleOAuth.Configured() {
+		return nil, status.Error(codes.FailedPrecondition, "google oauth is not configured")
+	}
+	code := strings.TrimSpace(req.GetCode())
+	if code == "" {
+		return nil, status.Error(codes.InvalidArgument, "code is required")
+	}
+	verifier := strings.TrimSpace(req.GetCodeVerifier())
+	if verifier == "" {
+		if md, ok := metadata.FromIncomingContext(ctx); ok {
+			if vals := md.Get("x-code-verifier"); len(vals) > 0 {
+				verifier = strings.TrimSpace(vals[0])
+			}
+		}
+	}
+
+	if s.regService == nil {
+		return nil, status.Error(codes.Unimplemented, "registration service not configured")
+	}
+	if s.sessionService == nil {
+		return nil, status.Error(codes.Unimplemented, "session service not configured")
+	}
+
+	profile, err := s.googleOAuth.ExchangeAndFetchProfile(ctx, code, verifier)
+	if err != nil {
+		switch {
+		case errors.Is(err, oauth.ErrGoogleNotConfigured):
+			return nil, status.Error(codes.FailedPrecondition, "google oauth is not configured")
+		case errors.Is(err, repository.ErrOAuthEmailNotVerified):
+			return nil, status.Error(codes.PermissionDenied, "google email address is not verified")
+		case errors.Is(err, oauth.ErrGoogleExchangeFailed):
+			return nil, status.Error(codes.Unauthenticated, "google oauth authentication failed")
+		default:
+			log.Printf("internal google oauth exchange error: %v", err)
+			return nil, status.Error(codes.Internal, "internal server error")
+		}
+	}
+
+	u, err := s.regService.ResolveOAuthUser(ctx, *profile)
+	if err != nil {
+		switch {
+		case errors.Is(err, repository.ErrOAuthEmailNotVerified):
+			return nil, status.Error(codes.PermissionDenied, "google email address is not verified")
+		case errors.Is(err, repository.ErrUserNotActive):
+			return nil, status.Error(codes.PermissionDenied, "user account is not active")
+		case errors.Is(err, repository.ErrOAuthAccountConflict):
+			return nil, status.Error(codes.AlreadyExists, err.Error())
+		default:
+			log.Printf("internal google oauth resolve user error: %v", err)
+			return nil, status.Error(codes.Internal, "internal server error")
+		}
+	}
+
+	var userAgent *string
+	if ua := req.GetUserAgent(); ua != "" {
+		userAgent = &ua
+	} else if md, ok := getMetadata(ctx); ok {
+		if uas := md.Get("x-user-agent"); len(uas) > 0 && uas[0] != "" {
+			userAgent = &uas[0]
+		}
+	}
+	var clientIP *net.IP
+	if rawIP := req.GetClientIp(); rawIP != "" {
+		if parsed := net.ParseIP(rawIP); parsed != nil {
+			clientIP = &parsed
+		}
+	} else if md, ok := getMetadata(ctx); ok {
+		if ips := md.Get("x-client-ip"); len(ips) > 0 && ips[0] != "" {
+			if parsed := net.ParseIP(ips[0]); parsed != nil {
+				clientIP = &parsed
+			}
+		}
+	}
+
+	res, err := s.sessionService.CreateSessionForUser(ctx, u, userAgent, clientIP)
+	if err != nil {
+		log.Printf("internal google oauth session error: %v", err)
+		return nil, status.Error(codes.Internal, "internal server error")
+	}
+
+	uid := res.User.ID
+	s.recordAudit(ctx, repository.AuditEvent{
+		ActorUserID:  &uid,
+		ActorType:    repository.ActorTypeUser,
+		Action:       "auth.oauth_google_linked",
+		ResourceType: "user",
+		ResourceID:   uid.String(),
+		IPAddress:    clientIP,
+		UserAgent:    userAgent,
+		Metadata:     map[string]any{"provider": profile.Provider, "provider_user_id": profile.ProviderUserID},
+	})
+	return &authv1.CompleteGoogleOAuthResponse{
 		AccessToken:  res.AccessToken,
 		RefreshToken: res.RefreshToken,
 		User: &authv1.LoginUser{

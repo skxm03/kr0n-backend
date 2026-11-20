@@ -38,6 +38,7 @@ var (
 	ErrInvalidRole               = domain.ErrInvalidRole
 	ErrForbidden                 = domain.ErrForbidden
 	ErrLastOwner                 = domain.ErrLastOwner
+	ErrSoleOrg                   = domain.ErrSoleOrg
 	ErrMemberNotFound            = domain.ErrMemberNotFound
 	ErrMemberAlreadyExists       = domain.ErrMemberAlreadyExists
 	ErrInviteNotFound            = domain.ErrInviteNotFound

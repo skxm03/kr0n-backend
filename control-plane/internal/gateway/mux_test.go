@@ -361,6 +361,70 @@ func TestGatewayResponseModifier(t *testing.T) {
 			t.Fatal("expected refresh_token cookie to be set")
 		}
 	})
+
+	t.Run("start google oauth response sets google_oauth_verifier cookie", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		resp := &authv1.StartGoogleOAuthResponse{
+			AuthorizeUrl: "https://accounts.google.com/o/oauth2/v2/auth?client_id=123",
+			State:        "state-123",
+			CodeVerifier: "verifier-xyz-123",
+		}
+
+		if err := GatewayResponseModifier(context.Background(), rec, resp); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		cookies := rec.Result().Cookies()
+		var verifierCookie *http.Cookie
+		for _, c := range cookies {
+			if c.Name == "google_oauth_verifier" {
+				verifierCookie = c
+				break
+			}
+		}
+		if verifierCookie == nil || verifierCookie.Value != "verifier-xyz-123" {
+			t.Fatalf("expected google_oauth_verifier cookie, got %v", verifierCookie)
+		}
+	})
+
+	t.Run("complete google oauth response sets cookies and redirects to FRONTEND_URL", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		resp := &authv1.CompleteGoogleOAuthResponse{
+			AccessToken:  "google-access-token",
+			RefreshToken: "google-refresh-token",
+		}
+
+		t.Setenv("FRONTEND_URL", "http://localhost:3000")
+		if err := GatewayResponseModifier(context.Background(), rec, resp); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if rec.Code != http.StatusFound {
+			t.Fatalf("expected 302 Found, got %d", rec.Code)
+		}
+		if loc := rec.Header().Get("Location"); loc != "http://localhost:3000" {
+			t.Fatalf("expected Location header http://localhost:3000, got %q", loc)
+		}
+
+		if resp.AccessToken != "" || resp.RefreshToken != "" {
+			t.Fatal("expected tokens to be wiped from response body")
+		}
+
+		cookies := rec.Result().Cookies()
+		cookieMap := make(map[string]*http.Cookie)
+		for _, c := range cookies {
+			cookieMap[c.Name] = c
+		}
+		if cookieMap[AccessTokenCookieName] == nil || cookieMap[AccessTokenCookieName].Value != "google-access-token" {
+			t.Fatal("expected access_token cookie to be set")
+		}
+		if cookieMap[RefreshTokenCookieName] == nil || cookieMap[RefreshTokenCookieName].Value != "google-refresh-token" {
+			t.Fatal("expected refresh_token cookie to be set")
+		}
+		if cookieMap["google_oauth_verifier"] == nil || cookieMap["google_oauth_verifier"].MaxAge != -1 {
+			t.Fatal("expected google_oauth_verifier cookie to be cleared")
+		}
+	})
 }
 
 func TestGatewayMetadataAnnotator_RefreshTokenCookie(t *testing.T) {
@@ -375,5 +439,20 @@ func TestGatewayMetadataAnnotator_RefreshTokenCookie(t *testing.T) {
 	tokens := md.Get("x-refresh-token")
 	if len(tokens) != 1 || tokens[0] != "cookie-refresh-token-123" {
 		t.Fatalf("expected x-refresh-token in gRPC metadata to be cookie-refresh-token-123, got %v", tokens)
+	}
+}
+
+func TestGatewayMetadataAnnotator_GoogleOAuthVerifierCookie(t *testing.T) {
+	annotator := GatewayMetadataAnnotator(nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/google/callback?code=abc", nil)
+	req.AddCookie(&http.Cookie{
+		Name:  "google_oauth_verifier",
+		Value: "test-google-verifier-456",
+	})
+
+	md := annotator(context.Background(), req)
+	verifiers := md.Get("x-code-verifier")
+	if len(verifiers) != 1 || verifiers[0] != "test-google-verifier-456" {
+		t.Fatalf("expected x-code-verifier in gRPC metadata to be test-google-verifier-456, got %v", verifiers)
 	}
 }

@@ -315,6 +315,34 @@ service AuthService {
   }
 
   // =========================================================================
+  // Google Authentication
+  // =========================================================================
+
+  // StartGoogleOAuth generates a PKCE challenge, state, and Google authorize URL.
+  rpc StartGoogleOAuth(StartGoogleOAuthRequest) returns (StartGoogleOAuthResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/auth/google/start"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Google Authentication"]
+      summary: "Start Google OAuth login"
+      description: "Generates an RFC 7636 PKCE challenge and state token, returning the Google authorization URL for the browser to redirect to."
+    };
+  }
+
+  // CompleteGoogleOAuth exchanges an OAuth code + PKCE verifier, links/creates the user, and issues a session.
+  rpc CompleteGoogleOAuth(CompleteGoogleOAuthRequest) returns (CompleteGoogleOAuthResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/auth/google/callback"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["Google Authentication"]
+      summary: "Complete Google OAuth callback"
+      description: "Exchanges the authorization code and PKCE code verifier with Google, links or provisions the user account, and returns session tokens."
+    };
+  }
+
+  // =========================================================================
   // 5. Organizations
   // =========================================================================
 
@@ -926,6 +954,29 @@ message CompleteGitHubOAuthResponse {
   string access_token = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true, description: "Delivered strictly via HttpOnly Set-Cookie; excluded from JSON body"}];
   string refresh_token = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true, description: "Delivered strictly via HttpOnly Set-Cookie; excluded from JSON body"}];
   LoginUser user = 5;
+}
+
+message StartGoogleOAuthRequest {
+}
+
+message StartGoogleOAuthResponse {
+  string authorize_url = 1;
+  string state = 2;
+  string code_verifier = 3;
+}
+
+message CompleteGoogleOAuthRequest {
+  string code = 1;
+  string code_verifier = 2;
+  // user_agent and client_ip are populated by the API Gateway from HTTP headers and client transport metadata.
+  string user_agent = 3 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true, description: "Extracted automatically by API Gateway from User-Agent HTTP header"}];
+  string client_ip = 4 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true, description: "Extracted automatically by API Gateway from client IP / X-Forwarded-For"}];
+}
+
+message CompleteGoogleOAuthResponse {
+  string access_token = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true, description: "Delivered strictly via HttpOnly Set-Cookie; excluded from JSON body"}];
+  string refresh_token = 2 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true, description: "Delivered strictly via HttpOnly Set-Cookie; excluded from JSON body"}];
+  LoginUser user = 3;
 }
 
 message CallerPrincipal {

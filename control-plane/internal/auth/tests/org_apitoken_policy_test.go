@@ -31,6 +31,9 @@ func newAPITokenFixture(t *testing.T) *apiTokenFixture {
 	if err != nil {
 		t.Fatalf("CreateOrg: %v", err)
 	}
+	if _, err := svc.CreateOrg(context.Background(), adminID, "Admin Default", "admin-default"); err != nil {
+		t.Fatalf("CreateOrg admin: %v", err)
+	}
 	repo.members[o.ID][adminID] = "admin"
 	return &apiTokenFixture{
 		repo: repo, svc: svc, org: o,

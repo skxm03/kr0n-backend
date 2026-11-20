@@ -148,6 +148,38 @@ func GatewayResponseModifier(ctx context.Context, w http.ResponseWriter, resp pr
 			w.Header().Set("Location", frontendURL)
 			w.WriteHeader(http.StatusFound)
 			return nil
+		case *authv1.StartGoogleOAuthResponse:
+			if m.CodeVerifier != "" {
+				http.SetCookie(w, &http.Cookie{
+					Name:     "google_oauth_verifier",
+					Value:    m.CodeVerifier,
+					Path:     "/",
+					HttpOnly: true,
+					SameSite: http.SameSiteLaxMode,
+					MaxAge:   600, // 10 minutes
+				})
+			}
+		case *authv1.CompleteGoogleOAuthResponse:
+			if m.AccessToken != "" || m.RefreshToken != "" {
+				SetAuthCookies(w, m.AccessToken, m.RefreshToken)
+				m.AccessToken = ""
+				m.RefreshToken = ""
+			}
+			http.SetCookie(w, &http.Cookie{
+				Name:     "google_oauth_verifier",
+				Value:    "",
+				Path:     "/",
+				HttpOnly: true,
+				SameSite: http.SameSiteLaxMode,
+				MaxAge:   -1,
+			})
+			frontendURL := strings.TrimSpace(os.Getenv("FRONTEND_URL"))
+			if frontendURL == "" {
+				frontendURL = "http://localhost:3000"
+			}
+			w.Header().Set("Location", frontendURL)
+			w.WriteHeader(http.StatusFound)
+			return nil
 		case *authv1.LogoutResponse:
 			ClearAuthCookies(w)
 		}
@@ -206,6 +238,9 @@ func GatewayMetadataAnnotator(trustedProxies []*net.IPNet) func(ctx context.Cont
 			md.Set("x-refresh-token", strings.TrimSpace(h))
 		}
 		if c, err := r.Cookie("github_oauth_verifier"); err == nil && strings.TrimSpace(c.Value) != "" {
+			md.Set("x-code-verifier", strings.TrimSpace(c.Value))
+		}
+		if c, err := r.Cookie("google_oauth_verifier"); err == nil && strings.TrimSpace(c.Value) != "" {
 			md.Set("x-code-verifier", strings.TrimSpace(c.Value))
 		}
 

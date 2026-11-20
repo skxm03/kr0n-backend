@@ -55,6 +55,25 @@ func TestUserPostgresRepository_CreateWithPassword_Success(t *testing.T) {
 	if gotHash != passwordHash {
 		t.Fatalf("expected hash %q, got %q", passwordHash, gotHash)
 	}
+
+	// Verify default organization and membership created
+	var (
+		defaultOrgID   uuid.UUID
+		defaultOrgName string
+		defaultRole    string
+	)
+	err = pool.QueryRow(ctx, `
+		SELECT o.id, o.name, om.role_id
+		FROM organizations o
+		JOIN organization_memberships om ON om.organization_id = o.id
+		WHERE om.user_id = $1
+	`, u.ID).Scan(&defaultOrgID, &defaultOrgName, &defaultRole)
+	if err != nil {
+		t.Fatalf("failed to query default organization: %v", err)
+	}
+	if defaultOrgName != "Test User's org" || defaultRole != "owner" {
+		t.Fatalf("unexpected default org: name=%q, role=%q", defaultOrgName, defaultRole)
+	}
 }
 
 func TestUserPostgresRepository_CreateWithPassword_DuplicateEmail(t *testing.T) {

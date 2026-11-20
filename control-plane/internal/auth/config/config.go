@@ -34,6 +34,9 @@ type Config struct {
 	GitHubClientID                 string        `env:"GITHUB_CLIENT_ID"`
 	GitHubClientSecret             string        `env:"GITHUB_CLIENT_SECRET"`
 	GitHubRedirectURL              string        `env:"GITHUB_REDIRECT_URL"`
+	GoogleClientID                 string        `env:"GOOGLE_CLIENT_ID"`
+	GoogleClientSecret             string        `env:"GOOGLE_CLIENT_SECRET"`
+	GoogleRedirectURL              string        `env:"GOOGLE_REDIRECT_URL"`
 	GitHubAppID                    string        `env:"GITHUB_APP_ID"`
 	GitHubAppSlug                  string        `env:"GITHUB_APP_SLUG"`
 	GitHubAppPrivateKey            string        `env:"GITHUB_APP_PRIVATE_KEY"`

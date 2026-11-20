@@ -41,6 +41,9 @@ func TestOrgPostgresRepository_APITokenMembershipDemotionAndRemoval(t *testing.T
 	if err != nil {
 		t.Fatalf("CreateOrg: %v", err)
 	}
+	if _, err := svc.CreateOrg(ctx, adminID, "Admin Default", "admin-default-"+slug); err != nil {
+		t.Fatalf("CreateOrg admin: %v", err)
+	}
 	ownerP := repository.Principal{UserID: ownerID, Kind: "session"}
 	adminP := repository.Principal{UserID: adminID, Kind: "session"}
 
@@ -229,6 +232,82 @@ func TestOrgPostgresRepository_GitHubInstallations(t *testing.T) {
 	afterDelete, err := repo.ListGitHubInstallations(ctx, org1.ID)
 	if err != nil || len(afterDelete) != 0 {
 		t.Fatalf("expected empty list after delete, err=%v list=%+v", err, afterDelete)
+	}
+}
+
+func TestOrgPostgresRepository_SoleOrganizationGuards(t *testing.T) {
+	pool := testdb.Pool(t)
+	repo := repository.NewPostgresOrgRepository(pool)
+	svc := service.NewOrgService(repo)
+	userRepo := repository.NewPostgresUserRepository(pool)
+	ctx := context.Background()
+
+	// 1. Create a user via userRepo (which automatically creates their default org)
+	email1 := "sole_user_" + uuid.New().String() + "@kr0n.dev"
+	u1, err := repository.NewUser(email1, "Sole User")
+	if err != nil {
+		t.Fatalf("NewUser failed: %v", err)
+	}
+	if err := userRepo.CreateWithPasswordAndVerificationToken(ctx, u1, "$2a$12$e8I7n.oE/1u9jFq7m5yRyeuG.F/5kX5g5g1", nil); err != nil {
+		t.Fatalf("CreateWithPasswordAndVerificationToken failed: %v", err)
+	}
+
+	userOrgs, err := repo.ListUserOrgs(ctx, u1.ID)
+	if err != nil || len(userOrgs) != 1 {
+		t.Fatalf("expected exactly 1 default org, got %d (err: %v)", len(userOrgs), err)
+	}
+	defaultOrg := userOrgs[0]
+
+	// 2. Attempting to delete their sole org must return ErrSoleOrg
+	if err := repo.DeleteOrg(ctx, defaultOrg.ID); !errors.Is(err, repository.ErrSoleOrg) {
+		t.Fatalf("expected ErrSoleOrg when deleting sole org, got %v", err)
+	}
+
+	// 3. Create second org for user 1
+	slug2 := "second-org-" + uuid.NewString()[:8]
+	org2, err := svc.CreateOrg(ctx, u1.ID, "Second Org", slug2)
+	if err != nil {
+		t.Fatalf("CreateOrg 2 failed: %v", err)
+	}
+
+	// Create user 2 with 0 orgs directly in SQL to test RemoveMember guard for non-owner
+	u2ID := uuid.New()
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO users (id, email, display_name, status)
+		VALUES ($1, $2, 'Member Only', 'active')
+	`, u2ID, "u2_"+u2ID.String()+"@kr0n.dev"); err != nil {
+		t.Fatalf("insert user 2: %v", err)
+	}
+
+	// Add user 2 to org2 as member
+	if _, err := repo.AddMemberByEmail(ctx, org2.ID, "u2_"+u2ID.String()+"@kr0n.dev", "member", time.Now().UTC()); err != nil {
+		t.Fatalf("AddMember user 2 failed: %v", err)
+	}
+
+	// user 2 only belongs to org2. Deleting org2 would leave user 2 without orgs!
+	if err := repo.DeleteOrg(ctx, org2.ID); !errors.Is(err, repository.ErrSoleOrg) {
+		t.Fatalf("expected ErrSoleOrg when deleting org2 because user 2 has no other org, got %v", err)
+	}
+
+	// Removing user 2 from org2 must also fail with ErrSoleOrg because user 2 has no other org
+	if err := repo.RemoveMember(ctx, org2.ID, u2ID); !errors.Is(err, repository.ErrSoleOrg) {
+		t.Fatalf("expected ErrSoleOrg when removing user 2 from sole org, got %v", err)
+	}
+
+	// Now give user 2 their own personal org
+	slugUser2 := "u2-org-" + uuid.NewString()[:8]
+	if _, err := svc.CreateOrg(ctx, u2ID, "User 2 Personal", slugUser2); err != nil {
+		t.Fatalf("CreateOrg user 2 personal failed: %v", err)
+	}
+
+	// Now removing user 2 from org2 must succeed
+	if err := repo.RemoveMember(ctx, org2.ID, u2ID); err != nil {
+		t.Fatalf("expected RemoveMember to succeed now that user 2 has personal org, got %v", err)
+	}
+
+	// And now u1 can delete org2, since u1 still has defaultOrg
+	if err := repo.DeleteOrg(ctx, org2.ID); err != nil {
+		t.Fatalf("expected DeleteOrg to succeed when u1 has another org, got %v", err)
 	}
 }
 

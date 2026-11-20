@@ -34,6 +34,7 @@ func mapOrgError(err error) error {
 		errors.Is(err, repository.ErrInstallationAlreadyLinked):
 		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.Is(err, repository.ErrLastOwner),
+		errors.Is(err, repository.ErrSoleOrg),
 		errors.Is(err, oauth.ErrGitHubAppNotConfigured):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, repository.ErrInvalidOrg),

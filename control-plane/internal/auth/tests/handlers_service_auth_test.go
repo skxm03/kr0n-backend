@@ -624,6 +624,16 @@ func TestServiceAuth_SensitiveRPC_TrustBoundary(t *testing.T) {
 		}
 	})
 
+	t.Run("CompleteGoogleOAuth rejects untrusted service caller", func(t *testing.T) {
+		_, err := s.CompleteGoogleOAuth(untrustedCtx, &authv1.CompleteGoogleOAuthRequest{
+			Code:         "code",
+			CodeVerifier: "verifier",
+		})
+		if status.Code(err) != codes.Unauthenticated {
+			t.Fatalf("expected Unauthenticated, got %v", err)
+		}
+	})
+
 	t.Run("CreateOrganization rejects untrusted service caller", func(t *testing.T) {
 		_, err := s.CreateOrganization(untrustedCtx, &authv1.CreateOrganizationRequest{
 			Caller: caller,

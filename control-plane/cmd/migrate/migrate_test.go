@@ -56,8 +56,8 @@ func TestMigrationsLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get version: %v", err)
 	}
-	if version != 3 || dirty {
-		t.Fatalf("expected version 3 (dirty: false), got version %d (dirty: %t)", version, dirty)
+	if version != 5 || dirty {
+		t.Fatalf("expected version 5 (dirty: false), got version %d (dirty: %t)", version, dirty)
 	}
 
 	// Step 3: Migration up again (idempotency check)
@@ -306,8 +306,8 @@ func TestMigrationsLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get version after re-apply: %v", err)
 	}
-	if versionAfterReapply != 3 || dirtyAfterReapply {
-		t.Fatalf("expected version 3 (dirty: false) after re-apply, got %d (dirty: %t)", versionAfterReapply, dirtyAfterReapply)
+	if versionAfterReapply != 5 || dirtyAfterReapply {
+		t.Fatalf("expected version 5 (dirty: false) after re-apply, got %d (dirty: %t)", versionAfterReapply, dirtyAfterReapply)
 	}
 
 	t.Log("Integration test completed successfully!")

@@ -664,6 +664,82 @@
         ]
       }
     },
+    "/api/v1/auth/google/start": {
+      "get": {
+        "summary": "Start Google OAuth login",
+        "description": "Generates an RFC 7636 PKCE challenge and state token, returning the Google authorization URL for the browser to redirect to.",
+        "operationId": "AuthService_StartGoogleOAuth",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1StartGoogleOAuthResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "Google Authentication"
+        ]
+      }
+    },
+    "/api/v1/auth/google/callback": {
+      "get": {
+        "summary": "Complete Google OAuth callback",
+        "description": "Exchanges the authorization code and PKCE code verifier with Google, links or provisions the user account, and returns session tokens.",
+        "operationId": "AuthService_CompleteGoogleOAuth",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1CompleteGoogleOAuthResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "code_verifier",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "user_agent",
+            "description": "Extracted automatically by API Gateway from User-Agent HTTP header",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "client_ip",
+            "description": "Extracted automatically by API Gateway from client IP / X-Forwarded-For",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Google Authentication"
+        ]
+      }
+    },
     "/api/v1/orgs": {
       "get": {
         "summary": "List user organizations",
@@ -2262,6 +2338,24 @@
         }
       }
     },
+    "v1CompleteGoogleOAuthResponse": {
+      "type": "object",
+      "properties": {
+        "access_token": {
+          "type": "string",
+          "description": "Delivered strictly via HttpOnly Set-Cookie; excluded from JSON body",
+          "readOnly": true
+        },
+        "refresh_token": {
+          "type": "string",
+          "description": "Delivered strictly via HttpOnly Set-Cookie; excluded from JSON body",
+          "readOnly": true
+        },
+        "user": {
+          "$ref": "#/definitions/v1LoginUser"
+        }
+      }
+    },
     "v1ConfirmPasswordResetRequest": {
       "type": "object",
       "properties": {
@@ -2924,6 +3018,20 @@
       }
     },
     "v1StartGitHubOAuthResponse": {
+      "type": "object",
+      "properties": {
+        "authorize_url": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "code_verifier": {
+          "type": "string"
+        }
+      }
+    },
+    "v1StartGoogleOAuthResponse": {
       "type": "object",
       "properties": {
         "authorize_url": {

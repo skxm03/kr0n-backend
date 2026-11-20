@@ -34,6 +34,8 @@ const (
 	AuthService_ChangePassword_FullMethodName               = "/auth.v1.AuthService/ChangePassword"
 	AuthService_StartGitHubOAuth_FullMethodName             = "/auth.v1.AuthService/StartGitHubOAuth"
 	AuthService_CompleteGitHubOAuth_FullMethodName          = "/auth.v1.AuthService/CompleteGitHubOAuth"
+	AuthService_StartGoogleOAuth_FullMethodName             = "/auth.v1.AuthService/StartGoogleOAuth"
+	AuthService_CompleteGoogleOAuth_FullMethodName          = "/auth.v1.AuthService/CompleteGoogleOAuth"
 	AuthService_CreateOrganization_FullMethodName           = "/auth.v1.AuthService/CreateOrganization"
 	AuthService_ListOrganizations_FullMethodName            = "/auth.v1.AuthService/ListOrganizations"
 	AuthService_GetOrganization_FullMethodName              = "/auth.v1.AuthService/GetOrganization"
@@ -97,6 +99,10 @@ type AuthServiceClient interface {
 	StartGitHubOAuth(ctx context.Context, in *StartGitHubOAuthRequest, opts ...grpc.CallOption) (*StartGitHubOAuthResponse, error)
 	// CompleteGitHubOAuth exchanges an OAuth code + PKCE verifier, links/creates the user, and issues a session.
 	CompleteGitHubOAuth(ctx context.Context, in *CompleteGitHubOAuthRequest, opts ...grpc.CallOption) (*CompleteGitHubOAuthResponse, error)
+	// StartGoogleOAuth generates a PKCE challenge, state, and Google authorize URL.
+	StartGoogleOAuth(ctx context.Context, in *StartGoogleOAuthRequest, opts ...grpc.CallOption) (*StartGoogleOAuthResponse, error)
+	// CompleteGoogleOAuth exchanges an OAuth code + PKCE verifier, links/creates the user, and issues a session.
+	CompleteGoogleOAuth(ctx context.Context, in *CompleteGoogleOAuthRequest, opts ...grpc.CallOption) (*CompleteGoogleOAuthResponse, error)
 	// CreateOrganization creates an organization with the caller as owner.
 	CreateOrganization(ctx context.Context, in *CreateOrganizationRequest, opts ...grpc.CallOption) (*CreateOrganizationResponse, error)
 	// ListOrganizations lists all organizations the user belongs to.
@@ -304,6 +310,26 @@ func (c *authServiceClient) CompleteGitHubOAuth(ctx context.Context, in *Complet
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CompleteGitHubOAuthResponse)
 	err := c.cc.Invoke(ctx, AuthService_CompleteGitHubOAuth_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) StartGoogleOAuth(ctx context.Context, in *StartGoogleOAuthRequest, opts ...grpc.CallOption) (*StartGoogleOAuthResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StartGoogleOAuthResponse)
+	err := c.cc.Invoke(ctx, AuthService_StartGoogleOAuth_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) CompleteGoogleOAuth(ctx context.Context, in *CompleteGoogleOAuthRequest, opts ...grpc.CallOption) (*CompleteGoogleOAuthResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CompleteGoogleOAuthResponse)
+	err := c.cc.Invoke(ctx, AuthService_CompleteGoogleOAuth_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -596,6 +622,10 @@ type AuthServiceServer interface {
 	StartGitHubOAuth(context.Context, *StartGitHubOAuthRequest) (*StartGitHubOAuthResponse, error)
 	// CompleteGitHubOAuth exchanges an OAuth code + PKCE verifier, links/creates the user, and issues a session.
 	CompleteGitHubOAuth(context.Context, *CompleteGitHubOAuthRequest) (*CompleteGitHubOAuthResponse, error)
+	// StartGoogleOAuth generates a PKCE challenge, state, and Google authorize URL.
+	StartGoogleOAuth(context.Context, *StartGoogleOAuthRequest) (*StartGoogleOAuthResponse, error)
+	// CompleteGoogleOAuth exchanges an OAuth code + PKCE verifier, links/creates the user, and issues a session.
+	CompleteGoogleOAuth(context.Context, *CompleteGoogleOAuthRequest) (*CompleteGoogleOAuthResponse, error)
 	// CreateOrganization creates an organization with the caller as owner.
 	CreateOrganization(context.Context, *CreateOrganizationRequest) (*CreateOrganizationResponse, error)
 	// ListOrganizations lists all organizations the user belongs to.
@@ -703,6 +733,12 @@ func (UnimplementedAuthServiceServer) StartGitHubOAuth(context.Context, *StartGi
 }
 func (UnimplementedAuthServiceServer) CompleteGitHubOAuth(context.Context, *CompleteGitHubOAuthRequest) (*CompleteGitHubOAuthResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CompleteGitHubOAuth not implemented")
+}
+func (UnimplementedAuthServiceServer) StartGoogleOAuth(context.Context, *StartGoogleOAuthRequest) (*StartGoogleOAuthResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method StartGoogleOAuth not implemented")
+}
+func (UnimplementedAuthServiceServer) CompleteGoogleOAuth(context.Context, *CompleteGoogleOAuthRequest) (*CompleteGoogleOAuthResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CompleteGoogleOAuth not implemented")
 }
 func (UnimplementedAuthServiceServer) CreateOrganization(context.Context, *CreateOrganizationRequest) (*CreateOrganizationResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateOrganization not implemented")
@@ -1066,6 +1102,42 @@ func _AuthService_CompleteGitHubOAuth_Handler(srv interface{}, ctx context.Conte
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AuthServiceServer).CompleteGitHubOAuth(ctx, req.(*CompleteGitHubOAuthRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_StartGoogleOAuth_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StartGoogleOAuthRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).StartGoogleOAuth(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_StartGoogleOAuth_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).StartGoogleOAuth(ctx, req.(*StartGoogleOAuthRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_CompleteGoogleOAuth_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CompleteGoogleOAuthRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).CompleteGoogleOAuth(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_CompleteGoogleOAuth_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).CompleteGoogleOAuth(ctx, req.(*CompleteGoogleOAuthRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1586,6 +1658,14 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CompleteGitHubOAuth",
 			Handler:    _AuthService_CompleteGitHubOAuth_Handler,
+		},
+		{
+			MethodName: "StartGoogleOAuth",
+			Handler:    _AuthService_StartGoogleOAuth_Handler,
+		},
+		{
+			MethodName: "CompleteGoogleOAuth",
+			Handler:    _AuthService_CompleteGoogleOAuth_Handler,
 		},
 		{
 			MethodName: "CreateOrganization",
