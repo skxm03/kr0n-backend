@@ -23,7 +23,7 @@ doctor: check-env
 
 ## dev-infra: Start dev backing services in Docker Compose and wait for healthchecks
 dev-infra:
-	@echo "Starting development backing services (PostgreSQL on port 5433, Redis, RabbitMQ, Mailpit)..."
+	@echo "Starting development backing services (PostgreSQL:5433, Redis, RabbitMQ, Mailpit, Swagger UI:8081)..."
 	@docker compose -f $(DEV_COMPOSE) up -d --wait
 	@echo "All development backing services are healthy and ready."
 
@@ -112,14 +112,10 @@ certs:
 	@chmod +x scripts/gen-certs.sh
 	@./scripts/gen-certs.sh ./certs
 
-## swagger-ui: Launch an interactive Swagger UI container at http://localhost:8081
+## swagger-ui: Ensure Swagger UI container is running and print access URL (http://localhost:8081)
 swagger-ui:
-	@echo "Starting Swagger UI at http://localhost:8081..."
-	@docker run --rm -p 8081:8080 \
-		-e URLS="[{url: 'specs/auth.swagger.json', name: 'Auth API'}, {url: 'specs/github.swagger.json', name: 'GitHub VCS API'}]" \
-		-v $(PWD)/control-plane/gen/openapiv2/auth/v1/auth.swagger.json:/usr/share/nginx/html/specs/auth.swagger.json:ro \
-		-v $(PWD)/control-plane/gen/openapiv2/github/v1/github.swagger.json:/usr/share/nginx/html/specs/github.swagger.json:ro \
-		swaggerapi/swagger-ui
+	@docker compose -f $(DEV_COMPOSE) up -d swagger-ui
+	@echo "Swagger UI is running at http://localhost:8081"
 
 ## proto: Regenerate gRPC stubs, gateway handlers, and OpenAPI specifications
 proto:
