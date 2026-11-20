@@ -12,6 +12,7 @@ RUN go mod download
 COPY cmd/ ./cmd/
 COPY gen/ ./gen/
 COPY internal/ ./internal/
+COPY pkg/ ./pkg/
 
 # Build static binary
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/kr0n-github ./cmd/github

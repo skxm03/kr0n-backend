@@ -1,4 +1,4 @@
-.PHONY: all certs test test-race e2e build clean dev dev-infra dev-infra-down dev-infra-logs migrate-up migrate-down migrate-status dev-auth dev-gateway dev-github dev-mailer docker-build docker-up docker-down check-env doctor
+.PHONY: all certs test test-race e2e build clean dev dev-infra dev-infra-down dev-infra-logs migrate-up migrate-down migrate-status dev-auth dev-gateway dev-github dev-mailer dev-audit docker-build docker-up docker-down check-env doctor
 
 DEV_COMPOSE := infrastructure/docker/docker-compose.dev.yml
 FULL_COMPOSE := infrastructure/docker/compose.yaml
@@ -56,7 +56,7 @@ migrate-status:
 ## Hot Reload Development (Air)
 ## -----------------------------------------------------------------------------
 
-## dev: Verify config, boot dev infra, apply migrations, and launch all 4 microservices with Air
+## dev: Verify config, boot dev infra, apply migrations, and launch all 5 microservices with Air
 dev: check-env dev-infra migrate-up
 	@echo "Starting all microservices with Air live reloading (Ctrl+C to stop)..."
 	@trap 'kill 0' EXIT INT TERM; \
@@ -64,6 +64,7 @@ dev: check-env dev-infra migrate-up
 	(cd control-plane && air -c .air.gateway.toml) & \
 	(cd control-plane && air -c .air.github.toml) & \
 	(cd control-plane && air -c .air.mailer.toml) & \
+	(cd control-plane && air -c .air.audit.toml) & \
 	wait
 
 ## dev-auth: Run Auth microservice with Air live reloading
@@ -81,6 +82,10 @@ dev-github: dev-infra
 ## dev-mailer: Run Batch Mailer microservice with Air live reloading
 dev-mailer: dev-infra
 	@cd control-plane && air -c .air.mailer.toml
+
+## dev-audit: Run Stateless Audit Worker microservice with Air live reloading
+dev-audit: dev-infra
+	@cd control-plane && air -c .air.audit.toml
 
 ## -----------------------------------------------------------------------------
 ## Docker Build & Full-Stack Compose
@@ -126,6 +131,7 @@ build:
 	@cd control-plane && go build -trimpath -o bin/kr0n-gateway ./cmd/gateway
 	@cd control-plane && go build -trimpath -o bin/kr0n-github ./cmd/github
 	@cd control-plane && go build -trimpath -o bin/kr0n-mailer ./cmd/mailer
+	@cd control-plane && go build -trimpath -o bin/kr0n-audit ./cmd/audit
 	@cd control-plane && go build -trimpath -o bin/kr0n-migrate ./cmd/migrate
 
 ## clean: Remove generated certificates, binaries, and Air temp build files

@@ -2,8 +2,8 @@ name: kr0n
 
 include:
   - path: ./mailer/compose.yaml
+  - path: ./audit/compose.yaml
   - path: ./auth/compose.yaml
-  - path: ./github/compose.yaml
   - path: ./gateway/compose.yaml
 
 services:
@@ -11,13 +11,17 @@ services:
     depends_on:
       mailer-rabbitmq:
         condition: service_healthy
-  github:
-    depends_on:
-      auth:
+      audit-rabbitmq:
         condition: service_healthy
+  audit:
+    depends_on:
+      auth-postgres:
+        condition: service_healthy
+      auth-migrate:
+        condition: service_completed_successfully
   gateway:
     depends_on:
       auth:
         condition: service_healthy
-      github:
-        condition: service_started
+      audit-rabbitmq:
+        condition: service_healthy

@@ -20,13 +20,15 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/github/config"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/github/handlers"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/github/service"
+	pkgAudit "github.com/skxm03/kr0n-backend/control-plane/pkg/audit"
 )
 
 // App manages the GitHub microservice lifecycle and dependencies.
 type App struct {
-	cfg        *config.Config
-	authConn   *grpc.ClientConn
-	grpcServer *grpc.Server
+	cfg          *config.Config
+	authConn     *grpc.ClientConn
+	auditEmitter pkgAudit.Emitter
+	grpcServer   *grpc.Server
 }
 
 // NewApp initializes dependencies, Auth Service gRPC client, GitHub REST client, and gRPC server.
@@ -81,19 +83,38 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 		serverOpts = append(serverOpts, grpc.Creds(credentials.NewTLS(tlsCfg)))
 	}
 
+	var auditEmitter pkgAudit.Emitter
+	if cfg.AuditRabbitMQURL != "" {
+		emitter, err := pkgAudit.NewRabbitMQEmitter(pkgAudit.EmitterConfig{
+			AMQPURL:      cfg.AuditRabbitMQURL,
+			ServiceName:  "github",
+			ExchangeName: cfg.AuditExchangeName,
+		})
+		if err != nil {
+			_ = authConn.Close()
+			return nil, fmt.Errorf("connect github audit rabbitmq emitter: %w", err)
+		}
+		auditEmitter = emitter
+		serverOpts = append(serverOpts, grpc.UnaryInterceptor(pkgAudit.UnaryServerInterceptor(auditEmitter, "github", nil)))
+	}
+
 	grpcServer := grpc.NewServer(serverOpts...)
 	githubv1.RegisterGitHubServiceServer(grpcServer, handler)
 
 	return &App{
-		cfg:        cfg,
-		authConn:   authConn,
-		grpcServer: grpcServer,
+		cfg:          cfg,
+		authConn:     authConn,
+		auditEmitter: auditEmitter,
+		grpcServer:   grpcServer,
 	}, nil
 }
 
 // Run listens and serves incoming gRPC traffic until ctx is canceled.
 func (a *App) Run(ctx context.Context) error {
 	defer a.authConn.Close()
+	if a.auditEmitter != nil {
+		defer a.auditEmitter.Close()
+	}
 
 	addr := ":" + a.cfg.GRPCPort
 	lis, err := net.Listen("tcp", addr)

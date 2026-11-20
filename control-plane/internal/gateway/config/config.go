@@ -18,6 +18,8 @@ type Config struct {
 	JWTAudience       string   `env:"JWT_AUDIENCE" envDefault:"kr0n-api"`
 	RedisAddr         string   `env:"REDIS_ADDR" envDefault:"localhost:6379"`
 	TrustedProxyCIDRs []string `env:"TRUSTED_PROXY_CIDRS"`
+	AuditRabbitMQURL  string   `env:"AUDIT_RABBITMQ_URL"`
+	AuditExchangeName string   `env:"AUDIT_EXCHANGE_NAME"`
 
 	// Upstream Auth TLS optional overrides
 	AuthGRPCTLSCAFile   string `env:"AUTH_GRPC_TLS_CA_FILE"`

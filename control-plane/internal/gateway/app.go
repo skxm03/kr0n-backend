@@ -29,15 +29,17 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/middleware"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/middleware/builtins"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/ratelimit"
+	pkgAudit "github.com/skxm03/kr0n-backend/control-plane/pkg/audit"
 )
 
 // App encapsulates the API Gateway HTTP server and its backing connections.
 type App struct {
-	authConn   *grpc.ClientConn
-	rdb        *redis.Client
-	server     *http.Server
-	dynManager *dynamicrouter.Manager
-	dynWatcher *dynamicwatcher.Watcher
+	authConn     *grpc.ClientConn
+	rdb          *redis.Client
+	auditEmitter pkgAudit.Emitter
+	server       *http.Server
+	dynManager   *dynamicrouter.Manager
+	dynWatcher   *dynamicwatcher.Watcher
 }
 
 // NewApp wires the Auth gRPC client, JWKS verifier, Redis rate limiters, and dynamic HTTP router.
@@ -131,10 +133,26 @@ func NewApp(cfg *config.Config) (*App, error) {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	apiTokenVerifier := NewGRPCAPITokenVerifier(authClient)
 
+	var auditEmitter pkgAudit.Emitter
+	if strings.TrimSpace(cfg.AuditRabbitMQURL) != "" {
+		emitter, err := pkgAudit.NewRabbitMQEmitter(pkgAudit.EmitterConfig{
+			AMQPURL:      cfg.AuditRabbitMQURL,
+			ServiceName:  "gateway",
+			ExchangeName: cfg.AuditExchangeName,
+		})
+		if err != nil {
+			_ = rdb.Close()
+			_ = authConn.Close()
+			return nil, fmt.Errorf("connect gateway audit rabbitmq emitter: %w", err)
+		}
+		auditEmitter = emitter
+	}
+
 	// 6. Build Middleware Registry
 	mwReg := middleware.NewRegistry()
 	_ = builtins.RegisterDefaults(mwReg, builtins.SharedDeps{
 		Logger:           logger,
+		AuditEmitter:     auditEmitter,
 		Verifier:         verifier,
 		APITokenVerifier: apiTokenVerifier,
 		Limiter:          generalLimiter,
@@ -170,6 +188,9 @@ func NewApp(cfg *config.Config) (*App, error) {
 	})
 
 	if err := dynManager.Initialize(context.Background(), dynCfg); err != nil {
+		if auditEmitter != nil {
+			_ = auditEmitter.Close()
+		}
 		_ = rdb.Close()
 		_ = authConn.Close()
 		return nil, fmt.Errorf("initialize dynamic gateway router: %w", err)
@@ -184,6 +205,9 @@ func NewApp(cfg *config.Config) (*App, error) {
 		return dynManager.Reload(ctx, newCfg)
 	}, logger)
 	if err != nil {
+		if auditEmitter != nil {
+			_ = auditEmitter.Close()
+		}
 		_ = rdb.Close()
 		_ = authConn.Close()
 		return nil, fmt.Errorf("initialize dynamic config watcher: %w", err)
@@ -200,11 +224,12 @@ func NewApp(cfg *config.Config) (*App, error) {
 	}
 
 	return &App{
-		authConn:   authConn,
-		rdb:        rdb,
-		server:     server,
-		dynManager: dynManager,
-		dynWatcher: dynWatcher,
+		authConn:     authConn,
+		rdb:          rdb,
+		auditEmitter: auditEmitter,
+		server:       server,
+		dynManager:   dynManager,
+		dynWatcher:   dynWatcher,
 	}, nil
 }
 
@@ -212,6 +237,9 @@ func NewApp(cfg *config.Config) (*App, error) {
 func (a *App) Run(ctx context.Context) error {
 	defer a.authConn.Close()
 	defer a.rdb.Close()
+	if a.auditEmitter != nil {
+		defer a.auditEmitter.Close()
+	}
 	if a.dynManager != nil {
 		defer a.dynManager.Close()
 	}

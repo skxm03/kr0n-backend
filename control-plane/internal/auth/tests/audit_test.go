@@ -10,6 +10,7 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/service"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/testdb"
+	pkgAudit "github.com/skxm03/kr0n-backend/control-plane/pkg/audit"
 )
 
 type memAuditRepo struct {
@@ -79,6 +80,38 @@ func TestAuditService_RecordAndListByOrg(t *testing.T) {
 	}
 	if len(events) != 1 || events[0].Action != "apitoken.created" || events[0].ActorType != repository.ActorTypeUser {
 		t.Fatalf("unexpected events: %+v", events)
+	}
+}
+
+func TestAuditService_WithAuditEmitter(t *testing.T) {
+	repo := &memAuditRepo{}
+	emitter := pkgAudit.NewMemoryEmitter("auth")
+	svc := service.NewAuditService(repo, service.WithAuditEmitter(emitter))
+	ctx := context.Background()
+
+	orgID := uuid.New()
+	actorID := uuid.New()
+	if err := svc.Record(ctx, repository.AuditEvent{
+		OrganizationID: &orgID,
+		ActorUserID:    &actorID,
+		Action:         "org.created",
+		ResourceType:   "organization",
+		ResourceID:     orgID.String(),
+		Metadata:       map[string]any{"request_id": "req-100"},
+	}); err != nil {
+		t.Fatalf("Record with emitter failed: %v", err)
+	}
+
+	// Repository Insert must NOT be called directly when emitter is configured
+	if len(repo.events) != 0 {
+		t.Fatalf("expected repo to have 0 direct inserts when emitter is used, got %d", len(repo.events))
+	}
+	emitted := emitter.Events()
+	if len(emitted) != 1 {
+		t.Fatalf("expected 1 emitted event, got %d", len(emitted))
+	}
+	if emitted[0].Action != "org.created" || emitted[0].Service != "auth" || emitted[0].ClientContext.RequestID != "req-100" {
+		t.Fatalf("unexpected emitted event: %+v", emitted[0])
 	}
 }
 

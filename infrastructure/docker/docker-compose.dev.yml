@@ -51,6 +51,24 @@ services:
       timeout: 5s
       retries: 20
 
+  audit-rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: kr0n-dev-audit-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${AUDIT_RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${AUDIT_RABBITMQ_PASSWORD:-guest}
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    volumes:
+      - kr0n_dev_audit_rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
   mailpit:
     image: axllent/mailpit:latest
     container_name: kr0n-dev-mailpit
@@ -66,3 +84,5 @@ volumes:
     name: kr0n_dev_redis_data
   kr0n_dev_rabbitmq_data:
     name: kr0n_dev_rabbitmq_data
+  kr0n_dev_audit_rabbitmq_data:
+    name: kr0n_dev_audit_rabbitmq_data

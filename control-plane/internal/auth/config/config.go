@@ -23,6 +23,8 @@ type Config struct {
 	RequireVerifiedEmail           bool          `env:"REQUIRE_VERIFIED_EMAIL"`
 	RabbitMQURL                    string        `env:"RABBITMQ_URL"`
 	EmailQueueName                 string        `env:"EMAIL_QUEUE_NAME"`
+	AuditRabbitMQURL               string        `env:"AUDIT_RABBITMQ_URL"`
+	AuditExchangeName              string        `env:"AUDIT_EXCHANGE_NAME"`
 	GitHubClientID                 string        `env:"GITHUB_CLIENT_ID"`
 	GitHubClientSecret             string        `env:"GITHUB_CLIENT_SECRET"`
 	GitHubRedirectURL              string        `env:"GITHUB_REDIRECT_URL"`

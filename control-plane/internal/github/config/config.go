@@ -23,6 +23,10 @@ type Config struct {
 	TLSCAFile             string
 	TLSClientAuth         bool
 	InsecureDevSkipVerify bool
+
+	// Audit settings
+	AuditRabbitMQURL  string
+	AuditExchangeName string
 }
 
 // Load reads configuration from environment variables with production defaults.
@@ -40,6 +44,8 @@ func Load() (*Config, error) {
 		TLSCAFile:             os.Getenv("GITHUB_TLS_CA_FILE"),
 		TLSClientAuth:         getEnvBool("GITHUB_TLS_CLIENT_AUTH", false),
 		InsecureDevSkipVerify: getEnvBool("GITHUB_INSECURE_DEV_SKIP_VERIFY", false),
+		AuditRabbitMQURL:      os.Getenv("AUDIT_RABBITMQ_URL"),
+		AuditExchangeName:     getEnv("AUDIT_EXCHANGE_NAME", "audit.events"),
 	}
 
 	if cfg.TLSEnabled {

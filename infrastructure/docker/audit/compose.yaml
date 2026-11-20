@@ -1,0 +1,69 @@
+name: kr0n-audit
+
+services:
+  audit-rabbitmq:
+    image: rabbitmq:4-management-alpine
+    container_name: kr0n-audit-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${AUDIT_RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${AUDIT_RABBITMQ_PASSWORD:-guest}
+    ports:
+      - "${AUDIT_RABBITMQ_AMQP_HOST_PORT:-5673}:5672"
+      - "${AUDIT_RABBITMQ_UI_HOST_PORT:-15673}:15672"
+    volumes:
+      - kr0n_audit_rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      audit_private:
+      control_plane:
+        aliases:
+          - audit-rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  audit:
+    build:
+      context: ../../../control-plane
+      dockerfile: ../infrastructure/docker/audit/Dockerfile
+      target: audit
+    image: kr0n/audit:${IMAGE_TAG:-dev}
+    container_name: kr0n-audit
+    restart: unless-stopped
+    environment:
+      KR0N_ENV: ${KR0N_ENV:-dev}
+      DATABASE_URL: ${AUTH_DATABASE_URL:-postgres://${AUTH_POSTGRES_USER:-kr0n}:${AUTH_POSTGRES_PASSWORD:-kr0n_dev_password}@auth-postgres:5432/${AUTH_POSTGRES_DB:-kr0n}?sslmode=disable}
+      AUDIT_RABBITMQ_URL: ${AUDIT_RABBITMQ_URL:-amqp://${AUDIT_RABBITMQ_USER:-guest}:${AUDIT_RABBITMQ_PASSWORD:-guest}@audit-rabbitmq:5672/}
+      AUDIT_EXCHANGE_NAME: ${AUDIT_EXCHANGE_NAME:-audit.events}
+      AUDIT_QUEUE_NAME: ${AUDIT_QUEUE_NAME:-audit.events.worker}
+      AUDIT_BATCH_SIZE: ${AUDIT_BATCH_SIZE:-100}
+      AUDIT_BATCH_TIMEOUT: ${AUDIT_BATCH_TIMEOUT:-200ms}
+      AUDIT_MAX_RETRIES: ${AUDIT_MAX_RETRIES:-3}
+      AUDIT_RETRY_BACKOFF: ${AUDIT_RETRY_BACKOFF:-100ms}
+      AUDIT_SINKS: ${AUDIT_SINKS:-postgres,logger}
+    depends_on:
+      audit-rabbitmq:
+        condition: service_healthy
+    networks:
+      - audit_private
+      - auth_private
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  audit_private:
+    name: kr0n_audit_private
+    driver: bridge
+  auth_private:
+    name: kr0n_auth_private
+    driver: bridge
+  control_plane:
+    name: kr0n_control_plane
+    driver: bridge
+
+volumes:
+  kr0n_audit_rabbitmq_data:
+    name: kr0n_audit_rabbitmq_data
