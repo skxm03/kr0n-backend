@@ -181,3 +181,53 @@ func TestAuditPostgresActionFilter(t *testing.T) {
 		})
 	}
 }
+
+func TestAuditPostgres_IdempotentDuplicateInsert(t *testing.T) {
+	pool := testdb.Pool(t)
+	repo := repository.NewPostgresAuditRepository(pool)
+	ctx := context.Background()
+
+	orgID := uuid.New()
+	if _, err := pool.Exec(ctx, "INSERT INTO organizations (id, name, slug) VALUES ($1, 'Idempotency Test Org', $2)", orgID, orgID.String()); err != nil {
+		t.Fatal(err)
+	}
+
+	eventID := uuid.New()
+	ev := repository.AuditEvent{
+		ID:             eventID,
+		OrganizationID: &orgID,
+		Action:         "user.login",
+		ResourceType:   "user",
+		ResourceID:     "user-123",
+		CreatedAt:      time.Now().UTC(),
+		Metadata:       map[string]any{"source": "test"},
+	}
+
+	// First insert
+	if err := repo.Insert(ctx, ev); err != nil {
+		t.Fatalf("first insert failed: %v", err)
+	}
+
+	// Duplicate insert with same ID should not error (ON CONFLICT (id) DO NOTHING)
+	if err := repo.Insert(ctx, ev); err != nil {
+		t.Fatalf("duplicate insert failed (expected ON CONFLICT DO NOTHING): %v", err)
+	}
+
+	// Verify only 1 row was stored and metadata was enriched with defaults
+	events, err := repo.ListByOrg(ctx, orgID, "user.login", 10, 0)
+	if err != nil {
+		t.Fatalf("ListByOrg failed: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event due to deduplication, got %d", len(events))
+	}
+	if events[0].ID != eventID {
+		t.Fatalf("expected event ID %s, got %s", eventID, events[0].ID)
+	}
+	if events[0].Metadata["service"] != "auth" {
+		t.Errorf("expected default metadata service=auth, got %v", events[0].Metadata["service"])
+	}
+	if events[0].Metadata["status"] != "success" {
+		t.Errorf("expected default metadata status=success, got %v", events[0].Metadata["status"])
+	}
+}

@@ -3,6 +3,7 @@ package audit
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"time"
 
@@ -10,6 +11,10 @@ import (
 
 	pkgAudit "github.com/skxm03/kr0n-backend/control-plane/pkg/audit"
 )
+
+// ErrBrokerDisconnected is returned by BatchProcessor.Run when the RabbitMQ deliveries
+// channel is closed prematurely without caller context cancellation.
+var ErrBrokerDisconnected = errors.New("audit: broker disconnected")
 
 // BatchConfig configures stateless batch accumulation and sink retry behavior.
 type BatchConfig struct {
@@ -80,7 +85,10 @@ func (bp *BatchProcessor) Run(ctx context.Context, deliveries <-chan amqp.Delive
 		case d, ok := <-deliveries:
 			if !ok {
 				flush()
-				return nil
+				if ctx.Err() != nil {
+					return nil
+				}
+				return ErrBrokerDisconnected
 			}
 			if len(batch) == 0 {
 				if !timer.Stop() {

@@ -16,6 +16,7 @@ import (
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/oauth"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
+	pkgAudit "github.com/skxm03/kr0n-backend/control-plane/pkg/audit"
 )
 
 func mapOrgError(err error) error {
@@ -150,8 +151,8 @@ func (s *Server) CreateOrganization(ctx context.Context, req *authv1.CreateOrgan
 		OrganizationID: &oid,
 		ActorUserID:    &p.UserID,
 		ActorType:      actorTypeFromPrincipal(p),
-		Action:         "org.created",
-		ResourceType:   "organization",
+		Action:         pkgAudit.ActionOrgCreated.String(),
+		ResourceType:   pkgAudit.TargetTypeOrg,
 		ResourceID:     o.ID.String(),
 		Metadata:       map[string]any{"slug": o.Slug, "name": o.Name},
 	})
@@ -237,8 +238,8 @@ func (s *Server) UpdateOrganization(ctx context.Context, req *authv1.UpdateOrgan
 		OrganizationID: &orgID,
 		ActorUserID:    &actorID,
 		ActorType:      actorTypeFromPrincipal(p),
-		Action:         "org.updated",
-		ResourceType:   "organization",
+		Action:         pkgAudit.ActionOrgUpdated.String(),
+		ResourceType:   pkgAudit.TargetTypeOrg,
 		ResourceID:     orgID.String(),
 		Metadata:       map[string]any{"name": o.Name},
 	})
@@ -272,8 +273,8 @@ func (s *Server) DeleteOrganization(ctx context.Context, req *authv1.DeleteOrgan
 	s.recordAudit(ctx, repository.AuditEvent{
 		ActorUserID:  &actorID,
 		ActorType:    actorTypeFromPrincipal(p),
-		Action:       "org.deleted",
-		ResourceType: "organization",
+		Action:       pkgAudit.ActionOrgDeleted.String(),
+		ResourceType: pkgAudit.TargetTypeOrg,
 		ResourceID:   orgID.String(),
 		Metadata:     map[string]any{"deleted_org_id": orgID.String()},
 	})
@@ -332,8 +333,8 @@ func (s *Server) AddMember(ctx context.Context, req *authv1.AddMemberRequest) (*
 		OrganizationID: &orgID,
 		ActorUserID:    &actorID,
 		ActorType:      actorTypeFromPrincipal(p),
-		Action:         "member.added",
-		ResourceType:   "member",
+		Action:         pkgAudit.ActionOrgMemberAdded.String(),
+		ResourceType:   pkgAudit.TargetTypeOrgMember,
 		ResourceID:     m.UserID.String(),
 		Metadata:       map[string]any{"email": m.Email, "role_id": m.RoleID},
 	})
@@ -371,8 +372,8 @@ func (s *Server) UpdateMemberRole(ctx context.Context, req *authv1.UpdateMemberR
 		OrganizationID: &orgID,
 		ActorUserID:    &actorID,
 		ActorType:      actorTypeFromPrincipal(p),
-		Action:         "member.role_updated",
-		ResourceType:   "member",
+		Action:         pkgAudit.ActionOrgMemberRoleUpdated.String(),
+		ResourceType:   pkgAudit.TargetTypeOrgMember,
 		ResourceID:     targetID.String(),
 		Metadata:       map[string]any{"role_id": strings.ToLower(strings.TrimSpace(req.GetRoleId()))},
 	})
@@ -404,8 +405,8 @@ func (s *Server) RemoveMember(ctx context.Context, req *authv1.RemoveMemberReque
 		OrganizationID: &orgID,
 		ActorUserID:    &actorID,
 		ActorType:      actorTypeFromPrincipal(p),
-		Action:         "member.removed",
-		ResourceType:   "member",
+		Action:         pkgAudit.ActionOrgMemberRemoved.String(),
+		ResourceType:   pkgAudit.TargetTypeOrgMember,
 		ResourceID:     targetID.String(),
 	})
 	return &authv1.RemoveMemberResponse{Message: "member removed successfully"}, nil
@@ -433,8 +434,8 @@ func (s *Server) CreateInvite(ctx context.Context, req *authv1.CreateInviteReque
 		OrganizationID: &orgID,
 		ActorUserID:    &actorID,
 		ActorType:      actorTypeFromPrincipal(p),
-		Action:         "invite.created",
-		ResourceType:   "invite",
+		Action:         pkgAudit.ActionOrgMemberInvited.String(),
+		ResourceType:   pkgAudit.TargetTypeOrgInvite,
 		ResourceID:     inv.ID.String(),
 		Metadata:       map[string]any{"email": inv.Email, "role_id": inv.RoleID},
 	})
@@ -470,8 +471,8 @@ func (s *Server) AcceptInvite(ctx context.Context, req *authv1.AcceptInviteReque
 		OrganizationID: &oid,
 		ActorUserID:    &p.UserID,
 		ActorType:      actorTypeFromPrincipal(p),
-		Action:         "invite.accepted",
-		ResourceType:   "member",
+		Action:         pkgAudit.ActionOrgInviteAccepted.String(),
+		ResourceType:   pkgAudit.TargetTypeOrgMember,
 		ResourceID:     p.UserID.String(),
 		Metadata:       map[string]any{"role_id": o.RoleID},
 	})
@@ -510,8 +511,8 @@ func (s *Server) RevokeInvite(ctx context.Context, req *authv1.RevokeInviteReque
 		OrganizationID: &orgID,
 		ActorUserID:    &actorID,
 		ActorType:      actorTypeFromPrincipal(p),
-		Action:         "invite.revoked",
-		ResourceType:   "invite",
+		Action:         pkgAudit.ActionOrgInviteRevoked.String(),
+		ResourceType:   pkgAudit.TargetTypeOrgInvite,
 		ResourceID:     inviteID.String(),
 	})
 	return &authv1.RevokeInviteResponse{Message: "invite revoked successfully"}, nil
@@ -539,8 +540,8 @@ func (s *Server) CreateAPIToken(ctx context.Context, req *authv1.CreateAPITokenR
 		OrganizationID: &orgID,
 		ActorUserID:    &actorID,
 		ActorType:      actorTypeFromPrincipal(p),
-		Action:         "apitoken.created",
-		ResourceType:   "api_token",
+		Action:         pkgAudit.ActionAPITokenCreated.String(),
+		ResourceType:   pkgAudit.TargetTypeAPIToken,
 		ResourceID:     tok.ID.String(),
 		Metadata:       map[string]any{"name": tok.Name, "token_prefix": tok.TokenPrefix, "permissions": tok.Permissions},
 	})
@@ -599,8 +600,8 @@ func (s *Server) RevokeAPIToken(ctx context.Context, req *authv1.RevokeAPITokenR
 		OrganizationID: &orgID,
 		ActorUserID:    &actorID,
 		ActorType:      actorTypeFromPrincipal(p),
-		Action:         "apitoken.revoked",
-		ResourceType:   "api_token",
+		Action:         pkgAudit.ActionAPITokenRevoked.String(),
+		ResourceType:   pkgAudit.TargetTypeAPIToken,
 		ResourceID:     tokenID.String(),
 	})
 	return &authv1.RevokeAPITokenResponse{Message: "token revoked successfully"}, nil
@@ -747,8 +748,8 @@ func (s *Server) CompleteGitHubInstallation(ctx context.Context, req *authv1.Com
 		OrganizationID: &orgID,
 		ActorUserID:    &actorID,
 		ActorType:      actorTypeFromPrincipal(p),
-		Action:         "github.installation_connected",
-		ResourceType:   "github_installation",
+		Action:         pkgAudit.ActionGitHubInstallationConnected.String(),
+		ResourceType:   pkgAudit.TargetTypeGitHubInstallation,
 		ResourceID:     strconv.FormatInt(inst.InstallationID, 10),
 		Metadata: map[string]any{
 			"installation_id": inst.InstallationID,
@@ -792,8 +793,8 @@ func (s *Server) DisconnectGitHubInstallation(ctx context.Context, req *authv1.D
 		OrganizationID: &orgID,
 		ActorUserID:    &actorID,
 		ActorType:      actorTypeFromPrincipal(p),
-		Action:         "github.installation_disconnected",
-		ResourceType:   "github_installation",
+		Action:         pkgAudit.ActionGitHubInstallationDisconnected.String(),
+		ResourceType:   pkgAudit.TargetTypeGitHubInstallation,
 		ResourceID:     strconv.FormatInt(req.GetInstallationId(), 10),
 		Metadata: map[string]any{
 			"installation_id": req.GetInstallationId(),

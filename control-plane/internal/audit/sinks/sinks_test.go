@@ -133,7 +133,7 @@ func TestBatchProcessor_ValidPoisonAndRedaction(t *testing.T) {
 	deliveries <- amqp.Delivery{Acknowledger: ackSpy, DeliveryTag: 3, Body: invalidBody}
 	close(deliveries)
 
-	if err := bp.Run(context.Background(), deliveries); err != nil {
+	if err := bp.Run(context.Background(), deliveries); err != nil && !errors.Is(err, audit.ErrBrokerDisconnected) {
 		t.Fatalf("BatchProcessor.Run: %v", err)
 	}
 
@@ -188,6 +188,50 @@ func TestMultiSink_And_LoggerSink(t *testing.T) {
 	}
 	if !bytes.Contains(logBuf.Bytes(), []byte(`"action":"route.accessed"`)) {
 		t.Fatalf("expected LoggerSink output to contain action, got %s", logBuf.String())
+	}
+}
+
+func TestTieredMultiSink_AuxiliaryFailureDoesNotFailBatch(t *testing.T) {
+	primary := &memSink{name: "db"}
+	auxiliary := &memSink{name: "logger", failLeft: 10, failErr: errors.New("logger write error")}
+
+	tiered := sinks.NewTieredMultiSink([]audit.Sink{primary}, []audit.Sink{auxiliary})
+
+	ev := pkgAudit.Event{
+		Service: "auth",
+		Action:  "user.login",
+		Target:  pkgAudit.Target{Type: "user", ID: "u-123"},
+	}
+	ev.Normalize("auth")
+
+	// Primary succeeds while auxiliary fails: WriteBatch MUST succeed (returns nil)
+	err := tiered.WriteBatch(context.Background(), []pkgAudit.Event{ev})
+	if err != nil {
+		t.Fatalf("expected nil error when only auxiliary sink fails, got: %v", err)
+	}
+
+	if len(primary.Events()) != 1 {
+		t.Fatalf("expected primary sink to have persisted 1 event, got %d", len(primary.Events()))
+	}
+}
+
+func TestTieredMultiSink_PrimaryFailureFailsBatch(t *testing.T) {
+	primary := &memSink{name: "db", failLeft: 10, failErr: errors.New("database timeout")}
+	auxiliary := &memSink{name: "logger"}
+
+	tiered := sinks.NewTieredMultiSink([]audit.Sink{primary}, []audit.Sink{auxiliary})
+
+	ev := pkgAudit.Event{
+		Service: "auth",
+		Action:  "user.login",
+		Target:  pkgAudit.Target{Type: "user", ID: "u-123"},
+	}
+	ev.Normalize("auth")
+
+	// Primary fails: WriteBatch MUST return the primary error
+	err := tiered.WriteBatch(context.Background(), []pkgAudit.Event{ev})
+	if err == nil {
+		t.Fatal("expected error when primary sink fails, got nil")
 	}
 }
 

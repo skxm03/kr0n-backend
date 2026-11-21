@@ -17,6 +17,7 @@ import (
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
 	githubv1 "github.com/skxm03/kr0n-backend/control-plane/gen/github/v1"
+	secretsv1 "github.com/skxm03/kr0n-backend/control-plane/gen/secrets/v1"
 	servicemanagerv1 "github.com/skxm03/kr0n-backend/control-plane/gen/servicemanager/v1"
 )
 
@@ -166,6 +167,14 @@ var DefaultServiceManagerEndpoints = []EndpointDescriptor{
 	{Method: "DELETE", Path: "/api/v1/orgs/{org_id}/projects/{project_id}"},
 }
 
+// DefaultSecretsEndpoints provides the complete list of write-only REST routes defined in secrets.proto.
+// Note: SecretsInternalService (ResolveProjectSecrets) is intentionally omitted and never exposed on the gateway.
+var DefaultSecretsEndpoints = []EndpointDescriptor{
+	{Method: "POST", Path: "/api/v1/orgs/{org_id}/projects/{project_id}/env"},
+	{Method: "GET", Path: "/api/v1/orgs/{org_id}/projects/{project_id}/env"},
+	{Method: "DELETE", Path: "/api/v1/orgs/{org_id}/projects/{project_id}/env/{key}"},
+}
+
 const defaultWebhookMaxBytes int64 = 10 << 20 // 10 MB
 
 func resolveWebhookMaxBytes() int64 {
@@ -244,6 +253,13 @@ func DefaultRegistry() *Registry {
 			return servicemanagerv1.RegisterServiceManagerServiceHandlerClient(ctx, mux, client)
 		},
 		Endpoints: DefaultServiceManagerEndpoints,
+	})
+	_ = reg.RegisterService("secrets", ServiceRegistration{
+		Registrar: func(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
+			client := secretsv1.NewSecretsServiceClient(conn)
+			return secretsv1.RegisterSecretsServiceHandlerClient(ctx, mux, client)
+		},
+		Endpoints: DefaultSecretsEndpoints,
 	})
 	return reg
 }

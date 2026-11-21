@@ -104,7 +104,7 @@ func (s *PostgresSink) Close() error {
 }
 
 func enrichMetadata(ev pkgAudit.Event) map[string]any {
-	out := make(map[string]any, len(ev.Metadata)+4)
+	out := make(map[string]any, len(ev.Metadata)+6)
 	for k, v := range ev.Metadata {
 		out[k] = v
 	}
@@ -116,6 +116,16 @@ func enrichMetadata(ev pkgAudit.Event) map[string]any {
 	if ev.Status != "" {
 		if _, exists := out["status"]; !exists {
 			out["status"] = ev.Status
+		}
+	}
+	if ev.Actor.Name != "" {
+		if _, exists := out["actor_name"]; !exists {
+			out["actor_name"] = ev.Actor.Name
+		}
+	}
+	if ev.Target.Name != "" {
+		if _, exists := out["target_name"]; !exists {
+			out["target_name"] = ev.Target.Name
 		}
 	}
 	if ev.ClientContext.RequestID != "" {

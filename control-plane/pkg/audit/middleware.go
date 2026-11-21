@@ -61,11 +61,11 @@ func HTTPMiddleware(emitter Emitter, cfg HTTPMiddlewareConfig) func(http.Handler
 
 			action := strings.TrimSpace(extracted.Action)
 			if action == "" {
-				action = "http." + strings.ToLower(r.Method)
+				action = ActionHTTPRequest.String()
 			}
 			targetType := strings.TrimSpace(extracted.Target.Type)
 			if targetType == "" {
-				targetType = "http_route"
+				targetType = TargetTypeHTTPRoute
 			}
 			targetID := strings.TrimSpace(extracted.Target.ID)
 			if targetID == "" {
@@ -146,13 +146,37 @@ func UnaryServerInterceptor(emitter Emitter, serviceName string, extractor GRPCE
 			extracted = extractor(ctx, info.FullMethod, req)
 		}
 
+		if md, ok := metadata.FromIncomingContext(ctx); ok {
+			if extracted.OrganizationID == nil {
+				if rawOrg := firstMD(md, "x-passport-org-id"); rawOrg != "" {
+					if oid, err := uuid.Parse(rawOrg); err == nil {
+						extracted.OrganizationID = &oid
+					}
+				}
+			}
+			if extracted.Actor.UserID == nil {
+				if rawUser := firstMD(md, "x-passport-user-id"); rawUser != "" {
+					if uid, err := uuid.Parse(rawUser); err == nil {
+						extracted.Actor.UserID = &uid
+					}
+				}
+			}
+			if extracted.Actor.Type == "" {
+				if kind := firstMD(md, "x-passport-kind"); kind != "" {
+					extracted.Actor.Type = kind
+				} else if extracted.Actor.UserID != nil {
+					extracted.Actor.Type = ActorTypeUser
+				}
+			}
+		}
+
 		action := strings.TrimSpace(extracted.Action)
 		if action == "" {
-			action = "grpc.call"
+			action = ActionGRPCCall.String()
 		}
 		targetType := strings.TrimSpace(extracted.Target.Type)
 		if targetType == "" {
-			targetType = "grpc_method"
+			targetType = TargetTypeGRPCMethod
 		}
 		targetID := strings.TrimSpace(extracted.Target.ID)
 		if targetID == "" {

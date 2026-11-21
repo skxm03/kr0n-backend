@@ -4,12 +4,10 @@ import (
 	"context"
 	"errors"
 	"log"
-	"net"
 	"strings"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -103,7 +101,7 @@ func (s *Server) CreateProject(ctx context.Context, req *servicemanagerv1.Create
 		return nil, mapDomainError(err)
 	}
 
-	s.emitAudit(ctx, p, orgID, "project.created", proj, map[string]any{
+	s.emitAudit(ctx, p, orgID, pkgAudit.ActionProjectCreated, proj, map[string]any{
 		"slug":               proj.Slug,
 		"repo_full_name":     proj.RepoFullName(),
 		"production_branch":  proj.ProductionBranch,
@@ -184,7 +182,7 @@ func (s *Server) UpdateProject(ctx context.Context, req *servicemanagerv1.Update
 		return nil, mapDomainError(err)
 	}
 
-	s.emitAudit(ctx, p, orgID, "project.updated", proj, map[string]any{
+	s.emitAudit(ctx, p, orgID, pkgAudit.ActionProjectUpdated, proj, map[string]any{
 		"slug":               proj.Slug,
 		"production_branch":  proj.ProductionBranch,
 		"root_directory":     proj.RootDirectory,
@@ -225,7 +223,7 @@ func (s *Server) UpdateProjectBuildSettings(ctx context.Context, req *serviceman
 		return nil, mapDomainError(err)
 	}
 
-	s.emitAudit(ctx, p, orgID, "project.build_settings_updated", proj, map[string]any{
+	s.emitAudit(ctx, p, orgID, pkgAudit.ActionProjectBuildSettingsUpdated, proj, map[string]any{
 		"slug":                      proj.Slug,
 		"install_command_override":  proj.BuildSettings.InstallCommandOverride,
 		"build_command_override":    proj.BuildSettings.BuildCommandOverride,
@@ -253,7 +251,7 @@ func (s *Server) DeleteProject(ctx context.Context, req *servicemanagerv1.Delete
 		return nil, mapDomainError(err)
 	}
 
-	s.emitAudit(ctx, p, orgID, "project.deleted", &domain.Project{
+	s.emitAudit(ctx, p, orgID, pkgAudit.ActionProjectDeleted, &domain.Project{
 		ID:             projectID,
 		OrganizationID: orgID,
 	}, map[string]any{
@@ -299,7 +297,7 @@ func (s *Server) parseOrgCall(c *authv1.CallerPrincipal, rawOrgID string) (domai
 	return p, orgID, nil
 }
 
-func (s *Server) emitAudit(ctx context.Context, p domain.Principal, orgID uuid.UUID, action string, proj *domain.Project, meta map[string]any) {
+func (s *Server) emitAudit(ctx context.Context, p domain.Principal, orgID uuid.UUID, action pkgAudit.Action, proj *domain.Project, meta map[string]any) {
 	if s.auditEmitter == nil || proj == nil {
 		return
 	}
@@ -309,25 +307,12 @@ func (s *Server) emitAudit(ctx context.Context, p domain.Principal, orgID uuid.U
 		actorType = pkgAudit.ActorTypeAPIToken
 	}
 
-	var ipPtr *net.IP
-	var uaPtr *string
-	var reqID string
-	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		if rawIP := firstMD(md, "x-client-ip"); rawIP != "" {
-			if parsed := net.ParseIP(rawIP); parsed != nil {
-				ipPtr = &parsed
-			}
-		}
-		if ua := firstMD(md, "x-user-agent"); ua != "" {
-			uaPtr = &ua
-		}
-		reqID = firstMD(md, "x-request-id")
-	}
-
+	clientCtx := pkgAudit.ExtractClientContext(ctx)
 	actorID := p.UserID
+
 	if err := s.auditEmitter.Emit(ctx, pkgAudit.Event{
-		Service:        "servicemanager",
-		Action:         action,
+		Service:        pkgAudit.ServiceServiceManager,
+		Action:         action.String(),
 		Status:         pkgAudit.StatusSuccess,
 		OrganizationID: &orgID,
 		Actor: pkgAudit.Actor{
@@ -335,27 +320,15 @@ func (s *Server) emitAudit(ctx context.Context, p domain.Principal, orgID uuid.U
 			Type:   actorType,
 		},
 		Target: pkgAudit.Target{
-			Type: "project",
+			Type: pkgAudit.TargetTypeProject,
 			ID:   proj.ID.String(),
 			Name: proj.Slug,
 		},
-		ClientContext: pkgAudit.ClientContext{
-			IPAddress: ipPtr,
-			UserAgent: uaPtr,
-			RequestID: reqID,
-		},
-		Metadata: meta,
+		ClientContext: clientCtx,
+		Metadata:      meta,
 	}); err != nil {
 		log.Printf("servicemanager audit emit error (%s): %v", action, err)
 	}
-}
-
-func firstMD(md metadata.MD, key string) string {
-	vals := md.Get(key)
-	if len(vals) == 0 {
-		return ""
-	}
-	return strings.TrimSpace(vals[0])
 }
 
 func toProjectProto(p *domain.Project) *servicemanagerv1.ProjectInfo {

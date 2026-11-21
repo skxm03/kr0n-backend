@@ -25,11 +25,13 @@ type recordedPublish struct {
 }
 
 type mockTransport struct {
-	mu        sync.Mutex
-	published []recordedPublish
-	blockCh   chan struct{}
-	failErr   error
-	closed    bool
+	mu          sync.Mutex
+	published   []recordedPublish
+	blockCh     chan struct{}
+	failErr     error
+	failLeft    int
+	failForever bool
+	closed      bool
 }
 
 func (m *mockTransport) Publish(_ context.Context, exchange, routingKey string, msg amqp.Publishing) error {
@@ -38,7 +40,11 @@ func (m *mockTransport) Publish(_ context.Context, exchange, routingKey string, 
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.failErr != nil {
+	if m.failLeft > 0 {
+		m.failLeft--
+		return m.failErr
+	}
+	if m.failForever && m.failErr != nil {
 		return m.failErr
 	}
 	m.published = append(m.published, recordedPublish{
@@ -261,12 +267,17 @@ func TestHTTPMiddleware_And_GRPCUnaryInterceptor(t *testing.T) {
 		t.Fatalf("unexpected HTTP event: %+v", events[0])
 	}
 
-	// Test gRPC unary interceptor
+	// Test gRPC unary interceptor with automatic passport extraction (no extractor required)
+	actorUserID := uuid.New()
+	targetOrgID := uuid.New()
 	ic := UnaryServerInterceptor(mem, "github", nil)
 	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(
 		"x-client-ip", "198.51.100.7",
 		"x-user-agent", "grpc-go/1.84",
 		"x-request-id", "grpc-req-1",
+		"x-passport-user-id", actorUserID.String(),
+		"x-passport-org-id", targetOrgID.String(),
+		"x-passport-kind", "user",
 	))
 	_, _ = ic(ctx, nil, &grpc.UnaryServerInfo{FullMethod: "/github.v1.GitHubService/GetRepoTree"}, func(_ context.Context, _ any) (any, error) {
 		return nil, status.Error(codes.PermissionDenied, "denied")
@@ -278,5 +289,224 @@ func TestHTTPMiddleware_And_GRPCUnaryInterceptor(t *testing.T) {
 	}
 	if events[1].Status != StatusDenied || events[1].Target.ID != "/github.v1.GitHubService/GetRepoTree" {
 		t.Fatalf("unexpected gRPC audit event: %+v", events[1])
+	}
+	if events[1].OrganizationID == nil || *events[1].OrganizationID != targetOrgID {
+		t.Fatalf("expected auto-extracted OrganizationID %s, got %v", targetOrgID, events[1].OrganizationID)
+	}
+	if events[1].Actor.UserID == nil || *events[1].Actor.UserID != actorUserID {
+		t.Fatalf("expected auto-extracted Actor UserID %s, got %v", actorUserID, events[1].Actor.UserID)
+	}
+	if events[1].Actor.Type != ActorTypeUser {
+		t.Fatalf("expected auto-extracted Actor Type %q, got %q", ActorTypeUser, events[1].Actor.Type)
+	}
+}
+
+func TestTypedPayloads_And_ContextExtraction(t *testing.T) {
+	actorID := uuid.New()
+	orgID := uuid.New()
+
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(
+		"x-client-ip", "203.0.113.88",
+		"x-user-agent", "kr0n-runner/2.0",
+		"x-request-id", "req-test-xyz",
+		"x-trace-id", "trace-777",
+		"x-passport-user-id", actorID.String(),
+		"x-passport-org-id", orgID.String(),
+		"x-passport-kind", "user",
+	))
+
+	payload := ProjectCreatedPayload{
+		Slug:              "my-web-app",
+		RepoFullName:      "org/my-web-app",
+		ProductionBranch:  "main",
+		RootDirectory:     "/",
+		ApplicationPreset: "railpack/node",
+		Revision:          1,
+	}
+
+	ev, err := NewEventFromContext(
+		ctx,
+		ServiceServiceManager,
+		ActionProjectCreated,
+		Target{Type: TargetTypeProject, ID: "p-100", Name: "my-web-app"},
+		payload,
+	)
+	if err != nil {
+		t.Fatalf("NewEventFromContext failed: %v", err)
+	}
+
+	if ev.Service != ServiceServiceManager {
+		t.Fatalf("expected service %s, got %s", ServiceServiceManager, ev.Service)
+	}
+	if ev.Action != ActionProjectCreated.String() {
+		t.Fatalf("expected action %s, got %s", ActionProjectCreated, ev.Action)
+	}
+	if ev.OrganizationID == nil || *ev.OrganizationID != orgID {
+		t.Fatalf("expected orgID %s, got %v", orgID, ev.OrganizationID)
+	}
+	if ev.Actor.UserID == nil || *ev.Actor.UserID != actorID {
+		t.Fatalf("expected actorID %s, got %v", actorID, ev.Actor.UserID)
+	}
+	if ev.Actor.Type != ActorTypeUser {
+		t.Fatalf("expected actor type %s, got %s", ActorTypeUser, ev.Actor.Type)
+	}
+	if ev.ClientContext.RequestID != "req-test-xyz" || ev.ClientContext.TraceID != "trace-777" {
+		t.Fatalf("unexpected client context: %+v", ev.ClientContext)
+	}
+	if ev.ClientContext.IPAddress == nil || ev.ClientContext.IPAddress.String() != "203.0.113.88" {
+		t.Fatalf("unexpected IP: %+v", ev.ClientContext.IPAddress)
+	}
+	if ev.Metadata["slug"] != "my-web-app" || ev.Metadata["revision"] != float64(1) {
+		t.Fatalf("unexpected payload metadata: %+v", ev.Metadata)
+	}
+	if ev.RoutingKey(DefaultRoutingKeyPrefix) != "audit.servicemanager.project.created" {
+		t.Fatalf("unexpected routing key: %s", ev.RoutingKey(DefaultRoutingKeyPrefix))
+	}
+}
+
+func TestRabbitMQEmitter_WorkerRetriesTransientFailures(t *testing.T) {
+	tr := &mockTransport{
+		failLeft: 2, // Fails 2 times before succeeding on 3rd attempt
+		failErr:  errors.New("transient broker error"),
+	}
+
+	emitter, err := NewRabbitMQEmitter(EmitterConfig{
+		ServiceName:  "auth",
+		BufferSize:   16,
+		Workers:      1,
+		MaxRetries:   3,
+		RetryBackoff: 5 * time.Millisecond,
+		Transport:    tr,
+	})
+	if err != nil {
+		t.Fatalf("NewRabbitMQEmitter: %v", err)
+	}
+
+	if err := emitter.Emit(context.Background(), Event{
+		Action: "user.login",
+		Target: Target{Type: "user", ID: "u-1"},
+	}); err != nil {
+		t.Fatalf("Emit: %v", err)
+	}
+
+	if err := emitter.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	entries := tr.Entries()
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 published message after worker retried, got %d", len(entries))
+	}
+	if tr.failLeft != 0 {
+		t.Fatalf("expected all failures to be consumed, remaining failLeft: %d", tr.failLeft)
+	}
+	if emitter.DroppedCount() != 0 {
+		t.Fatalf("expected 0 dropped events, got %d", emitter.DroppedCount())
+	}
+}
+
+func TestRabbitMQEmitter_OnDropInvokedWhenRetriesExhaust(t *testing.T) {
+	tr := &mockTransport{
+		failForever: true,
+		failErr:     errors.New("hard connection drop"),
+	}
+
+	var dropMu sync.Mutex
+	var dropped []Event
+	var dropErr error
+
+	emitter, err := NewRabbitMQEmitter(EmitterConfig{
+		ServiceName:  "auth",
+		BufferSize:   16,
+		Workers:      1,
+		MaxRetries:   2,
+		RetryBackoff: 2 * time.Millisecond,
+		Transport:    tr,
+		OnDrop: func(ev Event, err error) {
+			dropMu.Lock()
+			defer dropMu.Unlock()
+			dropped = append(dropped, ev)
+			dropErr = err
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewRabbitMQEmitter: %v", err)
+	}
+
+	if err := emitter.Emit(context.Background(), Event{
+		Action: "project.deleted",
+		Target: Target{Type: "project", ID: "p-99"},
+	}); err != nil {
+		t.Fatalf("Emit: %v", err)
+	}
+
+	if err := emitter.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	dropMu.Lock()
+	defer dropMu.Unlock()
+	if len(dropped) != 1 {
+		t.Fatalf("expected 1 dropped event after retries exhausted, got %d", len(dropped))
+	}
+	if dropped[0].Action != "project.deleted" {
+		t.Fatalf("unexpected dropped action: %s", dropped[0].Action)
+	}
+	if dropErr == nil || !errors.Is(dropErr, tr.failErr) {
+		t.Fatalf("expected dropErr to be %v, got %v", tr.failErr, dropErr)
+	}
+	if emitter.DroppedCount() != 1 {
+		t.Fatalf("expected DroppedCount to be 1, got %d", emitter.DroppedCount())
+	}
+}
+
+func TestRabbitMQEmitter_OnDropInvokedOnBufferSaturation(t *testing.T) {
+	blockCh := make(chan struct{})
+	tr := &mockTransport{blockCh: blockCh}
+
+	var dropMu sync.Mutex
+	var dropped []Event
+	var dropErr error
+
+	emitter, err := NewRabbitMQEmitter(EmitterConfig{
+		ServiceName: "gateway",
+		BufferSize:  1,
+		Workers:     1,
+		Transport:   tr,
+		OnDrop: func(ev Event, err error) {
+			dropMu.Lock()
+			defer dropMu.Unlock()
+			dropped = append(dropped, ev)
+			dropErr = err
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewRabbitMQEmitter: %v", err)
+	}
+
+	ev := Event{
+		Action: "gateway.request",
+		Target: Target{Type: "route", ID: "/api/v1/health"},
+	}
+
+	_ = emitter.Emit(context.Background(), ev)
+	time.Sleep(10 * time.Millisecond)
+	_ = emitter.Emit(context.Background(), ev)
+
+	err = emitter.Emit(context.Background(), ev)
+	if !errors.Is(err, ErrBufferFull) {
+		t.Fatalf("expected ErrBufferFull, got %v", err)
+	}
+
+	close(blockCh)
+	_ = emitter.Close()
+
+	dropMu.Lock()
+	defer dropMu.Unlock()
+	if len(dropped) != 1 {
+		t.Fatalf("expected 1 dropped event from buffer saturation, got %d", len(dropped))
+	}
+	if !errors.Is(dropErr, ErrBufferFull) {
+		t.Fatalf("expected dropErr to be ErrBufferFull, got %v", dropErr)
 	}
 }

@@ -1,4 +1,4 @@
-.PHONY: all certs test test-race e2e build clean dev dev-infra dev-infra-down dev-infra-logs migrate-up migrate-down migrate-status dev-auth dev-gateway dev-github dev-mailer dev-audit dev-servicemanager docker-build docker-up docker-down check-env doctor swagger-ui
+.PHONY: all certs gen-kek test test-race e2e build clean dev dev-infra dev-infra-down dev-infra-logs migrate-up migrate-down migrate-status dev-auth dev-gateway dev-github dev-mailer dev-audit dev-servicemanager dev-secrets docker-build docker-up docker-down check-env doctor swagger-ui
 
 DEV_COMPOSE := infrastructure/docker/docker-compose.dev.yml
 FULL_COMPOSE := infrastructure/docker/compose.yaml
@@ -56,7 +56,7 @@ migrate-status:
 ## Hot Reload Development (Air)
 ## -----------------------------------------------------------------------------
 
-## dev: Verify config, boot dev infra, apply migrations, and launch all 6 microservices with Air
+## dev: Verify config, boot dev infra, apply migrations, and launch all 7 microservices with Air
 dev: check-env dev-infra migrate-up
 	@echo "Starting all microservices with Air live reloading (Ctrl+C to stop)..."
 	@trap 'kill 0' EXIT INT TERM; \
@@ -66,6 +66,7 @@ dev: check-env dev-infra migrate-up
 	(cd control-plane && air -c .air.mailer.toml) & \
 	(cd control-plane && air -c .air.audit.toml) & \
 	(cd control-plane && air -c .air.servicemanager.toml) & \
+	(cd control-plane && air -c .air.secrets.toml) & \
 	wait
 
 ## dev-auth: Run Auth microservice with Air live reloading
@@ -92,6 +93,10 @@ dev-audit: dev-infra
 dev-servicemanager: dev-infra
 	@cd control-plane && air -c .air.servicemanager.toml
 
+## dev-secrets: Run Secrets & Vault microservice with Air live reloading
+dev-secrets: dev-infra
+	@cd control-plane && air -c .air.secrets.toml
+
 ## -----------------------------------------------------------------------------
 ## Docker Build & Full-Stack Compose
 ## -----------------------------------------------------------------------------
@@ -116,6 +121,17 @@ docker-down:
 certs:
 	@chmod +x scripts/gen-certs.sh
 	@./scripts/gen-certs.sh ./certs
+
+## gen-kek: Generate cryptographically random 256-bit Master Key (KEK) in keys/kr0n-kek.key
+gen-kek:
+	@mkdir -p keys
+	@if [ ! -f keys/kr0n-kek.key ]; then \
+		openssl rand -hex 32 > keys/kr0n-kek.key; \
+		chmod 600 keys/kr0n-kek.key; \
+		echo "Generated master KEK at keys/kr0n-kek.key"; \
+	else \
+		echo "Master KEK already exists at keys/kr0n-kek.key"; \
+	fi
 
 ## swagger-ui: Ensure Swagger UI container is running and print access URL (http://localhost:8081)
 swagger-ui:
@@ -147,6 +163,7 @@ build:
 	@cd control-plane && go build -trimpath -o bin/kr0n-mailer ./cmd/mailer
 	@cd control-plane && go build -trimpath -o bin/kr0n-audit ./cmd/audit
 	@cd control-plane && go build -trimpath -o bin/kr0n-servicemanager ./cmd/servicemanager
+	@cd control-plane && go build -trimpath -o bin/kr0n-secrets ./cmd/secrets
 	@cd control-plane && go build -trimpath -o bin/kr0n-migrate ./cmd/migrate
 
 ## clean: Remove generated certificates, binaries, and Air temp build files

@@ -29,7 +29,18 @@ func NewPostgresAuditRepository(pool *pgxpool.Pool) *PostgresAuditRepository {
 
 // Insert appends a single audit event row.
 func (r *PostgresAuditRepository) Insert(ctx context.Context, ev AuditEvent) error {
-	metaBytes, err := json.Marshal(ev.Metadata)
+	meta := make(map[string]any, len(ev.Metadata)+2)
+	for k, v := range ev.Metadata {
+		meta[k] = v
+	}
+	if _, exists := meta["service"]; !exists {
+		meta["service"] = "auth"
+	}
+	if _, exists := meta["status"]; !exists {
+		meta["status"] = "success"
+	}
+
+	metaBytes, err := json.Marshal(meta)
 	if err != nil || len(metaBytes) == 0 || string(metaBytes) == "null" {
 		metaBytes = []byte(`{}`)
 	}
@@ -47,6 +58,7 @@ func (r *PostgresAuditRepository) Insert(ctx context.Context, ev AuditEvent) err
 			id, organization_id, actor_user_id, actor_type, action,
 			resource_type, resource_id, ip_address, user_agent, metadata, created_at
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11)
+		ON CONFLICT (id) DO NOTHING
 	`, ev.ID, ev.OrganizationID, ev.ActorUserID, ev.ActorType, ev.Action,
 		ev.ResourceType, resID, ipStr, ev.UserAgent, string(metaBytes), ev.CreatedAt)
 	if err != nil {

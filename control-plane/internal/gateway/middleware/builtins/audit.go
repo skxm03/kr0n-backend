@@ -31,8 +31,8 @@ func NewAuditLogFactory(deps SharedDeps) middleware.MiddlewareFactory {
 		}
 
 		customAction := ""
-		customTargetType := "http_route"
-		serviceName := "gateway"
+		customTargetType := pkgAudit.TargetTypeHTTPRoute
+		serviceName := pkgAudit.ServiceGateway
 		includeOptions := false
 
 		if cfg != nil {
@@ -133,7 +133,7 @@ func NewAuditLogFactory(deps SharedDeps) middleware.MiddlewareFactory {
 
 					action := customAction
 					if action == "" {
-						action = "gateway.http." + strings.ToLower(trackedReq.Method)
+						action = pkgAudit.ActionHTTPMethod(trackedReq.Method).String()
 					}
 
 					outcome := pkgAudit.StatusSuccess

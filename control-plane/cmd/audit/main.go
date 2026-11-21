@@ -21,9 +21,14 @@ func buildSinks(ctx context.Context, cfg *config.Config) (audit.Sink, error) {
 		requested = []string{"postgres", "logger"}
 	}
 
-	var active []audit.Sink
+	var primary []audit.Sink
+	var auxiliary []audit.Sink
+
 	cleanup := func() {
-		for _, s := range active {
+		for _, s := range primary {
+			_ = s.Close()
+		}
+		for _, s := range auxiliary {
 			_ = s.Close()
 		}
 	}
@@ -39,20 +44,20 @@ func buildSinks(ctx context.Context, cfg *config.Config) (audit.Sink, error) {
 				cleanup()
 				return nil, fmt.Errorf("connect postgres audit sink: %w", err)
 			}
-			active = append(active, sinks.NewPostgresSink(pool, true))
+			primary = append(primary, sinks.NewPostgresSink(pool, true))
 		case "logger", "stdout", "log":
-			active = append(active, sinks.NewLoggerSink(os.Stdout))
+			auxiliary = append(auxiliary, sinks.NewLoggerSink(os.Stdout))
 		default:
 			cleanup()
 			return nil, fmt.Errorf("unknown audit sink %q (supported: postgres, logger)", name)
 		}
 	}
 
-	if len(active) == 0 {
-		active = append(active, sinks.NewLoggerSink(os.Stdout))
+	if len(primary) == 0 && len(auxiliary) == 0 {
+		primary = append(primary, sinks.NewLoggerSink(os.Stdout))
 	}
 
-	return sinks.NewMultiSink(active...), nil
+	return sinks.NewTieredMultiSink(primary, auxiliary), nil
 }
 
 func main() {

@@ -19,6 +19,7 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/service"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/webhook"
+	pkgAudit "github.com/skxm03/kr0n-backend/control-plane/pkg/audit"
 )
 
 // GitHubOAuthProvider defines the contract for GitHub OAuth 2.0 + PKCE operations.
@@ -190,8 +191,8 @@ func (s *Server) auditAfterRegister(ctx context.Context, u *repository.User) err
 	s.recordAudit(ctx, repository.AuditEvent{
 		ActorUserID:  &uid,
 		ActorType:    repository.ActorTypeUser,
-		Action:       "auth.registered",
-		ResourceType: "user",
+		Action:       pkgAudit.ActionUserRegistered.String(),
+		ResourceType: pkgAudit.TargetTypeUser,
 		ResourceID:   uid.String(),
 		Metadata:     map[string]any{"email": u.Email},
 	})
@@ -220,8 +221,8 @@ func (s *Server) Login(ctx context.Context, req *authv1.LoginRequest) (*authv1.L
 	if err != nil {
 		s.recordAudit(ctx, repository.AuditEvent{
 			ActorType:    repository.ActorTypeUser,
-			Action:       "auth.login_failed",
-			ResourceType: "user",
+			Action:       pkgAudit.ActionUserLoginFailed.String(),
+			ResourceType: pkgAudit.TargetTypeUser,
 			IPAddress:    clientIP,
 			UserAgent:    userAgent,
 			Metadata:     map[string]any{"email": strings.ToLower(strings.TrimSpace(req.GetEmail()))},
@@ -247,7 +248,7 @@ func (s *Server) Login(ctx context.Context, req *authv1.LoginRequest) (*authv1.L
 	s.recordAudit(ctx, repository.AuditEvent{
 		ActorUserID:  &uid,
 		ActorType:    repository.ActorTypeUser,
-		Action:       "auth.login_succeeded",
+		Action:       pkgAudit.ActionUserLogin.String(),
 		ResourceType: "session",
 		ResourceID:   uid.String(),
 		IPAddress:    clientIP,
@@ -354,7 +355,7 @@ func (s *Server) Logout(ctx context.Context, req *authv1.LogoutRequest) (*authv1
 	s.recordAudit(ctx, repository.AuditEvent{
 		ActorUserID:  actorID,
 		ActorType:    repository.ActorTypeUser,
-		Action:       "auth.logout",
+		Action:       pkgAudit.ActionUserLogout.String(),
 		ResourceType: "session",
 		ResourceID:   resourceID,
 	})
@@ -486,8 +487,8 @@ func (s *Server) ConfirmPasswordReset(ctx context.Context, req *authv1.ConfirmPa
 	s.recordAudit(ctx, repository.AuditEvent{
 		ActorUserID:  &userID,
 		ActorType:    repository.ActorTypeUser,
-		Action:       "auth.password_reset_confirmed",
-		ResourceType: "user",
+		Action:       pkgAudit.ActionUserPasswordResetConfirmed.String(),
+		ResourceType: pkgAudit.TargetTypeUser,
 		ResourceID:   userID.String(),
 	})
 	return &authv1.ConfirmPasswordResetResponse{Message: "password reset successfully"}, nil
@@ -531,8 +532,8 @@ func (s *Server) ChangePassword(ctx context.Context, req *authv1.ChangePasswordR
 	s.recordAudit(ctx, repository.AuditEvent{
 		ActorUserID:  &p.UserID,
 		ActorType:    actorTypeFromPrincipal(p),
-		Action:       "auth.password_changed",
-		ResourceType: "user",
+		Action:       pkgAudit.ActionUserPasswordChanged.String(),
+		ResourceType: pkgAudit.TargetTypeUser,
 		ResourceID:   p.UserID.String(),
 	})
 	return &authv1.ChangePasswordResponse{Message: "password changed successfully"}, nil
@@ -771,8 +772,8 @@ func (s *Server) CompleteGitHubOAuth(ctx context.Context, req *authv1.CompleteGi
 	s.recordAudit(ctx, repository.AuditEvent{
 		ActorUserID:  &uid,
 		ActorType:    repository.ActorTypeUser,
-		Action:       "auth.oauth_github_linked",
-		ResourceType: "user",
+		Action:       pkgAudit.ActionUserOAuthLinked.String(),
+		ResourceType: pkgAudit.TargetTypeUser,
 		ResourceID:   uid.String(),
 		IPAddress:    clientIP,
 		UserAgent:    userAgent,
@@ -905,8 +906,8 @@ func (s *Server) CompleteGoogleOAuth(ctx context.Context, req *authv1.CompleteGo
 	s.recordAudit(ctx, repository.AuditEvent{
 		ActorUserID:  &uid,
 		ActorType:    repository.ActorTypeUser,
-		Action:       "auth.oauth_google_linked",
-		ResourceType: "user",
+		Action:       pkgAudit.ActionUserOAuthLinked.String(),
+		ResourceType: pkgAudit.TargetTypeUser,
 		ResourceID:   uid.String(),
 		IPAddress:    clientIP,
 		UserAgent:    userAgent,

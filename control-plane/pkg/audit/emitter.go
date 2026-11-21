@@ -48,7 +48,10 @@ type EmitterConfig struct {
 	BufferSize       int
 	Workers          int
 	PublishTimeout   time.Duration
+	MaxRetries       int
+	RetryBackoff     time.Duration
 	Transport        Transport // optional override for unit testing
+	OnDrop           func(ev Event, err error)
 }
 
 func (c *EmitterConfig) setDefaults() {
@@ -76,6 +79,12 @@ func (c *EmitterConfig) setDefaults() {
 	}
 	if c.PublishTimeout <= 0 {
 		c.PublishTimeout = 5 * time.Second
+	}
+	if c.MaxRetries < 0 {
+		c.MaxRetries = 3
+	}
+	if c.RetryBackoff <= 0 {
+		c.RetryBackoff = 50 * time.Millisecond
 	}
 }
 
@@ -124,17 +133,37 @@ func NewRabbitMQEmitter(cfg EmitterConfig) (*RabbitMQEmitter, error) {
 func (e *RabbitMQEmitter) worker() {
 	defer e.wg.Done()
 	for ev := range e.queue {
-		ctx, cancel := context.WithTimeout(context.Background(), e.cfg.PublishTimeout)
-		if err := e.publish(ctx, ev); err != nil {
-			log.Printf("[audit-emitter] async publish error (service=%s action=%s id=%s): %v",
-				ev.Service, ev.Action, ev.ID, err)
+		e.publishWithRetry(ev)
+	}
+}
+
+func (e *RabbitMQEmitter) publishWithRetry(ev Event) {
+	backoff := e.cfg.RetryBackoff
+	var lastErr error
+
+	for attempt := 0; attempt <= e.cfg.MaxRetries; attempt++ {
+		if attempt > 0 {
+			time.Sleep(backoff)
+			backoff *= 2
 		}
+		ctx, cancel := context.WithTimeout(context.Background(), e.cfg.PublishTimeout)
+		lastErr = e.publish(ctx, ev)
 		cancel()
+		if lastErr == nil {
+			return
+		}
+	}
+
+	count := e.dropped.Add(1)
+	log.Printf("[audit-emitter] async publish error after %d retries (service=%s action=%s id=%s total_dropped=%d): %v",
+		e.cfg.MaxRetries, ev.Service, ev.Action, ev.ID, count, lastErr)
+	if e.cfg.OnDrop != nil {
+		e.cfg.OnDrop(ev, lastErr)
 	}
 }
 
 // Emit normalizes, validates, and enqueues the event into the non-blocking async buffer.
-// If the buffer is full, it logs a warning and returns ErrBufferFull without blocking the caller.
+// If the buffer is full, it logs a warning, notifies OnDrop if set, and returns ErrBufferFull without blocking the caller.
 func (e *RabbitMQEmitter) Emit(_ context.Context, ev Event) error {
 	if e.closed.Load() {
 		return ErrEmitterClosed
@@ -151,6 +180,9 @@ func (e *RabbitMQEmitter) Emit(_ context.Context, ev Event) error {
 		count := e.dropped.Add(1)
 		log.Printf("[audit-emitter] warning: async buffer full, dropping audit event (service=%s action=%s total_dropped=%d)",
 			ev.Service, ev.Action, count)
+		if e.cfg.OnDrop != nil {
+			e.cfg.OnDrop(ev, ErrBufferFull)
+		}
 		return ErrBufferFull
 	}
 }
@@ -248,6 +280,7 @@ func (t *amqpTransport) connectLocked() error {
 		_ = conn.Close()
 		return fmt.Errorf("open audit rabbitmq channel: %w", err)
 	}
+	_ = ch.Confirm(false)
 	if err := DeclareTopology(ch, t.exchangeName, t.queueName); err != nil {
 		_ = ch.Close()
 		_ = conn.Close()
@@ -273,15 +306,24 @@ func (t *amqpTransport) Publish(ctx context.Context, exchange, routingKey string
 		}
 	}
 
-	err := t.ch.PublishWithContext(ctx, exchange, routingKey, false, false, msg)
+	deferred, err := t.ch.PublishWithDeferredConfirmWithContext(ctx, exchange, routingKey, false, false, msg)
 	if err != nil {
 		// Attempt one immediate reconnect in case the channel was closed mid-flight.
 		if reconnErr := t.connectLocked(); reconnErr == nil {
-			err = t.ch.PublishWithContext(ctx, exchange, routingKey, false, false, msg)
+			deferred, err = t.ch.PublishWithDeferredConfirmWithContext(ctx, exchange, routingKey, false, false, msg)
 		}
 	}
 	if err != nil {
 		return fmt.Errorf("publish audit event to %s (%s): %w", exchange, routingKey, err)
+	}
+	if deferred != nil {
+		ack, waitErr := deferred.WaitContext(ctx)
+		if waitErr != nil {
+			return fmt.Errorf("wait broker confirmation for %s (%s): %w", exchange, routingKey, waitErr)
+		}
+		if !ack {
+			return fmt.Errorf("broker nacked audit event to %s (%s)", exchange, routingKey)
+		}
 	}
 	return nil
 }

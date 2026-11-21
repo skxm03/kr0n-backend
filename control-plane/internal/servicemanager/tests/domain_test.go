@@ -39,7 +39,6 @@ func TestNormalizeRootDirectory(t *testing.T) {
 }
 
 func TestResolveEffectiveBuildSettings_ToggleSemantics(t *testing.T) {
-	// 1. Toggle OFF (false): uses preset defaults (e.g. nextjs -> npm install, npm run build, .next)
 	effDefault := domain.ResolveEffectiveBuildSettings("nextjs", domain.BuildSettings{
 		InstallCommand:          "ignored-when-toggle-off",
 		InstallCommandOverride:  false,
@@ -54,7 +53,6 @@ func TestResolveEffectiveBuildSettings_ToggleSemantics(t *testing.T) {
 		t.Fatalf("expected nextjs preset defaults when override toggles are OFF, got %+v", effDefault)
 	}
 
-	// 2. Toggle ON (true) with custom non-empty values: uses custom values
 	effCustom := domain.ResolveEffectiveBuildSettings("nextjs", domain.BuildSettings{
 		InstallCommand:          "pnpm install --frozen-lockfile",
 		InstallCommandOverride:  true,
@@ -69,7 +67,6 @@ func TestResolveEffectiveBuildSettings_ToggleSemantics(t *testing.T) {
 		t.Fatalf("expected custom overrides when toggles are ON, got %+v", effCustom)
 	}
 
-	// 3. Toggle ON (true) with empty string "": preserves empty string "" (intentionally empty / skip step)
 	effEmptyOverride := domain.ResolveEffectiveBuildSettings("nextjs", domain.BuildSettings{
 		InstallCommand:          "",
 		InstallCommandOverride:  true,

@@ -99,6 +99,8 @@ check_var "SMTP_ADDR" "SMTP server address (e.g. localhost:1025)"
 check_var "AUTH_GRPC_ADDR" "Auth gRPC address (e.g. 127.0.0.1:50051)"
 check_var "GATEWAY_HTTP_ADDR" "Gateway HTTP address (e.g. :8080)"
 check_var "GITHUB_GRPC_ADDR" "GitHub gRPC address (e.g. 127.0.0.1:50052)"
+check_var "SERVICEMANAGER_GRPC_ADDR" "Service Manager gRPC address (e.g. 127.0.0.1:50053)"
+check_var "SECRETS_GRPC_ADDR" "Secrets & Vault gRPC address (e.g. 127.0.0.1:50054)"
 
 # Check DB Port specifically for 5433 in dev
 if [[ "${DATABASE_URL:-}" =~ :5433/ ]]; then
@@ -218,6 +220,29 @@ if [ -z "${GITHUB_CLIENT_ID:-}" ] || [ -z "${GITHUB_CLIENT_SECRET:-}" ]; then
   info "GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET are empty (GitHub OAuth login disabled)"
 else
   pass "GitHub OAuth Client ID configured"
+fi
+
+# ------------------------------------------------------------------------------
+# 4b. Secrets & Vault Microservice Master KEK (Envelope Encryption)
+# ------------------------------------------------------------------------------
+echo -e "\n${BOLD}4b. Checking Secrets & Vault Envelope Encryption Master KEK...${RESET}"
+
+KEK_PATH="${SECRETS_MASTER_KEK_PATH:-keys/kr0n-kek.key}"
+KEK_RESOLVED="${KEK_PATH}"
+if [ ! -f "${KEK_RESOLVED}" ] && [ -f "control-plane/${KEK_PATH}" ]; then
+  KEK_RESOLVED="control-plane/${KEK_PATH}"
+fi
+
+if [ -f "${KEK_RESOLVED}" ]; then
+  KEK_CONTENT="$(tr -d '[:space:]' < "${KEK_RESOLVED}")"
+  if [[ "${KEK_CONTENT}" =~ ^[0-9a-fA-F]{64}$ ]]; then
+    pass "Secrets Master KEK found at ${KEK_PATH} (valid 256-bit / 64-hex key, version ${SECRETS_MASTER_KEK_VERSION:-1})"
+  else
+    fail "Secrets Master KEK at ${KEK_PATH} is malformed (must be exactly 64 hexadecimal characters / 32 bytes; run 'make gen-kek')"
+  fi
+  unset KEK_CONTENT
+else
+  fail "Secrets Master KEK file NOT found at ${KEK_PATH} (Run 'make gen-kek' to generate)"
 fi
 
 # ------------------------------------------------------------------------------
