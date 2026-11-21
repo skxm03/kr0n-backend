@@ -38,6 +38,10 @@ func TestHandlers_ListRepositories_EndToEnd(t *testing.T) {
 				Private:       false,
 				DefaultBranch: "main",
 				HTMLURL:       "https://github.com/acme/kr0n-frontend",
+				UpdatedAt:     "2026-11-20T10:00:00Z",
+				PushedAt:      "2026-11-20T10:30:00Z",
+				Description:   "Frontend application",
+				Language:      "TypeScript",
 			},
 		},
 	}
@@ -55,6 +59,13 @@ func TestHandlers_ListRepositories_EndToEnd(t *testing.T) {
 	}
 	if len(resp.GetRepositories()) != 1 || resp.GetRepositories()[0].GetName() != "kr0n-frontend" {
 		t.Fatalf("unexpected repositories: %+v", resp)
+	}
+	repo := resp.GetRepositories()[0]
+	if repo.GetUpdatedAt() != "2026-11-20T10:00:00Z" || repo.GetPushedAt() != "2026-11-20T10:30:00Z" {
+		t.Fatalf("unexpected repo timestamps: %+v", repo)
+	}
+	if repo.GetDescription() != "Frontend application" || repo.GetLanguage() != "TypeScript" {
+		t.Fatalf("unexpected repo description/language: %+v", repo)
 	}
 }
 
@@ -122,6 +133,18 @@ func TestHandlers_ListDirectories_EndToEnd(t *testing.T) {
 	}
 	if len(resp.GetDirectories()) != 3 || resp.GetDirectories()[0] != "/" {
 		t.Fatalf("unexpected directories: %+v", resp)
+	}
+	if len(resp.GetEntries()) != 3 {
+		t.Fatalf("expected 3 entries, got %d", len(resp.GetEntries()))
+	}
+	if resp.GetEntries()[0].GetPath() != "/" || resp.GetEntries()[0].GetParentPath() != "" {
+		t.Fatalf("unexpected root entry: %+v", resp.GetEntries()[0])
+	}
+	if resp.GetEntries()[1].GetPath() != "/apps/api" || resp.GetEntries()[1].GetName() != "api" || resp.GetEntries()[1].GetParentPath() != "/apps" {
+		t.Fatalf("unexpected entry 1: %+v", resp.GetEntries()[1])
+	}
+	if resp.GetRoot() == nil || resp.GetRoot().GetPath() != "/" {
+		t.Fatalf("unexpected root node: %+v", resp.GetRoot())
 	}
 }
 

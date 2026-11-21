@@ -33,6 +33,10 @@ type GitHubRepositoryInfo struct {
 	Private       bool                   `protobuf:"varint,5,opt,name=private,proto3" json:"private,omitempty"`
 	DefaultBranch string                 `protobuf:"bytes,6,opt,name=default_branch,json=defaultBranch,proto3" json:"default_branch,omitempty"`
 	HtmlUrl       string                 `protobuf:"bytes,7,opt,name=html_url,json=htmlUrl,proto3" json:"html_url,omitempty"`
+	UpdatedAt     string                 `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	PushedAt      string                 `protobuf:"bytes,9,opt,name=pushed_at,json=pushedAt,proto3" json:"pushed_at,omitempty"`
+	Description   string                 `protobuf:"bytes,10,opt,name=description,proto3" json:"description,omitempty"`
+	Language      string                 `protobuf:"bytes,11,opt,name=language,proto3" json:"language,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -112,6 +116,34 @@ func (x *GitHubRepositoryInfo) GetDefaultBranch() string {
 func (x *GitHubRepositoryInfo) GetHtmlUrl() string {
 	if x != nil {
 		return x.HtmlUrl
+	}
+	return ""
+}
+
+func (x *GitHubRepositoryInfo) GetUpdatedAt() string {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return ""
+}
+
+func (x *GitHubRepositoryInfo) GetPushedAt() string {
+	if x != nil {
+		return x.PushedAt
+	}
+	return ""
+}
+
+func (x *GitHubRepositoryInfo) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *GitHubRepositoryInfo) GetLanguage() string {
+	if x != nil {
+		return x.Language
 	}
 	return ""
 }
@@ -484,16 +516,138 @@ func (x *ListDirectoriesRequest) GetRef() string {
 	return ""
 }
 
+type DirectoryEntry struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	ParentPath    string                 `protobuf:"bytes,3,opt,name=parent_path,json=parentPath,proto3" json:"parent_path,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DirectoryEntry) Reset() {
+	*x = DirectoryEntry{}
+	mi := &file_github_v1_github_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DirectoryEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DirectoryEntry) ProtoMessage() {}
+
+func (x *DirectoryEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_github_v1_github_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DirectoryEntry.ProtoReflect.Descriptor instead.
+func (*DirectoryEntry) Descriptor() ([]byte, []int) {
+	return file_github_v1_github_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *DirectoryEntry) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *DirectoryEntry) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *DirectoryEntry) GetParentPath() string {
+	if x != nil {
+		return x.ParentPath
+	}
+	return ""
+}
+
+type DirectoryNode struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Children      []*DirectoryNode       `protobuf:"bytes,3,rep,name=children,proto3" json:"children,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DirectoryNode) Reset() {
+	*x = DirectoryNode{}
+	mi := &file_github_v1_github_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DirectoryNode) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DirectoryNode) ProtoMessage() {}
+
+func (x *DirectoryNode) ProtoReflect() protoreflect.Message {
+	mi := &file_github_v1_github_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DirectoryNode.ProtoReflect.Descriptor instead.
+func (*DirectoryNode) Descriptor() ([]byte, []int) {
+	return file_github_v1_github_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *DirectoryNode) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *DirectoryNode) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *DirectoryNode) GetChildren() []*DirectoryNode {
+	if x != nil {
+		return x.Children
+	}
+	return nil
+}
+
 type ListDirectoriesResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Directories   []string               `protobuf:"bytes,1,rep,name=directories,proto3" json:"directories,omitempty"`
+	Entries       []*DirectoryEntry      `protobuf:"bytes,2,rep,name=entries,proto3" json:"entries,omitempty"`
+	Root          *DirectoryNode         `protobuf:"bytes,3,opt,name=root,proto3" json:"root,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ListDirectoriesResponse) Reset() {
 	*x = ListDirectoriesResponse{}
-	mi := &file_github_v1_github_proto_msgTypes[7]
+	mi := &file_github_v1_github_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -505,7 +659,7 @@ func (x *ListDirectoriesResponse) String() string {
 func (*ListDirectoriesResponse) ProtoMessage() {}
 
 func (x *ListDirectoriesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_github_v1_github_proto_msgTypes[7]
+	mi := &file_github_v1_github_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -518,7 +672,7 @@ func (x *ListDirectoriesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDirectoriesResponse.ProtoReflect.Descriptor instead.
 func (*ListDirectoriesResponse) Descriptor() ([]byte, []int) {
-	return file_github_v1_github_proto_rawDescGZIP(), []int{7}
+	return file_github_v1_github_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ListDirectoriesResponse) GetDirectories() []string {
@@ -528,11 +682,25 @@ func (x *ListDirectoriesResponse) GetDirectories() []string {
 	return nil
 }
 
+func (x *ListDirectoriesResponse) GetEntries() []*DirectoryEntry {
+	if x != nil {
+		return x.Entries
+	}
+	return nil
+}
+
+func (x *ListDirectoriesResponse) GetRoot() *DirectoryNode {
+	if x != nil {
+		return x.Root
+	}
+	return nil
+}
+
 var File_github_v1_github_proto protoreflect.FileDescriptor
 
 const file_github_v1_github_proto_rawDesc = "" +
 	"\n" +
-	"\x16github/v1/github.proto\x12\tgithub.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x12auth/v1/auth.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"\xc9\x01\n" +
+	"\x16github/v1/github.proto\x12\tgithub.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x12auth/v1/auth.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"\xc3\x02\n" +
 	"\x14GitHubRepositoryInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x14\n" +
 	"\x05owner\x18\x02 \x01(\tR\x05owner\x12\x12\n" +
@@ -540,9 +708,15 @@ const file_github_v1_github_proto_rawDesc = "" +
 	"\tfull_name\x18\x04 \x01(\tR\bfullName\x12\x18\n" +
 	"\aprivate\x18\x05 \x01(\bR\aprivate\x12%\n" +
 	"\x0edefault_branch\x18\x06 \x01(\tR\rdefaultBranch\x12\x19\n" +
-	"\bhtml_url\x18\a \x01(\tR\ahtmlUrl\"\x8b\x01\n" +
-	"\x17ListRepositoriesRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
+	"\bhtml_url\x18\a \x01(\tR\ahtmlUrl\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\b \x01(\tR\tupdatedAt\x12\x1b\n" +
+	"\tpushed_at\x18\t \x01(\tR\bpushedAt\x12 \n" +
+	"\vdescription\x18\n" +
+	" \x01(\tR\vdescription\x12\x1a\n" +
+	"\blanguage\x18\v \x01(\tR\blanguage\"\x92\x01\n" +
+	"\x17ListRepositoriesRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12'\n" +
 	"\x0finstallation_id\x18\x03 \x01(\x03R\x0einstallationId\"_\n" +
 	"\x18ListRepositoriesResponse\x12C\n" +
@@ -551,24 +725,35 @@ const file_github_v1_github_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1d\n" +
 	"\n" +
 	"commit_sha\x18\x02 \x01(\tR\tcommitSha\x12\x1c\n" +
-	"\tprotected\x18\x03 \x01(\bR\tprotected\"\xb1\x01\n" +
-	"\x13ListBranchesRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
+	"\tprotected\x18\x03 \x01(\bR\tprotected\"\xb8\x01\n" +
+	"\x13ListBranchesRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12'\n" +
 	"\x0finstallation_id\x18\x03 \x01(\x03R\x0einstallationId\x12\x14\n" +
 	"\x05owner\x18\x04 \x01(\tR\x05owner\x12\x12\n" +
 	"\x04repo\x18\x05 \x01(\tR\x04repo\"O\n" +
 	"\x14ListBranchesResponse\x127\n" +
-	"\bbranches\x18\x01 \x03(\v2\x1b.github.v1.GitHubBranchInfoR\bbranches\"\xc6\x01\n" +
-	"\x16ListDirectoriesRequest\x120\n" +
-	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalR\x06caller\x12\x15\n" +
+	"\bbranches\x18\x01 \x03(\v2\x1b.github.v1.GitHubBranchInfoR\bbranches\"\xcd\x01\n" +
+	"\x16ListDirectoriesRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12'\n" +
 	"\x0finstallation_id\x18\x03 \x01(\x03R\x0einstallationId\x12\x14\n" +
 	"\x05owner\x18\x04 \x01(\tR\x05owner\x12\x12\n" +
 	"\x04repo\x18\x05 \x01(\tR\x04repo\x12\x10\n" +
-	"\x03ref\x18\x06 \x01(\tR\x03ref\";\n" +
+	"\x03ref\x18\x06 \x01(\tR\x03ref\"Y\n" +
+	"\x0eDirectoryEntry\x12\x12\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1f\n" +
+	"\vparent_path\x18\x03 \x01(\tR\n" +
+	"parentPath\"m\n" +
+	"\rDirectoryNode\x12\x12\n" +
+	"\x04path\x18\x01 \x01(\tR\x04path\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x124\n" +
+	"\bchildren\x18\x03 \x03(\v2\x18.github.v1.DirectoryNodeR\bchildren\"\x9e\x01\n" +
 	"\x17ListDirectoriesResponse\x12 \n" +
-	"\vdirectories\x18\x01 \x03(\tR\vdirectories2\x9c\t\n" +
+	"\vdirectories\x18\x01 \x03(\tR\vdirectories\x123\n" +
+	"\aentries\x18\x02 \x03(\v2\x19.github.v1.DirectoryEntryR\aentries\x12,\n" +
+	"\x04root\x18\x03 \x01(\v2\x18.github.v1.DirectoryNodeR\x04root2\x9c\t\n" +
 	"\rGitHubService\x12\x80\x03\n" +
 	"\x10ListRepositories\x12\".github.v1.ListRepositoriesRequest\x1a#.github.v1.ListRepositoriesResponse\"\xa2\x02\x92A\xed\x01\n" +
 	"\x19GitHub Repositories & VCS\x12#List accessible GitHub repositories\x1a\x98\x01Queries the GitHub API via installation credentials to list all repositories accessible to the linked organization installation. Requires `github:read`.b\x10\n" +
@@ -606,7 +791,7 @@ func file_github_v1_github_proto_rawDescGZIP() []byte {
 	return file_github_v1_github_proto_rawDescData
 }
 
-var file_github_v1_github_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_github_v1_github_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_github_v1_github_proto_goTypes = []any{
 	(*GitHubRepositoryInfo)(nil),     // 0: github.v1.GitHubRepositoryInfo
 	(*ListRepositoriesRequest)(nil),  // 1: github.v1.ListRepositoriesRequest
@@ -615,26 +800,31 @@ var file_github_v1_github_proto_goTypes = []any{
 	(*ListBranchesRequest)(nil),      // 4: github.v1.ListBranchesRequest
 	(*ListBranchesResponse)(nil),     // 5: github.v1.ListBranchesResponse
 	(*ListDirectoriesRequest)(nil),   // 6: github.v1.ListDirectoriesRequest
-	(*ListDirectoriesResponse)(nil),  // 7: github.v1.ListDirectoriesResponse
-	(*v1.CallerPrincipal)(nil),       // 8: auth.v1.CallerPrincipal
+	(*DirectoryEntry)(nil),           // 7: github.v1.DirectoryEntry
+	(*DirectoryNode)(nil),            // 8: github.v1.DirectoryNode
+	(*ListDirectoriesResponse)(nil),  // 9: github.v1.ListDirectoriesResponse
+	(*v1.CallerPrincipal)(nil),       // 10: auth.v1.CallerPrincipal
 }
 var file_github_v1_github_proto_depIdxs = []int32{
-	8, // 0: github.v1.ListRepositoriesRequest.caller:type_name -> auth.v1.CallerPrincipal
-	0, // 1: github.v1.ListRepositoriesResponse.repositories:type_name -> github.v1.GitHubRepositoryInfo
-	8, // 2: github.v1.ListBranchesRequest.caller:type_name -> auth.v1.CallerPrincipal
-	3, // 3: github.v1.ListBranchesResponse.branches:type_name -> github.v1.GitHubBranchInfo
-	8, // 4: github.v1.ListDirectoriesRequest.caller:type_name -> auth.v1.CallerPrincipal
-	1, // 5: github.v1.GitHubService.ListRepositories:input_type -> github.v1.ListRepositoriesRequest
-	4, // 6: github.v1.GitHubService.ListBranches:input_type -> github.v1.ListBranchesRequest
-	6, // 7: github.v1.GitHubService.ListDirectories:input_type -> github.v1.ListDirectoriesRequest
-	2, // 8: github.v1.GitHubService.ListRepositories:output_type -> github.v1.ListRepositoriesResponse
-	5, // 9: github.v1.GitHubService.ListBranches:output_type -> github.v1.ListBranchesResponse
-	7, // 10: github.v1.GitHubService.ListDirectories:output_type -> github.v1.ListDirectoriesResponse
-	8, // [8:11] is the sub-list for method output_type
-	5, // [5:8] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	10, // 0: github.v1.ListRepositoriesRequest.caller:type_name -> auth.v1.CallerPrincipal
+	0,  // 1: github.v1.ListRepositoriesResponse.repositories:type_name -> github.v1.GitHubRepositoryInfo
+	10, // 2: github.v1.ListBranchesRequest.caller:type_name -> auth.v1.CallerPrincipal
+	3,  // 3: github.v1.ListBranchesResponse.branches:type_name -> github.v1.GitHubBranchInfo
+	10, // 4: github.v1.ListDirectoriesRequest.caller:type_name -> auth.v1.CallerPrincipal
+	8,  // 5: github.v1.DirectoryNode.children:type_name -> github.v1.DirectoryNode
+	7,  // 6: github.v1.ListDirectoriesResponse.entries:type_name -> github.v1.DirectoryEntry
+	8,  // 7: github.v1.ListDirectoriesResponse.root:type_name -> github.v1.DirectoryNode
+	1,  // 8: github.v1.GitHubService.ListRepositories:input_type -> github.v1.ListRepositoriesRequest
+	4,  // 9: github.v1.GitHubService.ListBranches:input_type -> github.v1.ListBranchesRequest
+	6,  // 10: github.v1.GitHubService.ListDirectories:input_type -> github.v1.ListDirectoriesRequest
+	2,  // 11: github.v1.GitHubService.ListRepositories:output_type -> github.v1.ListRepositoriesResponse
+	5,  // 12: github.v1.GitHubService.ListBranches:output_type -> github.v1.ListBranchesResponse
+	9,  // 13: github.v1.GitHubService.ListDirectories:output_type -> github.v1.ListDirectoriesResponse
+	11, // [11:14] is the sub-list for method output_type
+	8,  // [8:11] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_github_v1_github_proto_init() }
@@ -648,7 +838,7 @@ func file_github_v1_github_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_github_v1_github_proto_rawDesc), len(file_github_v1_github_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -24,6 +24,10 @@ type Repository struct {
 	Private       bool   `json:"private"`
 	DefaultBranch string `json:"default_branch"`
 	HTMLURL       string `json:"html_url"`
+	Description   string `json:"description"`
+	Language      string `json:"language"`
+	UpdatedAt     string `json:"updated_at"`
+	PushedAt      string `json:"pushed_at"`
 }
 
 // Branch represents branch metadata returned by GitHub.
@@ -116,6 +120,10 @@ func (c *HTTPClient) ListRepositories(ctx context.Context, token string) ([]Repo
 			} `json:"owner"`
 			DefaultBranch string `json:"default_branch"`
 			HTMLURL       string `json:"html_url"`
+			Description   string `json:"description"`
+			Language      string `json:"language"`
+			UpdatedAt     string `json:"updated_at"`
+			PushedAt      string `json:"pushed_at"`
 		} `json:"repositories"`
 	}
 
@@ -137,6 +145,10 @@ func (c *HTTPClient) ListRepositories(ctx context.Context, token string) ([]Repo
 			Private:       r.Private,
 			DefaultBranch: r.DefaultBranch,
 			HTMLURL:       r.HTMLURL,
+			Description:   r.Description,
+			Language:      r.Language,
+			UpdatedAt:     r.UpdatedAt,
+			PushedAt:      r.PushedAt,
 		})
 	}
 

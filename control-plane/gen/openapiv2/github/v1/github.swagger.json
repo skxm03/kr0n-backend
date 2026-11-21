@@ -343,6 +343,38 @@
         }
       }
     },
+    "v1DirectoryEntry": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "parent_path": {
+          "type": "string"
+        }
+      }
+    },
+    "v1DirectoryNode": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1DirectoryNode"
+          }
+        }
+      }
+    },
     "v1GitHubBranchInfo": {
       "type": "object",
       "properties": {
@@ -381,6 +413,18 @@
         },
         "html_url": {
           "type": "string"
+        },
+        "updated_at": {
+          "type": "string"
+        },
+        "pushed_at": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "language": {
+          "type": "string"
         }
       }
     },
@@ -404,6 +448,16 @@
           "items": {
             "type": "string"
           }
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1DirectoryEntry"
+          }
+        },
+        "root": {
+          "$ref": "#/definitions/v1DirectoryNode"
         }
       }
     },

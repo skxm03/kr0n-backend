@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -44,6 +45,10 @@ func (s *Server) ListRepositories(ctx context.Context, req *githubv1.ListReposit
 			Private:       r.Private,
 			DefaultBranch: r.DefaultBranch,
 			HtmlUrl:       r.HTMLURL,
+			UpdatedAt:     r.UpdatedAt,
+			PushedAt:      r.PushedAt,
+			Description:   r.Description,
+			Language:      r.Language,
 		})
 	}
 	return &githubv1.ListRepositoriesResponse{Repositories: out}, nil
@@ -71,7 +76,7 @@ func (s *Server) ListBranches(ctx context.Context, req *githubv1.ListBranchesReq
 	return &githubv1.ListBranchesResponse{Branches: out}, nil
 }
 
-// ListDirectories returns canonical root directory paths for owner/repo at ref.
+// ListDirectories returns canonical root directory paths for owner/repo at ref along with structured entries and tree.
 func (s *Server) ListDirectories(ctx context.Context, req *githubv1.ListDirectoriesRequest) (*githubv1.ListDirectoriesResponse, error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "request cannot be nil")
@@ -82,7 +87,60 @@ func (s *Server) ListDirectories(ctx context.Context, req *githubv1.ListDirector
 		return nil, mapError(err)
 	}
 
-	return &githubv1.ListDirectoriesResponse{Directories: dirs}, nil
+	entries := make([]*githubv1.DirectoryEntry, 0, len(dirs))
+	nodeMap := make(map[string]*githubv1.DirectoryNode, len(dirs))
+
+	rootNode := &githubv1.DirectoryNode{
+		Path: "/",
+		Name: "/",
+	}
+	nodeMap["/"] = rootNode
+
+	for _, d := range dirs {
+		if d == "/" {
+			entries = append(entries, &githubv1.DirectoryEntry{
+				Path:       "/",
+				Name:       "/",
+				ParentPath: "",
+			})
+			continue
+		}
+
+		lastSlash := strings.LastIndex(d, "/")
+		var parentPath string
+		var name string
+		if lastSlash <= 0 {
+			parentPath = "/"
+			name = d[1:]
+		} else {
+			parentPath = d[:lastSlash]
+			name = d[lastSlash+1:]
+		}
+
+		entries = append(entries, &githubv1.DirectoryEntry{
+			Path:       d,
+			Name:       name,
+			ParentPath: parentPath,
+		})
+
+		node := &githubv1.DirectoryNode{
+			Path: d,
+			Name: name,
+		}
+		nodeMap[d] = node
+
+		if parent, exists := nodeMap[parentPath]; exists {
+			parent.Children = append(parent.Children, node)
+		} else {
+			rootNode.Children = append(rootNode.Children, node)
+		}
+	}
+
+	return &githubv1.ListDirectoriesResponse{
+		Directories: dirs,
+		Entries:     entries,
+		Root:        rootNode,
+	}, nil
 }
 
 func mapError(err error) error {

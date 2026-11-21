@@ -106,10 +106,14 @@ message GitHubRepositoryInfo {
   bool private = 5;
   string default_branch = 6;
   string html_url = 7;
+  string updated_at = 8;
+  string pushed_at = 9;
+  string description = 10;
+  string language = 11;
 }
 
 message ListRepositoriesRequest {
-  auth.v1.CallerPrincipal caller = 1;
+  auth.v1.CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string org_id = 2;
   int64 installation_id = 3;
 }
@@ -125,7 +129,7 @@ message GitHubBranchInfo {
 }
 
 message ListBranchesRequest {
-  auth.v1.CallerPrincipal caller = 1;
+  auth.v1.CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string org_id = 2;
   int64 installation_id = 3;
   string owner = 4;
@@ -137,7 +141,7 @@ message ListBranchesResponse {
 }
 
 message ListDirectoriesRequest {
-  auth.v1.CallerPrincipal caller = 1;
+  auth.v1.CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string org_id = 2;
   int64 installation_id = 3;
   string owner = 4;
@@ -145,6 +149,20 @@ message ListDirectoriesRequest {
   string ref = 6;
 }
 
+message DirectoryEntry {
+  string path = 1;
+  string name = 2;
+  string parent_path = 3;
+}
+
+message DirectoryNode {
+  string path = 1;
+  string name = 2;
+  repeated DirectoryNode children = 3;
+}
+
 message ListDirectoriesResponse {
   repeated string directories = 1;
+  repeated DirectoryEntry entries = 2;
+  DirectoryNode root = 3;
 }

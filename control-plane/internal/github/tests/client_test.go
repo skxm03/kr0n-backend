@@ -30,6 +30,10 @@ func TestClient_ListRepositories_SuccessAndCaching(t *testing.T) {
 					"private":        true,
 					"default_branch": "main",
 					"html_url":       "https://github.com/kr0n/kr0n-core",
+					"description":    "Core engine repository",
+					"language":       "Go",
+					"updated_at":     "2026-11-20T10:00:00Z",
+					"pushed_at":      "2026-11-20T10:30:00Z",
 					"owner": map[string]any{
 						"login": "kr0n",
 					},
@@ -50,7 +54,7 @@ func TestClient_ListRepositories_SuccessAndCaching(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListRepositories: %v", err)
 	}
-	if len(repos) != 1 || repos[0].FullName != "kr0n/kr0n-core" || repos[0].Owner != "kr0n" {
+	if len(repos) != 1 || repos[0].FullName != "kr0n/kr0n-core" || repos[0].Owner != "kr0n" || repos[0].UpdatedAt != "2026-11-20T10:00:00Z" || repos[0].PushedAt != "2026-11-20T10:30:00Z" {
 		t.Fatalf("unexpected repos: %+v", repos)
 	}
 

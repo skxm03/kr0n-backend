@@ -64,7 +64,10 @@ func DefaultServiceDialer(svc config.ServiceConfig) (*grpc.ClientConn, error) {
 	}
 
 	creds := credentials.NewTLS(tlsConfig)
-	return grpc.NewClient(svc.Address, grpc.WithTransportCredentials(creds))
+	return grpc.NewClient(svc.Address,
+		grpc.WithTransportCredentials(creds),
+		grpc.WithChainUnaryInterceptor(middleware.PassportUnaryClientInterceptor()),
+	)
 }
 
 // TimeoutWrapper wraps an http.Handler to enforce a context deadline for the request.
