@@ -239,7 +239,7 @@ message ProjectInfo {
 }
 
 message CreateProjectRequest {
-  auth.v1.CallerPrincipal caller = 1;
+  auth.v1.CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string org_id = 2;
   string name = 3;
   string slug = 4;
@@ -259,7 +259,7 @@ message CreateProjectResponse {
 }
 
 message ListProjectsRequest {
-  auth.v1.CallerPrincipal caller = 1;
+  auth.v1.CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string org_id = 2;
   int32 limit = 3;
   int32 offset = 4;
@@ -270,7 +270,7 @@ message ListProjectsResponse {
 }
 
 message GetProjectRequest {
-  auth.v1.CallerPrincipal caller = 1;
+  auth.v1.CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string org_id = 2;
   string project_id = 3;
 }
@@ -280,7 +280,7 @@ message GetProjectResponse {
 }
 
 message UpdateProjectRequest {
-  auth.v1.CallerPrincipal caller = 1;
+  auth.v1.CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string org_id = 2;
   string project_id = 3;
   string name = 4;
@@ -297,7 +297,7 @@ message UpdateProjectResponse {
 }
 
 message UpdateProjectBuildSettingsRequest {
-  auth.v1.CallerPrincipal caller = 1;
+  auth.v1.CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string org_id = 2;
   string project_id = 3;
   BuildSettingsInput build_settings = 4;
@@ -310,7 +310,7 @@ message UpdateProjectBuildSettingsResponse {
 }
 
 message DeleteProjectRequest {
-  auth.v1.CallerPrincipal caller = 1;
+  auth.v1.CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
   string org_id = 2;
   string project_id = 3;
 }

@@ -445,7 +445,8 @@
       "type": "object",
       "properties": {
         "caller": {
-          "$ref": "#/definitions/v1CallerPrincipal"
+          "$ref": "#/definitions/v1CallerPrincipal",
+          "readOnly": true
         },
         "name": {
           "type": "string"
@@ -488,7 +489,8 @@
       "type": "object",
       "properties": {
         "caller": {
-          "$ref": "#/definitions/v1CallerPrincipal"
+          "$ref": "#/definitions/v1CallerPrincipal",
+          "readOnly": true
         },
         "name": {
           "type": "string"
@@ -516,7 +518,8 @@
       "type": "object",
       "properties": {
         "caller": {
-          "$ref": "#/definitions/v1CallerPrincipal"
+          "$ref": "#/definitions/v1CallerPrincipal",
+          "readOnly": true
         },
         "build_settings": {
           "$ref": "#/definitions/v1BuildSettingsInput"
