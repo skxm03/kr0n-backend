@@ -520,6 +520,12 @@ func (s *OrgService) GetInstallationToken(ctx context.Context, p repository.Prin
 	}
 	tok, exp, err := s.githubApp.GetInstallationToken(ctx, instID)
 	if err != nil {
+		if errors.Is(err, repository.ErrInstallationNotFound) || errors.Is(err, oauth.ErrInstallationNotFound) {
+			// Auto-heal: If uninstalled on GitHub, evict stale DB record so org returns to disconnected/reconnect state
+			_ = s.repo.DeleteGitHubInstallation(ctx, orgID, instID)
+			s.InvalidateGitHubInstallationToken(instID)
+			return "", 0, time.Time{}, repository.ErrInstallationNotFound
+		}
 		return "", 0, time.Time{}, err
 	}
 	return tok, instID, exp, nil

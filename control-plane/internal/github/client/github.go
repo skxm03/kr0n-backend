@@ -42,6 +42,13 @@ type Client interface {
 	ListRepositories(ctx context.Context, token string) ([]Repository, error)
 	ListBranches(ctx context.Context, token string, owner, repo string) ([]Branch, error)
 	ListDirectories(ctx context.Context, token string, owner, repo, ref string) ([]string, error)
+	ListDirectoriesWithPresets(ctx context.Context, token string, owner, repo, ref string) ([]string, map[string]string, error)
+}
+
+// DirectoryDiscoveryResult stores discovered directories and detected presets.
+type DirectoryDiscoveryResult struct {
+	Directories []string
+	Presets     map[string]string
 }
 
 type cacheEntry struct {
@@ -223,12 +230,21 @@ func (c *HTTPClient) ListBranches(ctx context.Context, token string, owner, repo
 
 // ListDirectories returns canonical root directory paths ("/", "/apps/api") for owner/repo at ref.
 func (c *HTTPClient) ListDirectories(ctx context.Context, token string, owner, repo, ref string) ([]string, error) {
+	dirs, _, err := c.ListDirectoriesWithPresets(ctx, token, owner, repo, ref)
+	return dirs, err
+}
+
+// ListDirectoriesWithPresets discovers directory paths and analyzes manifest files to determine
+// the matching Railpack application preset per directory.
+func (c *HTTPClient) ListDirectoriesWithPresets(ctx context.Context, token string, owner, repo, ref string) ([]string, map[string]string, error) {
 	if strings.TrimSpace(ref) == "" {
 		ref = "HEAD"
 	}
-	cacheKey := c.hashKey("dirs", token, owner, repo, ref)
+	cacheKey := c.hashKey("dirs_presets", token, owner, repo, ref)
 	if val, ok := c.getCache(cacheKey); ok {
-		return val.([]string), nil
+		if res, ok := val.(DirectoryDiscoveryResult); ok {
+			return res.Directories, res.Presets, nil
+		}
 	}
 
 	endpoint := fmt.Sprintf("%s/repos/%s/%s/git/trees/%s?recursive=1",
@@ -246,29 +262,143 @@ func (c *HTTPClient) ListDirectories(ctx context.Context, token string, owner, r
 	}
 
 	if err := c.doGetJSON(ctx, endpoint, token, &raw); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	dirs := []string{"/"}
 	seen := map[string]bool{"/": true}
+	dirFiles := make(map[string][]string)
+
 	for _, entry := range raw.Tree {
-		if entry.Type != "tree" {
-			continue
-		}
 		clean := strings.Trim(entry.Path, "/")
 		if clean == "" || hasHiddenSegment(clean) {
 			continue
 		}
-		dir := "/" + clean
-		if !seen[dir] {
-			seen[dir] = true
-			dirs = append(dirs, dir)
+
+		if entry.Type == "tree" {
+			dir := "/" + clean
+			if !seen[dir] {
+				seen[dir] = true
+				dirs = append(dirs, dir)
+			}
+		} else if entry.Type == "blob" {
+			lastSlash := strings.LastIndex(clean, "/")
+			var dir string
+			var filename string
+			if lastSlash < 0 {
+				dir = "/"
+				filename = clean
+			} else {
+				dir = "/" + clean[:lastSlash]
+				filename = clean[lastSlash+1:]
+			}
+			dirFiles[dir] = append(dirFiles[dir], filename)
 		}
 	}
 	sort.Strings(dirs[1:])
 
-	c.setCache(cacheKey, dirs)
-	return dirs, nil
+	presets := make(map[string]string, len(dirs))
+	for _, d := range dirs {
+		presets[d] = DetectPresetFromFiles(dirFiles[d])
+	}
+
+	c.setCache(cacheKey, DirectoryDiscoveryResult{Directories: dirs, Presets: presets})
+	return dirs, presets, nil
+}
+
+// DetectPresetFromFiles inspects manifest filenames present directly inside a directory
+// and maps them to a Railpack preset identifier, or returns "" if no build strategy is found.
+func DetectPresetFromFiles(files []string) string {
+	if len(files) == 0 {
+		return ""
+	}
+	fileSet := make(map[string]bool, len(files))
+	for _, f := range files {
+		fileSet[strings.ToLower(f)] = true
+	}
+
+	// 1. Fullstack & Frontend framework configs
+	if fileSet["next.config.js"] || fileSet["next.config.mjs"] || fileSet["next.config.ts"] {
+		return "nextjs"
+	}
+	if fileSet["nuxt.config.js"] || fileSet["nuxt.config.ts"] || fileSet["nuxt.config.mjs"] {
+		return "nuxt"
+	}
+	if fileSet["svelte.config.js"] || fileSet["svelte.config.ts"] {
+		return "sveltekit"
+	}
+	if fileSet["astro.config.mjs"] || fileSet["astro.config.ts"] || fileSet["astro.config.js"] {
+		return "astro"
+	}
+	if fileSet["remix.config.js"] {
+		return "remix"
+	}
+	if fileSet["vite.config.js"] || fileSet["vite.config.ts"] || fileSet["vite.config.mjs"] {
+		return "vite"
+	}
+
+	// 2. Runtimes & Backend languages
+	if fileSet["go.mod"] {
+		return "go"
+	}
+	if fileSet["cargo.toml"] {
+		return "rust"
+	}
+	if fileSet["requirements.txt"] || fileSet["pyproject.toml"] || fileSet["pipfile"] || fileSet["setup.py"] {
+		return "python"
+	}
+	if fileSet["gemfile"] {
+		return "ruby"
+	}
+	if fileSet["composer.json"] {
+		return "php"
+	}
+	if fileSet["pom.xml"] || fileSet["build.gradle"] || fileSet["build.gradle.kts"] || fileSet["mvnw"] {
+		return "java"
+	}
+	if fileSet["bun.lockb"] || fileSet["bunfig.toml"] {
+		return "bun"
+	}
+	if fileSet["deno.json"] || fileSet["deno.jsonc"] {
+		return "deno"
+	}
+	if fileSet["gleam.toml"] {
+		return "gleam"
+	}
+
+	// Check for .NET project files
+	for f := range fileSet {
+		if strings.HasSuffix(f, ".csproj") || strings.HasSuffix(f, ".fsproj") || strings.HasSuffix(f, ".sln") {
+			return "dotnet"
+		}
+	}
+
+	// 3. Node.js project descriptor
+	if fileSet["package.json"] {
+		return "nodejs"
+	}
+
+	// 4. Docker container
+	if fileSet["dockerfile"] {
+		return "dockerfile"
+	}
+
+	// 5. Python main scripts
+	if fileSet["main.py"] || fileSet["app.py"] || fileSet["manage.py"] {
+		return "python"
+	}
+
+	// 6. Go main script
+	if fileSet["main.go"] {
+		return "go"
+	}
+
+	// 7. Static HTML
+	if fileSet["index.html"] {
+		return "static"
+	}
+
+	return ""
 }
 
 func (c *HTTPClient) doGetJSON(ctx context.Context, endpoint, token string, dst any) error {

@@ -33,6 +33,7 @@ type mockGitHubClient struct {
 	repos     []client.Repository
 	branches  []client.Branch
 	dirs      []string
+	presets   map[string]string
 	err       error
 	lastToken string
 }
@@ -59,6 +60,21 @@ func (m *mockGitHubClient) ListDirectories(ctx context.Context, token string, ow
 		return nil, m.err
 	}
 	return m.dirs, nil
+}
+
+func (m *mockGitHubClient) ListDirectoriesWithPresets(ctx context.Context, token string, owner, repo, ref string) ([]string, map[string]string, error) {
+	m.lastToken = token
+	if m.err != nil {
+		return nil, nil, m.err
+	}
+	if m.presets != nil {
+		return m.dirs, m.presets, nil
+	}
+	presets := make(map[string]string)
+	for _, d := range m.dirs {
+		presets[d] = "auto"
+	}
+	return m.dirs, presets, nil
 }
 
 func TestService_ListRepositories_DelegatesTokenWithPassport(t *testing.T) {
@@ -123,7 +139,7 @@ func TestService_Validation_MaliciousInputs(t *testing.T) {
 	}
 
 	// Invalid ref
-	if _, err := svc.ListDirectories(ctx, caller, orgID, 1, "acme", "repo", "main..feat"); !errors.Is(err, client.ErrInvalidInput) {
+	if _, _, err := svc.ListDirectories(ctx, caller, orgID, 1, "acme", "repo", "main..feat"); !errors.Is(err, client.ErrInvalidInput) {
 		t.Fatalf("expected ErrInvalidInput for invalid ref, got %v", err)
 	}
 }

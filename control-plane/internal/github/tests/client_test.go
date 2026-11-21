@@ -151,6 +151,50 @@ func TestClient_ListDirectories_Filtering(t *testing.T) {
 			t.Fatalf("expected dir[%d]=%q, got %q", i, want[i], dirs[i])
 		}
 	}
+
+	dirsWithPresets, presets, err := c.ListDirectoriesWithPresets(ctx, "any-tok", "kr0n", "repo", "main")
+	if err != nil {
+		t.Fatalf("ListDirectoriesWithPresets: %v", err)
+	}
+	if len(dirsWithPresets) != len(want) {
+		t.Fatalf("expected %d dirs with presets, got %d", len(want), len(dirsWithPresets))
+	}
+	if presets["/apps/api"] != "go" {
+		t.Fatalf("expected preset for /apps/api to be 'go', got %q", presets["/apps/api"])
+	}
+	if presets["/apps"] != "" {
+		t.Fatalf("expected preset for /apps to be empty (no build strategy), got %q", presets["/apps"])
+	}
+}
+
+func TestClient_DetectPresetFromFiles(t *testing.T) {
+	cases := []struct {
+		name     string
+		files    []string
+		expected string
+	}{
+		{"empty", []string{}, ""},
+		{"no strategy (assets)", []string{"banner.png", "logo.svg", "README.md"}, ""},
+		{"nextjs config", []string{"next.config.mjs", "package.json"}, "nextjs"},
+		{"vite config", []string{"vite.config.ts", "package.json"}, "vite"},
+		{"go module", []string{"go.mod", "main.go"}, "go"},
+		{"python requirements", []string{"requirements.txt", "server.py"}, "python"},
+		{"rust cargo", []string{"Cargo.toml", "src/main.rs"}, "rust"},
+		{"ruby gemfile", []string{"Gemfile"}, "ruby"},
+		{"php composer", []string{"composer.json"}, "php"},
+		{"java pom", []string{"pom.xml"}, "java"},
+		{"dotnet project", []string{"app.csproj"}, "dotnet"},
+		{"dockerfile", []string{"Dockerfile"}, "dockerfile"},
+		{"plain node", []string{"package.json", "index.js"}, "nodejs"},
+		{"static site", []string{"index.html", "style.css"}, "static"},
+	}
+
+	for _, tc := range cases {
+		got := client.DetectPresetFromFiles(tc.files)
+		if got != tc.expected {
+			t.Errorf("DetectPresetFromFiles(%s): expected %q, got %q", tc.name, tc.expected, got)
+		}
+	}
 }
 
 func TestClient_ErrorHandling(t *testing.T) {

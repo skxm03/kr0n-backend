@@ -82,7 +82,7 @@ func (s *Server) ListDirectories(ctx context.Context, req *githubv1.ListDirector
 		return nil, status.Error(codes.InvalidArgument, "request cannot be nil")
 	}
 
-	dirs, err := s.svc.ListDirectories(ctx, req.GetCaller(), req.GetOrgId(), req.GetInstallationId(), req.GetOwner(), req.GetRepo(), req.GetRef())
+	dirs, presets, err := s.svc.ListDirectories(ctx, req.GetCaller(), req.GetOrgId(), req.GetInstallationId(), req.GetOwner(), req.GetRepo(), req.GetRef())
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -90,18 +90,30 @@ func (s *Server) ListDirectories(ctx context.Context, req *githubv1.ListDirector
 	entries := make([]*githubv1.DirectoryEntry, 0, len(dirs))
 	nodeMap := make(map[string]*githubv1.DirectoryNode, len(dirs))
 
+	rootPreset := ""
+	if presets != nil {
+		rootPreset = presets["/"]
+	}
+
 	rootNode := &githubv1.DirectoryNode{
-		Path: "/",
-		Name: "/",
+		Path:           "/",
+		Name:           "/",
+		DetectedPreset: rootPreset,
 	}
 	nodeMap["/"] = rootNode
 
 	for _, d := range dirs {
+		preset := ""
+		if presets != nil {
+			preset = presets[d]
+		}
+
 		if d == "/" {
 			entries = append(entries, &githubv1.DirectoryEntry{
-				Path:       "/",
-				Name:       "/",
-				ParentPath: "",
+				Path:           "/",
+				Name:           "/",
+				ParentPath:     "",
+				DetectedPreset: preset,
 			})
 			continue
 		}
@@ -118,14 +130,16 @@ func (s *Server) ListDirectories(ctx context.Context, req *githubv1.ListDirector
 		}
 
 		entries = append(entries, &githubv1.DirectoryEntry{
-			Path:       d,
-			Name:       name,
-			ParentPath: parentPath,
+			Path:           d,
+			Name:           name,
+			ParentPath:     parentPath,
+			DetectedPreset: preset,
 		})
 
 		node := &githubv1.DirectoryNode{
-			Path: d,
-			Name: name,
+			Path:           d,
+			Name:           name,
+			DetectedPreset: preset,
 		}
 		nodeMap[d] = node
 

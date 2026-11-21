@@ -354,6 +354,9 @@
         },
         "parent_path": {
           "type": "string"
+        },
+        "detected_preset": {
+          "type": "string"
         }
       }
     },
@@ -372,6 +375,9 @@
             "type": "object",
             "$ref": "#/definitions/v1DirectoryNode"
           }
+        },
+        "detected_preset": {
+          "type": "string"
         }
       }
     },

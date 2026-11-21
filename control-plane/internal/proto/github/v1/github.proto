@@ -153,12 +153,14 @@ message DirectoryEntry {
   string path = 1;
   string name = 2;
   string parent_path = 3;
+  string detected_preset = 4;
 }
 
 message DirectoryNode {
   string path = 1;
   string name = 2;
   repeated DirectoryNode children = 3;
+  string detected_preset = 4;
 }
 
 message ListDirectoriesResponse {

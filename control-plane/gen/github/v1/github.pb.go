@@ -517,12 +517,13 @@ func (x *ListDirectoriesRequest) GetRef() string {
 }
 
 type DirectoryEntry struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	ParentPath    string                 `protobuf:"bytes,3,opt,name=parent_path,json=parentPath,proto3" json:"parent_path,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Path           string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Name           string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	ParentPath     string                 `protobuf:"bytes,3,opt,name=parent_path,json=parentPath,proto3" json:"parent_path,omitempty"`
+	DetectedPreset string                 `protobuf:"bytes,4,opt,name=detected_preset,json=detectedPreset,proto3" json:"detected_preset,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *DirectoryEntry) Reset() {
@@ -576,13 +577,21 @@ func (x *DirectoryEntry) GetParentPath() string {
 	return ""
 }
 
+func (x *DirectoryEntry) GetDetectedPreset() string {
+	if x != nil {
+		return x.DetectedPreset
+	}
+	return ""
+}
+
 type DirectoryNode struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Children      []*DirectoryNode       `protobuf:"bytes,3,rep,name=children,proto3" json:"children,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Path           string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Name           string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Children       []*DirectoryNode       `protobuf:"bytes,3,rep,name=children,proto3" json:"children,omitempty"`
+	DetectedPreset string                 `protobuf:"bytes,4,opt,name=detected_preset,json=detectedPreset,proto3" json:"detected_preset,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *DirectoryNode) Reset() {
@@ -634,6 +643,13 @@ func (x *DirectoryNode) GetChildren() []*DirectoryNode {
 		return x.Children
 	}
 	return nil
+}
+
+func (x *DirectoryNode) GetDetectedPreset() string {
+	if x != nil {
+		return x.DetectedPreset
+	}
+	return ""
 }
 
 type ListDirectoriesResponse struct {
@@ -740,16 +756,18 @@ const file_github_v1_github_proto_rawDesc = "" +
 	"\x0finstallation_id\x18\x03 \x01(\x03R\x0einstallationId\x12\x14\n" +
 	"\x05owner\x18\x04 \x01(\tR\x05owner\x12\x12\n" +
 	"\x04repo\x18\x05 \x01(\tR\x04repo\x12\x10\n" +
-	"\x03ref\x18\x06 \x01(\tR\x03ref\"Y\n" +
+	"\x03ref\x18\x06 \x01(\tR\x03ref\"\x82\x01\n" +
 	"\x0eDirectoryEntry\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1f\n" +
 	"\vparent_path\x18\x03 \x01(\tR\n" +
-	"parentPath\"m\n" +
+	"parentPath\x12'\n" +
+	"\x0fdetected_preset\x18\x04 \x01(\tR\x0edetectedPreset\"\x96\x01\n" +
 	"\rDirectoryNode\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x124\n" +
-	"\bchildren\x18\x03 \x03(\v2\x18.github.v1.DirectoryNodeR\bchildren\"\x9e\x01\n" +
+	"\bchildren\x18\x03 \x03(\v2\x18.github.v1.DirectoryNodeR\bchildren\x12'\n" +
+	"\x0fdetected_preset\x18\x04 \x01(\tR\x0edetectedPreset\"\x9e\x01\n" +
 	"\x17ListDirectoriesResponse\x12 \n" +
 	"\vdirectories\x18\x01 \x03(\tR\vdirectories\x123\n" +
 	"\aentries\x18\x02 \x03(\v2\x19.github.v1.DirectoryEntryR\aentries\x12,\n" +

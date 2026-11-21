@@ -115,6 +115,10 @@ func TestHandlers_ListDirectories_EndToEnd(t *testing.T) {
 	}
 	ghMock := &mockGitHubClient{
 		dirs: []string{"/", "/apps/api", "/apps/web"},
+		presets: map[string]string{
+			"/apps/api": "go",
+			"/apps/web": "nextjs",
+		},
 	}
 
 	srv := handlers.NewServer(service.NewService(authMock, ghMock))
@@ -140,8 +144,11 @@ func TestHandlers_ListDirectories_EndToEnd(t *testing.T) {
 	if resp.GetEntries()[0].GetPath() != "/" || resp.GetEntries()[0].GetParentPath() != "" {
 		t.Fatalf("unexpected root entry: %+v", resp.GetEntries()[0])
 	}
-	if resp.GetEntries()[1].GetPath() != "/apps/api" || resp.GetEntries()[1].GetName() != "api" || resp.GetEntries()[1].GetParentPath() != "/apps" {
+	if resp.GetEntries()[1].GetPath() != "/apps/api" || resp.GetEntries()[1].GetName() != "api" || resp.GetEntries()[1].GetParentPath() != "/apps" || resp.GetEntries()[1].GetDetectedPreset() != "go" {
 		t.Fatalf("unexpected entry 1: %+v", resp.GetEntries()[1])
+	}
+	if resp.GetEntries()[2].GetDetectedPreset() != "nextjs" {
+		t.Fatalf("unexpected entry 2: %+v", resp.GetEntries()[2])
 	}
 	if resp.GetRoot() == nil || resp.GetRoot().GetPath() != "/" {
 		t.Fatalf("unexpected root node: %+v", resp.GetRoot())

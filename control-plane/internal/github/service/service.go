@@ -76,16 +76,16 @@ func (s *Service) ListBranches(ctx context.Context, caller *authv1.CallerPrincip
 	return s.ghClient.ListBranches(ctx, tokResp.GetToken(), owner, repo)
 }
 
-// ListDirectories retrieves canonical directory paths for owner/repo at ref.
-func (s *Service) ListDirectories(ctx context.Context, caller *authv1.CallerPrincipal, orgID string, installationID int64, owner, repo, ref string) ([]string, error) {
+// ListDirectories retrieves canonical directory paths for owner/repo at ref along with detected presets.
+func (s *Service) ListDirectories(ctx context.Context, caller *authv1.CallerPrincipal, orgID string, installationID int64, owner, repo, ref string) ([]string, map[string]string, error) {
 	if _, err := uuid.Parse(strings.TrimSpace(orgID)); err != nil {
-		return nil, fmt.Errorf("%w: invalid organization id", client.ErrInvalidInput)
+		return nil, nil, fmt.Errorf("%w: invalid organization id", client.ErrInvalidInput)
 	}
 	if err := validateOwnerRepo(owner, repo); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := validateRef(ref); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	tokResp, err := s.authClient.GetGitHubInstallationToken(ctx, &authv1.GetGitHubInstallationTokenRequest{
@@ -94,10 +94,17 @@ func (s *Service) ListDirectories(ctx context.Context, caller *authv1.CallerPrin
 		InstallationId: installationID,
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return s.ghClient.ListDirectories(ctx, tokResp.GetToken(), owner, repo, ref)
+	if withPresets, ok := s.ghClient.(interface {
+		ListDirectoriesWithPresets(ctx context.Context, token string, owner, repo, ref string) ([]string, map[string]string, error)
+	}); ok {
+		return withPresets.ListDirectoriesWithPresets(ctx, tokResp.GetToken(), owner, repo, ref)
+	}
+
+	dirs, err := s.ghClient.ListDirectories(ctx, tokResp.GetToken(), owner, repo, ref)
+	return dirs, nil, err
 }
 
 func validateOwnerRepo(owner, repo string) error {

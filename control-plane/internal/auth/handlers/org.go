@@ -27,7 +27,8 @@ func mapOrgError(err error) error {
 		errors.Is(err, repository.ErrInviteNotFound),
 		errors.Is(err, repository.ErrTokenNotFound),
 		errors.Is(err, repository.ErrUserNotFound),
-		errors.Is(err, repository.ErrInstallationNotFound):
+		errors.Is(err, repository.ErrInstallationNotFound),
+		errors.Is(err, oauth.ErrInstallationNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, repository.ErrSlugAlreadyExists),
 		errors.Is(err, repository.ErrMemberAlreadyExists),

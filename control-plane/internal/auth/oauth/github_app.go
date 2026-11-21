@@ -33,6 +33,8 @@ var (
 	ErrInvalidInstallationState = errors.New("invalid or expired github installation state")
 	// ErrGitHubAppAPI indicates a failure communicating with the GitHub App API.
 	ErrGitHubAppAPI = errors.New("github app api request failed")
+	// ErrInstallationNotFound indicates the GitHub App installation was uninstalled or not found on GitHub.
+	ErrInstallationNotFound = errors.New("github installation not found")
 )
 
 // GitHubAppInstallation represents metadata fetched from GitHub for an App installation.
@@ -255,6 +257,9 @@ func (p *GitHubAppProvider) GetInstallationToken(ctx context.Context, installati
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusNotFound {
+		return "", time.Time{}, ErrInstallationNotFound
+	}
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
 		return "", time.Time{}, fmt.Errorf("%w: mint installation token status %d", ErrGitHubAppAPI, resp.StatusCode)
 	}
@@ -352,6 +357,9 @@ func (p *GitHubAppProvider) doGetJSON(ctx context.Context, endpoint, bearerToken
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusNotFound {
+		return ErrInstallationNotFound
+	}
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("%w: status %d", ErrGitHubAppAPI, resp.StatusCode)
 	}
