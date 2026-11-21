@@ -139,6 +139,19 @@ func BuildSnapshot(
 		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ready"})
 	})
 
+	// Top-level convenience route for GitHub App installation redirect on gateway
+	router.Get("/github/callback", func(w http.ResponseWriter, r *http.Request) {
+		frontendURL := strings.TrimSpace(os.Getenv("FRONTEND_URL"))
+		if frontendURL == "" {
+			frontendURL = "http://localhost:3000"
+		}
+		target := fmt.Sprintf("%s/github/callback", strings.TrimRight(frontendURL, "/"))
+		if q := r.URL.RawQuery; q != "" {
+			target += "?" + q
+		}
+		http.Redirect(w, r, target, http.StatusFound)
+	})
+
 	var conns []*grpc.ClientConn
 	cleanupOnErr := func() {
 		for _, c := range conns {
@@ -233,6 +246,26 @@ func BuildSnapshot(
 			baseHandler := TimeoutWrapper(svcMux, timeout)
 			method := strings.ToUpper(strings.TrimSpace(ep.Method))
 			path := strings.TrimSpace(ep.Path)
+
+			// Intercept GitHub App post-installation redirects landing on /api/v1/auth/github/callback
+			if method == http.MethodGet && path == "/api/v1/auth/github/callback" {
+				prevHandler := baseHandler
+				baseHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if r.URL.Query().Get("installation_id") != "" || r.URL.Query().Get("setup_action") != "" {
+						frontendURL := strings.TrimSpace(os.Getenv("FRONTEND_URL"))
+						if frontendURL == "" {
+							frontendURL = "http://localhost:3000"
+						}
+						target := fmt.Sprintf("%s/github/callback", strings.TrimRight(frontendURL, "/"))
+						if q := r.URL.RawQuery; q != "" {
+							target += "?" + q
+						}
+						http.Redirect(w, r, target, http.StatusFound)
+						return
+					}
+					prevHandler.ServeHTTP(w, r)
+				})
+			}
 
 			endpointTarget := middleware.EndpointTarget{
 				Method:     method,

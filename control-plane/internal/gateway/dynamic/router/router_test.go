@@ -365,4 +365,26 @@ func TestBuildSnapshot_AutoMount_DefaultEndpoints(t *testing.T) {
 	if recNotFound.Code != http.StatusNotFound {
 		t.Errorf("expected 404 for unregistered endpoint, got %d", recNotFound.Code)
 	}
+
+	// 4. GitHub callback with installation_id redirect test
+	t.Setenv("FRONTEND_URL", "http://localhost:3000")
+	recInstall := httptest.NewRecorder()
+	snap.Router().ServeHTTP(recInstall, httptest.NewRequest("GET", "/api/v1/auth/github/callback?installation_id=123456&setup_action=install&state=teststate", nil))
+	if recInstall.Code != http.StatusFound {
+		t.Errorf("expected 302 for GitHub installation callback, got %d", recInstall.Code)
+	}
+	expectedLoc := "http://localhost:3000/github/callback?installation_id=123456&setup_action=install&state=teststate"
+	if loc := recInstall.Header().Get("Location"); loc != expectedLoc {
+		t.Errorf("expected Location %q, got %q", expectedLoc, loc)
+	}
+
+	// 5. Root /github/callback endpoint redirect
+	recRoot := httptest.NewRecorder()
+	snap.Router().ServeHTTP(recRoot, httptest.NewRequest("GET", "/github/callback?installation_id=999", nil))
+	if recRoot.Code != http.StatusFound {
+		t.Errorf("expected 302 for /github/callback, got %d", recRoot.Code)
+	}
+	if loc := recRoot.Header().Get("Location"); loc != "http://localhost:3000/github/callback?installation_id=999" {
+		t.Errorf("expected Location with installation_id=999, got %q", loc)
+	}
 }
