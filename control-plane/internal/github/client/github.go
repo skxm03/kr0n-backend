@@ -152,6 +152,33 @@ func (c *HTTPClient) ListRepositories(ctx context.Context, token string) ([]Repo
 		})
 	}
 
+	parseTime := func(ts string) time.Time {
+		if strings.TrimSpace(ts) == "" {
+			return time.Time{}
+		}
+		for _, layout := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02T15:04:05Z", "2006-01-02 15:04:05"} {
+			if t, err := time.Parse(layout, ts); err == nil {
+				return t
+			}
+		}
+		return time.Time{}
+	}
+
+	sort.Slice(repos, func(i, j int) bool {
+		ti := parseTime(repos[i].PushedAt)
+		if ti.IsZero() {
+			ti = parseTime(repos[i].UpdatedAt)
+		}
+		tj := parseTime(repos[j].PushedAt)
+		if tj.IsZero() {
+			tj = parseTime(repos[j].UpdatedAt)
+		}
+		if !ti.Equal(tj) {
+			return ti.After(tj) // Latest first
+		}
+		return strings.ToLower(repos[i].Name) < strings.ToLower(repos[j].Name)
+	})
+
 	c.setCache(cacheKey, repos)
 	return repos, nil
 }
