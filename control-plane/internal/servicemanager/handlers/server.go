@@ -16,6 +16,7 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/servicemanager/domain"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/servicemanager/service"
 	pkgAudit "github.com/skxm03/kr0n-backend/control-plane/pkg/audit"
+	"github.com/skxm03/kr0n-backend/control-plane/pkg/grpcauth"
 )
 
 // Option configures Server.
@@ -28,11 +29,19 @@ func WithAuditEmitter(emitter pkgAudit.Emitter) Option {
 	}
 }
 
+// WithServiceAuthConfig configures transport authentication policy for the Service Manager gRPC server.
+func WithServiceAuthConfig(cfg grpcauth.ServiceAuthConfig) Option {
+	return func(s *Server) {
+		s.serviceAuth = cfg
+	}
+}
+
 // Server implements servicemanagerv1.ServiceManagerServiceServer.
 type Server struct {
 	servicemanagerv1.UnimplementedServiceManagerServiceServer
 	projectService *service.ProjectService
 	auditEmitter   pkgAudit.Emitter
+	serviceAuth    grpcauth.ServiceAuthConfig
 }
 
 // NewServer creates a new Service Manager gRPC server.
@@ -66,7 +75,7 @@ func (s *Server) ListApplicationPresets(_ context.Context, _ *servicemanagerv1.L
 
 // CreateProject creates a new repository-linked project and its initial 1:1 build settings at revision 1.
 func (s *Server) CreateProject(ctx context.Context, req *servicemanagerv1.CreateProjectRequest) (*servicemanagerv1.CreateProjectResponse, error) {
-	p, orgID, err := s.parseOrgCall(req.GetCaller(), req.GetOrgId())
+	p, orgID, err := s.parseOrgCall(ctx, req.GetCaller(), req.GetOrgId())
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +126,7 @@ func (s *Server) CreateProject(ctx context.Context, req *servicemanagerv1.Create
 
 // ListProjects lists projects in an organization ordered newest-first.
 func (s *Server) ListProjects(ctx context.Context, req *servicemanagerv1.ListProjectsRequest) (*servicemanagerv1.ListProjectsResponse, error) {
-	p, orgID, err := s.parseOrgCall(req.GetCaller(), req.GetOrgId())
+	p, orgID, err := s.parseOrgCall(ctx, req.GetCaller(), req.GetOrgId())
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +143,7 @@ func (s *Server) ListProjects(ctx context.Context, req *servicemanagerv1.ListPro
 
 // GetProject retrieves a single project and its build settings by ID.
 func (s *Server) GetProject(ctx context.Context, req *servicemanagerv1.GetProjectRequest) (*servicemanagerv1.GetProjectResponse, error) {
-	p, orgID, err := s.parseOrgCall(req.GetCaller(), req.GetOrgId())
+	p, orgID, err := s.parseOrgCall(ctx, req.GetCaller(), req.GetOrgId())
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +162,7 @@ func (s *Server) GetProject(ctx context.Context, req *servicemanagerv1.GetProjec
 
 // UpdateProject updates a project's metadata, root directory, branch, or preset, and increments revision.
 func (s *Server) UpdateProject(ctx context.Context, req *servicemanagerv1.UpdateProjectRequest) (*servicemanagerv1.UpdateProjectResponse, error) {
-	p, orgID, err := s.parseOrgCall(req.GetCaller(), req.GetOrgId())
+	p, orgID, err := s.parseOrgCall(ctx, req.GetCaller(), req.GetOrgId())
 	if err != nil {
 		return nil, err
 	}
@@ -197,7 +206,7 @@ func (s *Server) UpdateProject(ctx context.Context, req *servicemanagerv1.Update
 
 // UpdateProjectBuildSettings updates a project's toggleable build settings and increments revision.
 func (s *Server) UpdateProjectBuildSettings(ctx context.Context, req *servicemanagerv1.UpdateProjectBuildSettingsRequest) (*servicemanagerv1.UpdateProjectBuildSettingsResponse, error) {
-	p, orgID, err := s.parseOrgCall(req.GetCaller(), req.GetOrgId())
+	p, orgID, err := s.parseOrgCall(ctx, req.GetCaller(), req.GetOrgId())
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +247,7 @@ func (s *Server) UpdateProjectBuildSettings(ctx context.Context, req *serviceman
 
 // DeleteProject deletes a project and its build settings.
 func (s *Server) DeleteProject(ctx context.Context, req *servicemanagerv1.DeleteProjectRequest) (*servicemanagerv1.DeleteProjectResponse, error) {
-	p, orgID, err := s.parseOrgCall(req.GetCaller(), req.GetOrgId())
+	p, orgID, err := s.parseOrgCall(ctx, req.GetCaller(), req.GetOrgId())
 	if err != nil {
 		return nil, err
 	}
@@ -263,7 +272,10 @@ func (s *Server) DeleteProject(ctx context.Context, req *servicemanagerv1.Delete
 	}, nil
 }
 
-func (s *Server) parseOrgCall(c *authv1.CallerPrincipal, rawOrgID string) (domain.Principal, uuid.UUID, error) {
+func (s *Server) parseOrgCall(ctx context.Context, c *authv1.CallerPrincipal, rawOrgID string) (domain.Principal, uuid.UUID, error) {
+	if s.serviceAuth.Enabled && !grpcauth.IsTrustedService(ctx) {
+		return domain.Principal{}, uuid.Nil, status.Error(codes.Unauthenticated, "caller principal rejected: untrusted service boundary")
+	}
 	if s.projectService == nil {
 		return domain.Principal{}, uuid.Nil, status.Error(codes.Unimplemented, "project service not configured")
 	}

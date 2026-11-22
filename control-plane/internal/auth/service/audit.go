@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -62,7 +63,22 @@ func (s *AuditService) Record(ctx context.Context, ev repository.AuditEvent) err
 	}
 	if ev.Metadata == nil {
 		ev.Metadata = map[string]any{}
+	} else {
+		ev.Metadata = pkgAudit.RedactMetadata(ev.Metadata)
 	}
+
+	status := strings.ToLower(strings.TrimSpace(ev.Status))
+	if status == "" {
+		act := strings.ToLower(ev.Action)
+		if strings.Contains(act, "failed") || strings.Contains(act, "failure") {
+			status = pkgAudit.StatusFailure
+		} else if strings.Contains(act, "denied") {
+			status = pkgAudit.StatusDenied
+		} else {
+			status = pkgAudit.StatusSuccess
+		}
+	}
+	ev.Status = status
 
 	if s.emitter != nil {
 		reqID, _ := ev.Metadata["request_id"].(string)
@@ -70,7 +86,7 @@ func (s *AuditService) Record(ctx context.Context, ev repository.AuditEvent) err
 			ID:             ev.ID,
 			Service:        "auth",
 			Action:         ev.Action,
-			Status:         pkgAudit.StatusSuccess,
+			Status:         status,
 			OrganizationID: ev.OrganizationID,
 			Actor: pkgAudit.Actor{
 				UserID: ev.ActorUserID,

@@ -222,6 +222,7 @@ func (s *Server) Login(ctx context.Context, req *authv1.LoginRequest) (*authv1.L
 		s.recordAudit(ctx, repository.AuditEvent{
 			ActorType:    repository.ActorTypeUser,
 			Action:       pkgAudit.ActionUserLoginFailed.String(),
+			Status:       pkgAudit.StatusFailure,
 			ResourceType: pkgAudit.TargetTypeUser,
 			IPAddress:    clientIP,
 			UserAgent:    userAgent,

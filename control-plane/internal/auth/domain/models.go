@@ -164,6 +164,7 @@ type AuditEvent struct {
 	ActorUserID    *uuid.UUID
 	ActorType      string
 	Action         string
+	Status         string
 	ResourceType   string
 	ResourceID     string
 	IPAddress      *net.IP

@@ -24,6 +24,7 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/secrets/repository"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/secrets/service"
 	pkgAudit "github.com/skxm03/kr0n-backend/control-plane/pkg/audit"
+	"github.com/skxm03/kr0n-backend/control-plane/pkg/grpcauth"
 )
 
 // App encapsulates the dedicated Secrets & Vault gRPC microservice dependencies and lifecycle.
@@ -77,9 +78,20 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 		service.WithAuthorizer(authorizer),
 		service.WithProjectVerifier(projectVerifier),
 	)
-	grpcHandler := handlers.NewServer(secretsSvc, handlers.WithAuditEmitter(auditEmitter))
-
 	isDev := cfg.Env == "dev" || cfg.Env == "development"
+	serviceAuthConfig := grpcauth.ServiceAuthConfig{
+		Enabled:            !isDev || cfg.EffectiveClientCAFile() != "",
+		RequireClientCert:  !isDev || cfg.EffectiveClientCAFile() != "",
+		AllowedClientNames: cfg.AllowedClients,
+		AllowInsecureDev:   isDev && cfg.EffectiveClientCAFile() == "",
+	}
+
+	grpcHandler := handlers.NewServer(
+		secretsSvc,
+		handlers.WithAuditEmitter(auditEmitter),
+		handlers.WithServiceAuthConfig(serviceAuthConfig),
+	)
+
 	var serverOpts []grpc.ServerOption
 	if cfg.TLSCertFile != "" && cfg.TLSKeyFile != "" {
 		cert, err := tls.LoadX509KeyPair(cfg.TLSCertFile, cfg.TLSKeyFile)
@@ -110,6 +122,8 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 		cleanup()
 		return nil, errors.New("plaintext gRPC is only allowed when KR0N_ENV=dev")
 	}
+
+	serverOpts = append(serverOpts, grpc.UnaryInterceptor(grpcauth.NewServiceAuthInterceptor(serviceAuthConfig)))
 
 	grpcServer := grpc.NewServer(serverOpts...)
 	secretsv1.RegisterSecretsServiceServer(grpcServer, grpcHandler)

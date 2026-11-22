@@ -106,6 +106,8 @@ func (e *Event) Normalize(defaultService string) {
 	}
 	if e.Metadata == nil {
 		e.Metadata = map[string]any{}
+	} else {
+		e.Metadata = RedactMetadata(e.Metadata)
 	}
 }
 

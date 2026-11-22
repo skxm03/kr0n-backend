@@ -16,6 +16,7 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/secrets/domain"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/secrets/service"
 	pkgAudit "github.com/skxm03/kr0n-backend/control-plane/pkg/audit"
+	"github.com/skxm03/kr0n-backend/control-plane/pkg/grpcauth"
 )
 
 // Option configures Server.
@@ -28,6 +29,13 @@ func WithAuditEmitter(emitter pkgAudit.Emitter) Option {
 	}
 }
 
+// WithServiceAuthConfig configures transport authentication policy for the Secrets gRPC server.
+func WithServiceAuthConfig(cfg grpcauth.ServiceAuthConfig) Option {
+	return func(s *Server) {
+		s.serviceAuth = cfg
+	}
+}
+
 // Server implements both secretsv1.SecretsServiceServer (public write-only API)
 // and secretsv1.SecretsInternalServiceServer (restricted internal decryption for build/deploy runners).
 type Server struct {
@@ -35,6 +43,7 @@ type Server struct {
 	secretsv1.UnimplementedSecretsInternalServiceServer
 	secretsService *service.SecretsService
 	auditEmitter   pkgAudit.Emitter
+	serviceAuth    grpcauth.ServiceAuthConfig
 }
 
 // NewServer creates a new Secrets gRPC server.
@@ -53,7 +62,7 @@ func (s *Server) UpsertProjectEnvVars(
 	ctx context.Context,
 	req *secretsv1.UpsertProjectEnvVarsRequest,
 ) (*secretsv1.UpsertProjectEnvVarsResponse, error) {
-	p, orgID, err := s.parseOrgCall(req.GetCaller(), req.GetOrgId())
+	p, orgID, err := s.parseOrgCall(ctx, req.GetCaller(), req.GetOrgId())
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +114,7 @@ func (s *Server) ListProjectEnvVars(
 	ctx context.Context,
 	req *secretsv1.ListProjectEnvVarsRequest,
 ) (*secretsv1.ListProjectEnvVarsResponse, error) {
-	p, orgID, err := s.parseOrgCall(req.GetCaller(), req.GetOrgId())
+	p, orgID, err := s.parseOrgCall(ctx, req.GetCaller(), req.GetOrgId())
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +142,7 @@ func (s *Server) DeleteProjectEnvVar(
 	ctx context.Context,
 	req *secretsv1.DeleteProjectEnvVarRequest,
 ) (*secretsv1.DeleteProjectEnvVarResponse, error) {
-	p, orgID, err := s.parseOrgCall(req.GetCaller(), req.GetOrgId())
+	p, orgID, err := s.parseOrgCall(ctx, req.GetCaller(), req.GetOrgId())
 	if err != nil {
 		return nil, err
 	}
@@ -165,6 +174,9 @@ func (s *Server) ResolveProjectSecrets(
 	ctx context.Context,
 	req *secretsv1.ResolveProjectSecretsRequest,
 ) (*secretsv1.ResolveProjectSecretsResponse, error) {
+	if s.serviceAuth.Enabled && !grpcauth.IsTrustedService(ctx) {
+		return nil, status.Error(codes.Unauthenticated, "trusted service authentication required")
+	}
 	if s.secretsService == nil {
 		return nil, status.Error(codes.Unimplemented, "secrets service not configured")
 	}
@@ -181,7 +193,10 @@ func (s *Server) ResolveProjectSecrets(
 	}, nil
 }
 
-func (s *Server) parseOrgCall(c *authv1.CallerPrincipal, rawOrgID string) (domain.Principal, uuid.UUID, error) {
+func (s *Server) parseOrgCall(ctx context.Context, c *authv1.CallerPrincipal, rawOrgID string) (domain.Principal, uuid.UUID, error) {
+	if s.serviceAuth.Enabled && !grpcauth.IsTrustedService(ctx) {
+		return domain.Principal{}, uuid.Nil, status.Error(codes.Unauthenticated, "caller principal rejected: untrusted service boundary")
+	}
 	if s.secretsService == nil {
 		return domain.Principal{}, uuid.Nil, status.Error(codes.Unimplemented, "secrets service not configured")
 	}

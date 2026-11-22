@@ -115,6 +115,82 @@ func TestAuditService_WithAuditEmitter(t *testing.T) {
 	}
 }
 
+func TestAuditService_RedactionAndFailureStatus(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("Record with emitter scrubs sensitive data and infers failure status", func(t *testing.T) {
+		repo := &memAuditRepo{}
+		emitter := pkgAudit.NewMemoryEmitter("auth")
+		svc := service.NewAuditService(repo, service.WithAuditEmitter(emitter))
+
+		orgID := uuid.New()
+		err := svc.Record(ctx, repository.AuditEvent{
+			OrganizationID: &orgID,
+			Action:         pkgAudit.ActionUserLoginFailed.String(),
+			ResourceType:   "user",
+			Metadata: map[string]any{
+				"password":      "attempted-plaintext-password",
+				"email":         "victim@kr0n.dev",
+				"refresh_token": "secret-jwt",
+			},
+		})
+		if err != nil {
+			t.Fatalf("Record failed: %v", err)
+		}
+
+		emitted := emitter.Events()
+		if len(emitted) != 1 {
+			t.Fatalf("expected 1 event, got %d", len(emitted))
+		}
+		ev := emitted[0]
+		if ev.Status != pkgAudit.StatusFailure {
+			t.Errorf("expected status 'failure' for login failed, got %q", ev.Status)
+		}
+		if ev.Metadata["password"] != pkgAudit.RedactedPlaceholder {
+			t.Errorf("expected password to be redacted, got %v", ev.Metadata["password"])
+		}
+		if ev.Metadata["refresh_token"] != pkgAudit.RedactedPlaceholder {
+			t.Errorf("expected refresh_token to be redacted, got %v", ev.Metadata["refresh_token"])
+		}
+		if ev.Metadata["email"] != "victim@kr0n.dev" {
+			t.Errorf("expected email to be preserved, got %v", ev.Metadata["email"])
+		}
+	})
+
+	t.Run("Record without emitter (fallback) scrubs sensitive data and infers failure status", func(t *testing.T) {
+		repo := &memAuditRepo{}
+		svc := service.NewAuditService(repo)
+
+		orgID := uuid.New()
+		err := svc.Record(ctx, repository.AuditEvent{
+			OrganizationID: &orgID,
+			Action:         pkgAudit.ActionUserLoginFailed.String(),
+			ResourceType:   "user",
+			Metadata: map[string]any{
+				"password": "attempted-password-direct",
+				"token":    "bearer-token",
+			},
+		})
+		if err != nil {
+			t.Fatalf("Record failed: %v", err)
+		}
+
+		if len(repo.events) != 1 {
+			t.Fatalf("expected 1 event in repo, got %d", len(repo.events))
+		}
+		ev := repo.events[0]
+		if ev.Status != pkgAudit.StatusFailure {
+			t.Errorf("expected status 'failure' on repository event, got %q", ev.Status)
+		}
+		if ev.Metadata["password"] != pkgAudit.RedactedPlaceholder {
+			t.Errorf("expected password to be redacted in repo, got %v", ev.Metadata["password"])
+		}
+		if ev.Metadata["token"] != pkgAudit.RedactedPlaceholder {
+			t.Errorf("expected token to be redacted in repo, got %v", ev.Metadata["token"])
+		}
+	})
+}
+
 func TestAuditPostgresActionFilter(t *testing.T) {
 	pool := testdb.Pool(t)
 	svc := service.NewAuditService(repository.NewPostgresAuditRepository(pool))

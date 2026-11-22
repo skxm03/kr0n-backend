@@ -77,6 +77,15 @@ func TestEvent_NormalizeValidateAndRoutingKey(t *testing.T) {
 			Type: "invite",
 			ID:   "inv-123",
 		},
+		Metadata: map[string]any{
+			"password":       "super-secret-123",
+			"refresh_token":  "jwt.refresh.token",
+			"safe_attribute": "ok-value",
+			"nested": map[string]any{
+				"client_secret": "sensitive-oauth-secret",
+				"public_key":    "ssh-ed25519-abc",
+			},
+		},
 	}
 	ev.Normalize("auth")
 
@@ -97,6 +106,23 @@ func TestEvent_NormalizeValidateAndRoutingKey(t *testing.T) {
 	}
 	if err := ev.Validate(); err != nil {
 		t.Fatalf("expected valid event, got: %v", err)
+	}
+	// Verify redaction inside Normalize
+	if ev.Metadata["password"] != RedactedPlaceholder {
+		t.Errorf("expected password to be redacted, got %v", ev.Metadata["password"])
+	}
+	if ev.Metadata["refresh_token"] != RedactedPlaceholder {
+		t.Errorf("expected refresh_token to be redacted, got %v", ev.Metadata["refresh_token"])
+	}
+	if ev.Metadata["safe_attribute"] != "ok-value" {
+		t.Errorf("expected safe_attribute to be untouched, got %v", ev.Metadata["safe_attribute"])
+	}
+	nested, ok := ev.Metadata["nested"].(map[string]any)
+	if !ok || nested["client_secret"] != RedactedPlaceholder {
+		t.Errorf("expected nested client_secret to be redacted, got %v", nested["client_secret"])
+	}
+	if nested["public_key"] != "ssh-ed25519-abc" {
+		t.Errorf("expected nested public_key to be untouched, got %v", nested["public_key"])
 	}
 
 	gotKey := ev.RoutingKey("audit")
