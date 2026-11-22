@@ -9,12 +9,22 @@ import (
 
 // Config encapsulates configuration for the GitHub microservice.
 type Config struct {
+	DatabaseURL      string
 	GRPCPort         string
 	AuthGRPCAddr     string
 	GitHubAPIURL     string
 	HTTPTimeout      time.Duration
 	CacheTTL         time.Duration
 	MaxResponseBytes int64
+
+	// GitHub App credentials
+	GitHubAppID             string
+	GitHubAppSlug           string
+	GitHubAppPrivateKey     string
+	GitHubAppPrivateKeyPath string
+	GitHubAppStateSecret    string
+	GitHubWebhookSecret     string
+	GitHubWebhookMaxBytes   int64
 
 	// TLS / mTLS settings
 	TLSEnabled            bool
@@ -32,20 +42,28 @@ type Config struct {
 // Load reads configuration from environment variables with production defaults.
 func Load() (*Config, error) {
 	cfg := &Config{
-		GRPCPort:              getEnv("GITHUB_GRPC_PORT", "50052"),
-		AuthGRPCAddr:          getEnv("AUTH_GRPC_ADDR", "127.0.0.1:50051"),
-		GitHubAPIURL:          getEnv("GITHUB_API_URL", "https://api.github.com"),
-		HTTPTimeout:           getEnvDuration("GITHUB_HTTP_TIMEOUT", 5*time.Second),
-		CacheTTL:              getEnvDuration("GITHUB_CACHE_TTL", 2*time.Minute),
-		MaxResponseBytes:      getEnvInt64("GITHUB_MAX_RESPONSE_BYTES", 4<<20), // 4MB
-		TLSEnabled:            getEnvBool("GITHUB_TLS_ENABLED", false),
-		TLSCertFile:           os.Getenv("GITHUB_TLS_CERT_FILE"),
-		TLSKeyFile:            os.Getenv("GITHUB_TLS_KEY_FILE"),
-		TLSCAFile:             os.Getenv("GITHUB_TLS_CA_FILE"),
-		TLSClientAuth:         getEnvBool("GITHUB_TLS_CLIENT_AUTH", false),
-		InsecureDevSkipVerify: getEnvBool("GITHUB_INSECURE_DEV_SKIP_VERIFY", false),
-		AuditRabbitMQURL:      os.Getenv("AUDIT_RABBITMQ_URL"),
-		AuditExchangeName:     getEnv("AUDIT_EXCHANGE_NAME", "audit.events"),
+		DatabaseURL:             getEnv("DATABASE_URL", ""),
+		GRPCPort:                getEnv("GITHUB_GRPC_PORT", "50052"),
+		AuthGRPCAddr:            getEnv("AUTH_GRPC_ADDR", "127.0.0.1:50051"),
+		GitHubAPIURL:            getEnv("GITHUB_API_URL", "https://api.github.com"),
+		HTTPTimeout:             getEnvDuration("GITHUB_HTTP_TIMEOUT", 5*time.Second),
+		CacheTTL:                getEnvDuration("GITHUB_CACHE_TTL", 2*time.Minute),
+		MaxResponseBytes:        getEnvInt64("GITHUB_MAX_RESPONSE_BYTES", 4<<20), // 4MB
+		GitHubAppID:             os.Getenv("GITHUB_APP_ID"),
+		GitHubAppSlug:           os.Getenv("GITHUB_APP_SLUG"),
+		GitHubAppPrivateKey:     os.Getenv("GITHUB_APP_PRIVATE_KEY"),
+		GitHubAppPrivateKeyPath: os.Getenv("GITHUB_APP_PRIVATE_KEY_PATH"),
+		GitHubAppStateSecret:    os.Getenv("GITHUB_APP_STATE_SECRET"),
+		GitHubWebhookSecret:     os.Getenv("GITHUB_WEBHOOK_SECRET"),
+		GitHubWebhookMaxBytes:   getEnvInt64("GITHUB_WEBHOOK_MAX_BYTES", 256*1024),
+		TLSEnabled:              getEnvBool("GITHUB_TLS_ENABLED", false),
+		TLSCertFile:             os.Getenv("GITHUB_TLS_CERT_FILE"),
+		TLSKeyFile:              os.Getenv("GITHUB_TLS_KEY_FILE"),
+		TLSCAFile:               os.Getenv("GITHUB_TLS_CA_FILE"),
+		TLSClientAuth:           getEnvBool("GITHUB_TLS_CLIENT_AUTH", false),
+		InsecureDevSkipVerify:   getEnvBool("GITHUB_INSECURE_DEV_SKIP_VERIFY", false),
+		AuditRabbitMQURL:        os.Getenv("AUDIT_RABBITMQ_URL"),
+		AuditExchangeName:       getEnv("AUDIT_EXCHANGE_NAME", "audit.events"),
 	}
 
 	if cfg.TLSEnabled {

@@ -11,23 +11,28 @@ import (
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
 	githubv1 "github.com/skxm03/kr0n-backend/control-plane/gen/github/v1"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/github/client"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/github/domain"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/github/handlers"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/github/service"
 )
 
 func TestHandlers_ListRepositories_EndToEnd(t *testing.T) {
 	orgID := uuid.New().String()
+	parsedOrgID, _ := uuid.Parse(orgID)
 	caller := &authv1.CallerPrincipal{
 		UserId: uuid.New().String(),
 		Kind:   "user",
 	}
 
-	authMock := &mockAuthClient{
-		tokenResp: &authv1.GetGitHubInstallationTokenResponse{
-			Token:          "scoped-ghs-token",
-			InstallationId: 1234,
-		},
-	}
+	ghApp := newMockGitHubApp("scoped-ghs-token")
+	repo := newMockInstallationRepo()
+	ctx := context.Background()
+	_, _ = repo.UpsertGitHubInstallation(ctx, &domain.GitHubInstallation{
+		OrganizationID: parsedOrgID,
+		InstallationID: 1234,
+		Status:         "active",
+	})
+
 	ghMock := &mockGitHubClient{
 		repos: []client.Repository{
 			{
@@ -46,8 +51,12 @@ func TestHandlers_ListRepositories_EndToEnd(t *testing.T) {
 		},
 	}
 
-	srv := handlers.NewServer(service.NewService(authMock, ghMock))
-	ctx := context.Background()
+	svc := service.NewService(
+		service.WithGitHubApp(ghApp),
+		service.WithInstallationRepository(repo),
+		service.WithGitHubClient(ghMock),
+	)
+	srv := handlers.NewServer(svc)
 
 	resp, err := srv.ListRepositories(ctx, &githubv1.ListRepositoriesRequest{
 		Caller:         caller,
@@ -60,33 +69,41 @@ func TestHandlers_ListRepositories_EndToEnd(t *testing.T) {
 	if len(resp.GetRepositories()) != 1 || resp.GetRepositories()[0].GetName() != "kr0n-frontend" {
 		t.Fatalf("unexpected repositories: %+v", resp)
 	}
-	repo := resp.GetRepositories()[0]
-	if repo.GetUpdatedAt() != "2026-11-20T10:00:00Z" || repo.GetPushedAt() != "2026-11-20T10:30:00Z" {
-		t.Fatalf("unexpected repo timestamps: %+v", repo)
+	r := resp.GetRepositories()[0]
+	if r.GetUpdatedAt() != "2026-11-20T10:00:00Z" || r.GetPushedAt() != "2026-11-20T10:30:00Z" {
+		t.Fatalf("unexpected repo timestamps: %+v", r)
 	}
-	if repo.GetDescription() != "Frontend application" || repo.GetLanguage() != "TypeScript" {
-		t.Fatalf("unexpected repo description/language: %+v", repo)
+	if r.GetDescription() != "Frontend application" || r.GetLanguage() != "TypeScript" {
+		t.Fatalf("unexpected repo description/language: %+v", r)
 	}
 }
 
 func TestHandlers_ListBranches_EndToEnd(t *testing.T) {
 	orgID := uuid.New().String()
+	parsedOrgID, _ := uuid.Parse(orgID)
 	caller := &authv1.CallerPrincipal{UserId: uuid.New().String()}
 
-	authMock := &mockAuthClient{
-		tokenResp: &authv1.GetGitHubInstallationTokenResponse{
-			Token:          "scoped-ghs-token",
-			InstallationId: 1234,
-		},
-	}
+	ghApp := newMockGitHubApp("scoped-ghs-token")
+	repo := newMockInstallationRepo()
+	ctx := context.Background()
+	_, _ = repo.UpsertGitHubInstallation(ctx, &domain.GitHubInstallation{
+		OrganizationID: parsedOrgID,
+		InstallationID: 1234,
+		Status:         "active",
+	})
+
 	ghMock := &mockGitHubClient{
 		branches: []client.Branch{
 			{Name: "main", CommitSHA: "sha123", Protected: true},
 		},
 	}
 
-	srv := handlers.NewServer(service.NewService(authMock, ghMock))
-	ctx := context.Background()
+	svc := service.NewService(
+		service.WithGitHubApp(ghApp),
+		service.WithInstallationRepository(repo),
+		service.WithGitHubClient(ghMock),
+	)
+	srv := handlers.NewServer(svc)
 
 	resp, err := srv.ListBranches(ctx, &githubv1.ListBranchesRequest{
 		Caller:         caller,
@@ -105,14 +122,18 @@ func TestHandlers_ListBranches_EndToEnd(t *testing.T) {
 
 func TestHandlers_ListDirectories_EndToEnd(t *testing.T) {
 	orgID := uuid.New().String()
+	parsedOrgID, _ := uuid.Parse(orgID)
 	caller := &authv1.CallerPrincipal{UserId: uuid.New().String()}
 
-	authMock := &mockAuthClient{
-		tokenResp: &authv1.GetGitHubInstallationTokenResponse{
-			Token:          "scoped-ghs-token",
-			InstallationId: 1234,
-		},
-	}
+	ghApp := newMockGitHubApp("scoped-ghs-token")
+	repo := newMockInstallationRepo()
+	ctx := context.Background()
+	_, _ = repo.UpsertGitHubInstallation(ctx, &domain.GitHubInstallation{
+		OrganizationID: parsedOrgID,
+		InstallationID: 1234,
+		Status:         "active",
+	})
+
 	ghMock := &mockGitHubClient{
 		dirs: []string{"/", "/apps/api", "/apps/web"},
 		presets: map[string]string{
@@ -121,8 +142,12 @@ func TestHandlers_ListDirectories_EndToEnd(t *testing.T) {
 		},
 	}
 
-	srv := handlers.NewServer(service.NewService(authMock, ghMock))
-	ctx := context.Background()
+	svc := service.NewService(
+		service.WithGitHubApp(ghApp),
+		service.WithInstallationRepository(repo),
+		service.WithGitHubClient(ghMock),
+	)
+	srv := handlers.NewServer(svc)
 
 	resp, err := srv.ListDirectories(ctx, &githubv1.ListDirectoriesRequest{
 		Caller:         caller,
@@ -138,17 +163,14 @@ func TestHandlers_ListDirectories_EndToEnd(t *testing.T) {
 	if len(resp.GetDirectories()) != 3 || resp.GetDirectories()[0] != "/" {
 		t.Fatalf("unexpected directories: %+v", resp)
 	}
-	if len(resp.GetEntries()) != 3 {
-		t.Fatalf("expected 3 entries, got %d", len(resp.GetEntries()))
+	if len(resp.GetEntries()) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(resp.GetEntries()))
 	}
-	if resp.GetEntries()[0].GetPath() != "/" || resp.GetEntries()[0].GetParentPath() != "" {
-		t.Fatalf("unexpected root entry: %+v", resp.GetEntries()[0])
+	if resp.GetEntries()[0].GetPath() != "/apps/api" || resp.GetEntries()[0].GetName() != "api" || resp.GetEntries()[0].GetParentPath() != "/apps" || resp.GetEntries()[0].GetDetectedPreset() != "go" {
+		t.Fatalf("unexpected entry 0: %+v", resp.GetEntries()[0])
 	}
-	if resp.GetEntries()[1].GetPath() != "/apps/api" || resp.GetEntries()[1].GetName() != "api" || resp.GetEntries()[1].GetParentPath() != "/apps" || resp.GetEntries()[1].GetDetectedPreset() != "go" {
+	if resp.GetEntries()[1].GetDetectedPreset() != "nextjs" {
 		t.Fatalf("unexpected entry 1: %+v", resp.GetEntries()[1])
-	}
-	if resp.GetEntries()[2].GetDetectedPreset() != "nextjs" {
-		t.Fatalf("unexpected entry 2: %+v", resp.GetEntries()[2])
 	}
 	if resp.GetRoot() == nil || resp.GetRoot().GetPath() != "/" {
 		t.Fatalf("unexpected root node: %+v", resp.GetRoot())
@@ -156,7 +178,12 @@ func TestHandlers_ListDirectories_EndToEnd(t *testing.T) {
 }
 
 func TestHandlers_NilRequestAndValidationErrors(t *testing.T) {
-	srv := handlers.NewServer(service.NewService(&mockAuthClient{}, &mockGitHubClient{}))
+	svc := service.NewService(
+		service.WithGitHubApp(newMockGitHubApp("tok")),
+		service.WithInstallationRepository(newMockInstallationRepo()),
+		service.WithGitHubClient(&mockGitHubClient{}),
+	)
+	srv := handlers.NewServer(svc)
 	ctx := context.Background()
 
 	if _, err := srv.ListRepositories(ctx, nil); status.Code(err) != codes.InvalidArgument {

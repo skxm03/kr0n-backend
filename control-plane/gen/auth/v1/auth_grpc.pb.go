@@ -19,48 +19,42 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AuthService_Register_FullMethodName                     = "/auth.v1.AuthService/Register"
-	AuthService_Login_FullMethodName                        = "/auth.v1.AuthService/Login"
-	AuthService_Refresh_FullMethodName                      = "/auth.v1.AuthService/Refresh"
-	AuthService_Logout_FullMethodName                       = "/auth.v1.AuthService/Logout"
-	AuthService_ListSessions_FullMethodName                 = "/auth.v1.AuthService/ListSessions"
-	AuthService_RevokeSession_FullMethodName                = "/auth.v1.AuthService/RevokeSession"
-	AuthService_GetJWKS_FullMethodName                      = "/auth.v1.AuthService/GetJWKS"
-	AuthService_GetMe_FullMethodName                        = "/auth.v1.AuthService/GetMe"
-	AuthService_VerifyEmail_FullMethodName                  = "/auth.v1.AuthService/VerifyEmail"
-	AuthService_ResendVerification_FullMethodName           = "/auth.v1.AuthService/ResendVerification"
-	AuthService_RequestPasswordReset_FullMethodName         = "/auth.v1.AuthService/RequestPasswordReset"
-	AuthService_ConfirmPasswordReset_FullMethodName         = "/auth.v1.AuthService/ConfirmPasswordReset"
-	AuthService_ChangePassword_FullMethodName               = "/auth.v1.AuthService/ChangePassword"
-	AuthService_StartGitHubOAuth_FullMethodName             = "/auth.v1.AuthService/StartGitHubOAuth"
-	AuthService_CompleteGitHubOAuth_FullMethodName          = "/auth.v1.AuthService/CompleteGitHubOAuth"
-	AuthService_StartGoogleOAuth_FullMethodName             = "/auth.v1.AuthService/StartGoogleOAuth"
-	AuthService_CompleteGoogleOAuth_FullMethodName          = "/auth.v1.AuthService/CompleteGoogleOAuth"
-	AuthService_CreateOrganization_FullMethodName           = "/auth.v1.AuthService/CreateOrganization"
-	AuthService_ListOrganizations_FullMethodName            = "/auth.v1.AuthService/ListOrganizations"
-	AuthService_GetOrganization_FullMethodName              = "/auth.v1.AuthService/GetOrganization"
-	AuthService_UpdateOrganization_FullMethodName           = "/auth.v1.AuthService/UpdateOrganization"
-	AuthService_DeleteOrganization_FullMethodName           = "/auth.v1.AuthService/DeleteOrganization"
-	AuthService_ListRoles_FullMethodName                    = "/auth.v1.AuthService/ListRoles"
-	AuthService_ListMembers_FullMethodName                  = "/auth.v1.AuthService/ListMembers"
-	AuthService_AddMember_FullMethodName                    = "/auth.v1.AuthService/AddMember"
-	AuthService_UpdateMemberRole_FullMethodName             = "/auth.v1.AuthService/UpdateMemberRole"
-	AuthService_RemoveMember_FullMethodName                 = "/auth.v1.AuthService/RemoveMember"
-	AuthService_CheckPermission_FullMethodName              = "/auth.v1.AuthService/CheckPermission"
-	AuthService_CreateInvite_FullMethodName                 = "/auth.v1.AuthService/CreateInvite"
-	AuthService_AcceptInvite_FullMethodName                 = "/auth.v1.AuthService/AcceptInvite"
-	AuthService_RevokeInvite_FullMethodName                 = "/auth.v1.AuthService/RevokeInvite"
-	AuthService_CreateAPIToken_FullMethodName               = "/auth.v1.AuthService/CreateAPIToken"
-	AuthService_ListAPITokens_FullMethodName                = "/auth.v1.AuthService/ListAPITokens"
-	AuthService_RevokeAPIToken_FullMethodName               = "/auth.v1.AuthService/RevokeAPIToken"
-	AuthService_ValidateAPIToken_FullMethodName             = "/auth.v1.AuthService/ValidateAPIToken"
-	AuthService_ListAuditEvents_FullMethodName              = "/auth.v1.AuthService/ListAuditEvents"
-	AuthService_StartGitHubInstallation_FullMethodName      = "/auth.v1.AuthService/StartGitHubInstallation"
-	AuthService_CompleteGitHubInstallation_FullMethodName   = "/auth.v1.AuthService/CompleteGitHubInstallation"
-	AuthService_ListGitHubInstallations_FullMethodName      = "/auth.v1.AuthService/ListGitHubInstallations"
-	AuthService_DisconnectGitHubInstallation_FullMethodName = "/auth.v1.AuthService/DisconnectGitHubInstallation"
-	AuthService_GetGitHubInstallationToken_FullMethodName   = "/auth.v1.AuthService/GetGitHubInstallationToken"
-	AuthService_HandleGitHubWebhook_FullMethodName          = "/auth.v1.AuthService/HandleGitHubWebhook"
+	AuthService_Register_FullMethodName             = "/auth.v1.AuthService/Register"
+	AuthService_Login_FullMethodName                = "/auth.v1.AuthService/Login"
+	AuthService_Refresh_FullMethodName              = "/auth.v1.AuthService/Refresh"
+	AuthService_Logout_FullMethodName               = "/auth.v1.AuthService/Logout"
+	AuthService_ListSessions_FullMethodName         = "/auth.v1.AuthService/ListSessions"
+	AuthService_RevokeSession_FullMethodName        = "/auth.v1.AuthService/RevokeSession"
+	AuthService_GetJWKS_FullMethodName              = "/auth.v1.AuthService/GetJWKS"
+	AuthService_GetMe_FullMethodName                = "/auth.v1.AuthService/GetMe"
+	AuthService_VerifyEmail_FullMethodName          = "/auth.v1.AuthService/VerifyEmail"
+	AuthService_ResendVerification_FullMethodName   = "/auth.v1.AuthService/ResendVerification"
+	AuthService_RequestPasswordReset_FullMethodName = "/auth.v1.AuthService/RequestPasswordReset"
+	AuthService_ConfirmPasswordReset_FullMethodName = "/auth.v1.AuthService/ConfirmPasswordReset"
+	AuthService_ChangePassword_FullMethodName       = "/auth.v1.AuthService/ChangePassword"
+	AuthService_StartGitHubOAuth_FullMethodName     = "/auth.v1.AuthService/StartGitHubOAuth"
+	AuthService_CompleteGitHubOAuth_FullMethodName  = "/auth.v1.AuthService/CompleteGitHubOAuth"
+	AuthService_StartGoogleOAuth_FullMethodName     = "/auth.v1.AuthService/StartGoogleOAuth"
+	AuthService_CompleteGoogleOAuth_FullMethodName  = "/auth.v1.AuthService/CompleteGoogleOAuth"
+	AuthService_CreateOrganization_FullMethodName   = "/auth.v1.AuthService/CreateOrganization"
+	AuthService_ListOrganizations_FullMethodName    = "/auth.v1.AuthService/ListOrganizations"
+	AuthService_GetOrganization_FullMethodName      = "/auth.v1.AuthService/GetOrganization"
+	AuthService_UpdateOrganization_FullMethodName   = "/auth.v1.AuthService/UpdateOrganization"
+	AuthService_DeleteOrganization_FullMethodName   = "/auth.v1.AuthService/DeleteOrganization"
+	AuthService_ListRoles_FullMethodName            = "/auth.v1.AuthService/ListRoles"
+	AuthService_ListMembers_FullMethodName          = "/auth.v1.AuthService/ListMembers"
+	AuthService_AddMember_FullMethodName            = "/auth.v1.AuthService/AddMember"
+	AuthService_UpdateMemberRole_FullMethodName     = "/auth.v1.AuthService/UpdateMemberRole"
+	AuthService_RemoveMember_FullMethodName         = "/auth.v1.AuthService/RemoveMember"
+	AuthService_CheckPermission_FullMethodName      = "/auth.v1.AuthService/CheckPermission"
+	AuthService_CreateInvite_FullMethodName         = "/auth.v1.AuthService/CreateInvite"
+	AuthService_AcceptInvite_FullMethodName         = "/auth.v1.AuthService/AcceptInvite"
+	AuthService_RevokeInvite_FullMethodName         = "/auth.v1.AuthService/RevokeInvite"
+	AuthService_CreateAPIToken_FullMethodName       = "/auth.v1.AuthService/CreateAPIToken"
+	AuthService_ListAPITokens_FullMethodName        = "/auth.v1.AuthService/ListAPITokens"
+	AuthService_RevokeAPIToken_FullMethodName       = "/auth.v1.AuthService/RevokeAPIToken"
+	AuthService_ValidateAPIToken_FullMethodName     = "/auth.v1.AuthService/ValidateAPIToken"
+	AuthService_ListAuditEvents_FullMethodName      = "/auth.v1.AuthService/ListAuditEvents"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -143,19 +137,6 @@ type AuthServiceClient interface {
 	ValidateAPIToken(ctx context.Context, in *ValidateAPITokenRequest, opts ...grpc.CallOption) (*ValidateAPITokenResponse, error)
 	// ListAuditEvents lists append-only audit events for an organization, gated by `audit:read`.
 	ListAuditEvents(ctx context.Context, in *ListAuditEventsRequest, opts ...grpc.CallOption) (*ListAuditEventsResponse, error)
-	// StartGitHubInstallation generates a signed installation state token and GitHub App installation URL.
-	StartGitHubInstallation(ctx context.Context, in *StartGitHubInstallationRequest, opts ...grpc.CallOption) (*StartGitHubInstallationResponse, error)
-	// CompleteGitHubInstallation verifies the installation state and links the GitHub App installation to the organization.
-	CompleteGitHubInstallation(ctx context.Context, in *CompleteGitHubInstallationRequest, opts ...grpc.CallOption) (*CompleteGitHubInstallationResponse, error)
-	// ListGitHubInstallations lists GitHub App installations linked to the organization.
-	ListGitHubInstallations(ctx context.Context, in *ListGitHubInstallationsRequest, opts ...grpc.CallOption) (*ListGitHubInstallationsResponse, error)
-	// DisconnectGitHubInstallation unlinks a GitHub App installation from the organization.
-	DisconnectGitHubInstallation(ctx context.Context, in *DisconnectGitHubInstallationRequest, opts ...grpc.CallOption) (*DisconnectGitHubInstallationResponse, error)
-	// GetGitHubInstallationToken exchanges organization permissions and caller principal for a scoped GitHub App installation token.
-	// Internal service-to-service RPC used by satellite services (e.g. GitHub microservice).
-	GetGitHubInstallationToken(ctx context.Context, in *GetGitHubInstallationTokenRequest, opts ...grpc.CallOption) (*GetGitHubInstallationTokenResponse, error)
-	// HandleGitHubWebhook verifies and processes raw GitHub App webhook payloads (ping, installation, installation_repositories).
-	HandleGitHubWebhook(ctx context.Context, in *HandleGitHubWebhookRequest, opts ...grpc.CallOption) (*HandleGitHubWebhookResponse, error)
 }
 
 type authServiceClient struct {
@@ -526,66 +507,6 @@ func (c *authServiceClient) ListAuditEvents(ctx context.Context, in *ListAuditEv
 	return out, nil
 }
 
-func (c *authServiceClient) StartGitHubInstallation(ctx context.Context, in *StartGitHubInstallationRequest, opts ...grpc.CallOption) (*StartGitHubInstallationResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(StartGitHubInstallationResponse)
-	err := c.cc.Invoke(ctx, AuthService_StartGitHubInstallation_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *authServiceClient) CompleteGitHubInstallation(ctx context.Context, in *CompleteGitHubInstallationRequest, opts ...grpc.CallOption) (*CompleteGitHubInstallationResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(CompleteGitHubInstallationResponse)
-	err := c.cc.Invoke(ctx, AuthService_CompleteGitHubInstallation_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *authServiceClient) ListGitHubInstallations(ctx context.Context, in *ListGitHubInstallationsRequest, opts ...grpc.CallOption) (*ListGitHubInstallationsResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(ListGitHubInstallationsResponse)
-	err := c.cc.Invoke(ctx, AuthService_ListGitHubInstallations_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *authServiceClient) DisconnectGitHubInstallation(ctx context.Context, in *DisconnectGitHubInstallationRequest, opts ...grpc.CallOption) (*DisconnectGitHubInstallationResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(DisconnectGitHubInstallationResponse)
-	err := c.cc.Invoke(ctx, AuthService_DisconnectGitHubInstallation_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *authServiceClient) GetGitHubInstallationToken(ctx context.Context, in *GetGitHubInstallationTokenRequest, opts ...grpc.CallOption) (*GetGitHubInstallationTokenResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetGitHubInstallationTokenResponse)
-	err := c.cc.Invoke(ctx, AuthService_GetGitHubInstallationToken_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *authServiceClient) HandleGitHubWebhook(ctx context.Context, in *HandleGitHubWebhookRequest, opts ...grpc.CallOption) (*HandleGitHubWebhookResponse, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(HandleGitHubWebhookResponse)
-	err := c.cc.Invoke(ctx, AuthService_HandleGitHubWebhook_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // AuthServiceServer is the server API for AuthService service.
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility.
@@ -666,19 +587,6 @@ type AuthServiceServer interface {
 	ValidateAPIToken(context.Context, *ValidateAPITokenRequest) (*ValidateAPITokenResponse, error)
 	// ListAuditEvents lists append-only audit events for an organization, gated by `audit:read`.
 	ListAuditEvents(context.Context, *ListAuditEventsRequest) (*ListAuditEventsResponse, error)
-	// StartGitHubInstallation generates a signed installation state token and GitHub App installation URL.
-	StartGitHubInstallation(context.Context, *StartGitHubInstallationRequest) (*StartGitHubInstallationResponse, error)
-	// CompleteGitHubInstallation verifies the installation state and links the GitHub App installation to the organization.
-	CompleteGitHubInstallation(context.Context, *CompleteGitHubInstallationRequest) (*CompleteGitHubInstallationResponse, error)
-	// ListGitHubInstallations lists GitHub App installations linked to the organization.
-	ListGitHubInstallations(context.Context, *ListGitHubInstallationsRequest) (*ListGitHubInstallationsResponse, error)
-	// DisconnectGitHubInstallation unlinks a GitHub App installation from the organization.
-	DisconnectGitHubInstallation(context.Context, *DisconnectGitHubInstallationRequest) (*DisconnectGitHubInstallationResponse, error)
-	// GetGitHubInstallationToken exchanges organization permissions and caller principal for a scoped GitHub App installation token.
-	// Internal service-to-service RPC used by satellite services (e.g. GitHub microservice).
-	GetGitHubInstallationToken(context.Context, *GetGitHubInstallationTokenRequest) (*GetGitHubInstallationTokenResponse, error)
-	// HandleGitHubWebhook verifies and processes raw GitHub App webhook payloads (ping, installation, installation_repositories).
-	HandleGitHubWebhook(context.Context, *HandleGitHubWebhookRequest) (*HandleGitHubWebhookResponse, error)
 	mustEmbedUnimplementedAuthServiceServer()
 }
 
@@ -796,24 +704,6 @@ func (UnimplementedAuthServiceServer) ValidateAPIToken(context.Context, *Validat
 }
 func (UnimplementedAuthServiceServer) ListAuditEvents(context.Context, *ListAuditEventsRequest) (*ListAuditEventsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListAuditEvents not implemented")
-}
-func (UnimplementedAuthServiceServer) StartGitHubInstallation(context.Context, *StartGitHubInstallationRequest) (*StartGitHubInstallationResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method StartGitHubInstallation not implemented")
-}
-func (UnimplementedAuthServiceServer) CompleteGitHubInstallation(context.Context, *CompleteGitHubInstallationRequest) (*CompleteGitHubInstallationResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method CompleteGitHubInstallation not implemented")
-}
-func (UnimplementedAuthServiceServer) ListGitHubInstallations(context.Context, *ListGitHubInstallationsRequest) (*ListGitHubInstallationsResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method ListGitHubInstallations not implemented")
-}
-func (UnimplementedAuthServiceServer) DisconnectGitHubInstallation(context.Context, *DisconnectGitHubInstallationRequest) (*DisconnectGitHubInstallationResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method DisconnectGitHubInstallation not implemented")
-}
-func (UnimplementedAuthServiceServer) GetGitHubInstallationToken(context.Context, *GetGitHubInstallationTokenRequest) (*GetGitHubInstallationTokenResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method GetGitHubInstallationToken not implemented")
-}
-func (UnimplementedAuthServiceServer) HandleGitHubWebhook(context.Context, *HandleGitHubWebhookRequest) (*HandleGitHubWebhookResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "method HandleGitHubWebhook not implemented")
 }
 func (UnimplementedAuthServiceServer) mustEmbedUnimplementedAuthServiceServer() {}
 func (UnimplementedAuthServiceServer) testEmbeddedByValue()                     {}
@@ -1484,114 +1374,6 @@ func _AuthService_ListAuditEvents_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _AuthService_StartGitHubInstallation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(StartGitHubInstallationRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AuthServiceServer).StartGitHubInstallation(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: AuthService_StartGitHubInstallation_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuthServiceServer).StartGitHubInstallation(ctx, req.(*StartGitHubInstallationRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _AuthService_CompleteGitHubInstallation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CompleteGitHubInstallationRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AuthServiceServer).CompleteGitHubInstallation(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: AuthService_CompleteGitHubInstallation_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuthServiceServer).CompleteGitHubInstallation(ctx, req.(*CompleteGitHubInstallationRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _AuthService_ListGitHubInstallations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ListGitHubInstallationsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AuthServiceServer).ListGitHubInstallations(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: AuthService_ListGitHubInstallations_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuthServiceServer).ListGitHubInstallations(ctx, req.(*ListGitHubInstallationsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _AuthService_DisconnectGitHubInstallation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DisconnectGitHubInstallationRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AuthServiceServer).DisconnectGitHubInstallation(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: AuthService_DisconnectGitHubInstallation_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuthServiceServer).DisconnectGitHubInstallation(ctx, req.(*DisconnectGitHubInstallationRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _AuthService_GetGitHubInstallationToken_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetGitHubInstallationTokenRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AuthServiceServer).GetGitHubInstallationToken(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: AuthService_GetGitHubInstallationToken_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuthServiceServer).GetGitHubInstallationToken(ctx, req.(*GetGitHubInstallationTokenRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _AuthService_HandleGitHubWebhook_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(HandleGitHubWebhookRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(AuthServiceServer).HandleGitHubWebhook(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: AuthService_HandleGitHubWebhook_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(AuthServiceServer).HandleGitHubWebhook(ctx, req.(*HandleGitHubWebhookRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // AuthService_ServiceDesc is the grpc.ServiceDesc for AuthService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1742,30 +1524,6 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListAuditEvents",
 			Handler:    _AuthService_ListAuditEvents_Handler,
-		},
-		{
-			MethodName: "StartGitHubInstallation",
-			Handler:    _AuthService_StartGitHubInstallation_Handler,
-		},
-		{
-			MethodName: "CompleteGitHubInstallation",
-			Handler:    _AuthService_CompleteGitHubInstallation_Handler,
-		},
-		{
-			MethodName: "ListGitHubInstallations",
-			Handler:    _AuthService_ListGitHubInstallations_Handler,
-		},
-		{
-			MethodName: "DisconnectGitHubInstallation",
-			Handler:    _AuthService_DisconnectGitHubInstallation_Handler,
-		},
-		{
-			MethodName: "GetGitHubInstallationToken",
-			Handler:    _AuthService_GetGitHubInstallationToken_Handler,
-		},
-		{
-			MethodName: "HandleGitHubWebhook",
-			Handler:    _AuthService_HandleGitHubWebhook_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

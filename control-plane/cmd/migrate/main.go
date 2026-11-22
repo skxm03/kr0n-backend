@@ -9,6 +9,8 @@ import (
 	authconfig "github.com/skxm03/kr0n-backend/control-plane/internal/auth/config"
 	authmigrations "github.com/skxm03/kr0n-backend/control-plane/internal/auth/migrations"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
+	githubconfig "github.com/skxm03/kr0n-backend/control-plane/internal/github/config"
+	githubmigrations "github.com/skxm03/kr0n-backend/control-plane/internal/github/migrations"
 	secretsconfig "github.com/skxm03/kr0n-backend/control-plane/internal/secrets/config"
 	secretsmigrations "github.com/skxm03/kr0n-backend/control-plane/internal/secrets/migrations"
 	smconfig "github.com/skxm03/kr0n-backend/control-plane/internal/servicemanager/config"
@@ -32,7 +34,7 @@ func main() {
 	args := os.Args[1:]
 
 	switch args[0] {
-	case "auth", "servicemanager", "secrets", "all":
+	case "auth", "servicemanager", "secrets", "github", "all":
 		service = args[0]
 		args = args[1:]
 	case "up", "down", "version", "force":
@@ -104,6 +106,20 @@ func resolveTargets(service string) ([]migrationTarget, error) {
 			},
 		}, nil
 
+	case "github":
+		cfg, err := githubconfig.Load()
+		if err != nil {
+			return nil, fmt.Errorf("load github config: %w", err)
+		}
+		return []migrationTarget{
+			{
+				Name:            "github",
+				DatabaseURL:     cfg.DatabaseURL,
+				FS:              githubmigrations.FS,
+				MigrationsTable: "schema_migrations_github",
+			},
+		}, nil
+
 	case "all":
 		authCfg, err := authconfig.LoadConfig()
 		if err != nil {
@@ -116,6 +132,10 @@ func resolveTargets(service string) ([]migrationTarget, error) {
 		secCfg, err := secretsconfig.LoadConfig()
 		if err != nil {
 			return nil, fmt.Errorf("load secrets config: %w", err)
+		}
+		ghCfg, err := githubconfig.Load()
+		if err != nil {
+			return nil, fmt.Errorf("load github config: %w", err)
 		}
 
 		return []migrationTarget{
@@ -136,6 +156,12 @@ func resolveTargets(service string) ([]migrationTarget, error) {
 				DatabaseURL:     secCfg.DatabaseURL,
 				FS:              secretsmigrations.FS,
 				MigrationsTable: "schema_migrations_secrets",
+			},
+			{
+				Name:            "github",
+				DatabaseURL:     ghCfg.DatabaseURL,
+				FS:              githubmigrations.FS,
+				MigrationsTable: "schema_migrations_github",
 			},
 		}, nil
 

@@ -7,10 +7,14 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	githubv1 "github.com/skxm03/kr0n-backend/control-plane/gen/github/v1"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/github/client"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/github/domain"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/github/provider"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/github/service"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/github/webhook"
 )
 
 // Server implements githubv1.GitHubServiceServer.
@@ -22,6 +26,90 @@ type Server struct {
 // NewServer constructs a new GitHubServiceServer handler instance.
 func NewServer(svc *service.Service) *Server {
 	return &Server{svc: svc}
+}
+
+// StartGitHubInstallation generates a signed installation state token and GitHub App installation URL.
+func (s *Server) StartGitHubInstallation(ctx context.Context, req *githubv1.StartGitHubInstallationRequest) (*githubv1.StartGitHubInstallationResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request cannot be nil")
+	}
+	url, state, err := s.svc.StartGitHubInstallation(ctx, req.GetCaller(), req.GetOrgId())
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return &githubv1.StartGitHubInstallationResponse{
+		InstallUrl: url,
+		State:      state,
+	}, nil
+}
+
+// CompleteGitHubInstallation verifies installation state and links the GitHub App installation.
+func (s *Server) CompleteGitHubInstallation(ctx context.Context, req *githubv1.CompleteGitHubInstallationRequest) (*githubv1.CompleteGitHubInstallationResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request cannot be nil")
+	}
+	inst, err := s.svc.CompleteGitHubInstallation(ctx, req.GetCaller(), req.GetOrgId(), req.GetInstallationId(), req.GetState())
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return &githubv1.CompleteGitHubInstallationResponse{
+		Installation: toProtoInstallation(inst),
+	}, nil
+}
+
+// ListGitHubInstallations lists GitHub installations linked to an organization.
+func (s *Server) ListGitHubInstallations(ctx context.Context, req *githubv1.ListGitHubInstallationsRequest) (*githubv1.ListGitHubInstallationsResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request cannot be nil")
+	}
+	list, err := s.svc.ListGitHubInstallations(ctx, req.GetCaller(), req.GetOrgId())
+	if err != nil {
+		return nil, mapError(err)
+	}
+	out := make([]*githubv1.GitHubInstallationInfo, 0, len(list))
+	for i := range list {
+		out = append(out, toProtoInstallation(&list[i]))
+	}
+	return &githubv1.ListGitHubInstallationsResponse{Installations: out}, nil
+}
+
+// DisconnectGitHubInstallation unlinks a GitHub installation from an organization.
+func (s *Server) DisconnectGitHubInstallation(ctx context.Context, req *githubv1.DisconnectGitHubInstallationRequest) (*githubv1.DisconnectGitHubInstallationResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request cannot be nil")
+	}
+	if err := s.svc.DisconnectGitHubInstallation(ctx, req.GetCaller(), req.GetOrgId(), req.GetInstallationId()); err != nil {
+		return nil, mapError(err)
+	}
+	return &githubv1.DisconnectGitHubInstallationResponse{Message: "disconnected successfully"}, nil
+}
+
+// GetGitHubInstallationToken exchanges organization permissions and caller principal for a scoped token.
+func (s *Server) GetGitHubInstallationToken(ctx context.Context, req *githubv1.GetGitHubInstallationTokenRequest) (*githubv1.GetGitHubInstallationTokenResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request cannot be nil")
+	}
+	tok, instID, exp, err := s.svc.GetInstallationToken(ctx, req.GetCaller(), req.GetOrgId(), req.GetInstallationId())
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return &githubv1.GetGitHubInstallationTokenResponse{
+		Token:          tok,
+		InstallationId: instID,
+		ExpiresAtUnix:  exp.Unix(),
+	}, nil
+}
+
+// HandleGitHubWebhook processes raw GitHub App webhook deliveries over gRPC.
+func (s *Server) HandleGitHubWebhook(ctx context.Context, req *githubv1.HandleGitHubWebhookRequest) (*githubv1.HandleGitHubWebhookResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "request cannot be nil")
+	}
+	st, err := s.svc.HandleGitHubWebhook(ctx, req.GetPayload(), req.GetSignatureHeader(), req.GetEventType(), req.GetDeliveryId())
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return &githubv1.HandleGitHubWebhookResponse{Status: st}, nil
 }
 
 // ListRepositories returns repositories accessible to the installation.
@@ -103,19 +191,12 @@ func (s *Server) ListDirectories(ctx context.Context, req *githubv1.ListDirector
 	nodeMap["/"] = rootNode
 
 	for _, d := range dirs {
-		preset := ""
+		if d == "/" {
+			continue
+		}
+		var preset string
 		if presets != nil {
 			preset = presets[d]
-		}
-
-		if d == "/" {
-			entries = append(entries, &githubv1.DirectoryEntry{
-				Path:           "/",
-				Name:           "/",
-				ParentPath:     "",
-				DetectedPreset: preset,
-			})
-			continue
 		}
 
 		lastSlash := strings.LastIndex(d, "/")
@@ -157,26 +238,68 @@ func (s *Server) ListDirectories(ctx context.Context, req *githubv1.ListDirector
 	}, nil
 }
 
+func toProtoInstallation(inst *domain.GitHubInstallation) *githubv1.GitHubInstallationInfo {
+	if inst == nil {
+		return nil
+	}
+	return &githubv1.GitHubInstallationInfo{
+		Id:                  inst.ID.String(),
+		OrgId:               inst.OrganizationID.String(),
+		InstallationId:      inst.InstallationID,
+		AccountLogin:        inst.AccountLogin,
+		AccountType:         inst.AccountType,
+		RepositorySelection: inst.RepositorySelection,
+		Status:              inst.Status,
+		CreatedByUserId:     inst.CreatedByUserID.String(),
+		CreatedAt:           timestamppb.New(inst.CreatedAt),
+		UpdatedAt:           timestamppb.New(inst.UpdatedAt),
+	}
+}
+
 func mapError(err error) error {
 	if err == nil {
 		return nil
 	}
-	// If the error is already a gRPC status error (e.g. forwarded from Auth Service), propagate it
 	if _, ok := status.FromError(err); ok {
 		return err
 	}
 
 	switch {
-	case errors.Is(err, client.ErrInvalidInput):
+	case errors.Is(err, client.ErrInvalidInput),
+		errors.Is(err, domain.ErrInvalidInstallation),
+		errors.Is(err, provider.ErrInvalidInstallationState),
+		errors.Is(err, webhook.ErrInvalidPayload):
 		return status.Error(codes.InvalidArgument, err.Error())
-	case errors.Is(err, client.ErrNotFound):
+
+	case errors.Is(err, domain.ErrInstallationAlreadyLinked):
+		return status.Error(codes.AlreadyExists, err.Error())
+
+	case errors.Is(err, domain.ErrInstallationNotFound),
+		errors.Is(err, provider.ErrInstallationNotFound),
+		errors.Is(err, client.ErrNotFound):
 		return status.Error(codes.NotFound, err.Error())
-	case errors.Is(err, client.ErrUnauthorized):
+
+	case errors.Is(err, service.ErrPermissionDenied):
+		return status.Error(codes.PermissionDenied, err.Error())
+
+	case errors.Is(err, provider.ErrGitHubAppNotConfigured):
+		return status.Error(codes.FailedPrecondition, err.Error())
+
+	case errors.Is(err, webhook.ErrMissingSignature),
+		errors.Is(err, webhook.ErrInvalidSignature),
+		errors.Is(err, client.ErrUnauthorized):
 		return status.Error(codes.Unauthenticated, err.Error())
-	case errors.Is(err, client.ErrRateLimited):
-		return status.Error(codes.ResourceExhausted, "github api rate limit exceeded")
+
+	case errors.Is(err, webhook.ErrPayloadTooLarge),
+		errors.Is(err, client.ErrRateLimited):
+		return status.Error(codes.ResourceExhausted, err.Error())
+
+	case errors.Is(err, provider.ErrGitHubAppAPI):
+		return status.Error(codes.Unavailable, err.Error())
+
 	case errors.Is(err, client.ErrUpstream):
 		return status.Error(codes.Unavailable, "github upstream service unavailable")
+
 	default:
 		return status.Error(codes.Internal, "internal github service error")
 	}

@@ -1737,269 +1737,6 @@
           }
         ]
       }
-    },
-    "/api/v1/orgs/{org_id}/github/installations/start": {
-      "get": {
-        "summary": "Start GitHub App installation",
-        "description": "Generates an HMAC-signed installation state token and returns the GitHub App installation URL on github.com. Requires `github:install`.",
-        "operationId": "AuthService_StartGitHubInstallation",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1StartGitHubInstallationResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "org_id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "caller.user_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "caller.kind",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "caller.token_org_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "caller.token_permissions",
-            "in": "query",
-            "required": false,
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "collectionFormat": "multi"
-          },
-          {
-            "name": "caller.session_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          }
-        ],
-        "tags": [
-          "GitHub App Integrations"
-        ],
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ]
-      }
-    },
-    "/api/v1/orgs/{org_id}/github/installations": {
-      "get": {
-        "summary": "List GitHub App installations",
-        "description": "Retrieves all GitHub App installations linked to the organization workspace, including account login, avatar, and repository access scope. Requires `github:read`.",
-        "operationId": "AuthService_ListGitHubInstallations",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1ListGitHubInstallationsResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "org_id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "caller.user_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "caller.kind",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "caller.token_org_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "caller.token_permissions",
-            "in": "query",
-            "required": false,
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "collectionFormat": "multi"
-          },
-          {
-            "name": "caller.session_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          }
-        ],
-        "tags": [
-          "GitHub App Integrations"
-        ],
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ]
-      },
-      "post": {
-        "summary": "Complete GitHub App installation",
-        "description": "Verifies the signed installation state token from GitHub and permanently links the GitHub App installation ID to the organization workspace. Requires `github:install`.",
-        "operationId": "AuthService_CompleteGitHubInstallation",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1CompleteGitHubInstallationResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "org_id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/AuthServiceCompleteGitHubInstallationBody"
-            }
-          }
-        ],
-        "tags": [
-          "GitHub App Integrations"
-        ],
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ]
-      }
-    },
-    "/api/v1/orgs/{org_id}/github/installations/{installation_id}": {
-      "delete": {
-        "summary": "Disconnect GitHub App installation",
-        "description": "Unlinks a GitHub App installation from the organization workspace, revoking repository access. Requires `github:delete`.",
-        "operationId": "AuthService_DisconnectGitHubInstallation",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1DisconnectGitHubInstallationResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "org_id",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "installation_id",
-            "in": "path",
-            "required": true,
-            "type": "string",
-            "format": "int64"
-          },
-          {
-            "name": "caller.user_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "caller.kind",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "caller.token_org_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "caller.token_permissions",
-            "in": "query",
-            "required": false,
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "collectionFormat": "multi"
-          },
-          {
-            "name": "caller.session_id",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          }
-        ],
-        "tags": [
-          "GitHub App Integrations"
-        ],
-        "security": [
-          {
-            "BearerAuth": []
-          }
-        ]
-      }
     }
   },
   "definitions": {
@@ -2014,22 +1751,6 @@
           "type": "string"
         },
         "role_id": {
-          "type": "string"
-        }
-      }
-    },
-    "AuthServiceCompleteGitHubInstallationBody": {
-      "type": "object",
-      "properties": {
-        "caller": {
-          "$ref": "#/definitions/v1CallerPrincipal",
-          "readOnly": true
-        },
-        "installation_id": {
-          "type": "string",
-          "format": "int64"
-        },
-        "state": {
           "type": "string"
         }
       }
@@ -2312,14 +2033,6 @@
         }
       }
     },
-    "v1CompleteGitHubInstallationResponse": {
-      "type": "object",
-      "properties": {
-        "installation": {
-          "$ref": "#/definitions/v1GitHubInstallationInfo"
-        }
-      }
-    },
     "v1CompleteGitHubOAuthResponse": {
       "type": "object",
       "properties": {
@@ -2462,30 +2175,6 @@
         }
       }
     },
-    "v1DisconnectGitHubInstallationResponse": {
-      "type": "object",
-      "properties": {
-        "message": {
-          "type": "string"
-        }
-      }
-    },
-    "v1GetGitHubInstallationTokenResponse": {
-      "type": "object",
-      "properties": {
-        "token": {
-          "type": "string"
-        },
-        "installation_id": {
-          "type": "string",
-          "format": "int64"
-        },
-        "expires_at_unix": {
-          "type": "string",
-          "format": "int64"
-        }
-      }
-    },
     "v1GetJWKSResponse": {
       "type": "object",
       "properties": {
@@ -2563,52 +2252,6 @@
         }
       }
     },
-    "v1GitHubInstallationInfo": {
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "org_id": {
-          "type": "string"
-        },
-        "installation_id": {
-          "type": "string",
-          "format": "int64"
-        },
-        "account_login": {
-          "type": "string"
-        },
-        "account_type": {
-          "type": "string"
-        },
-        "repository_selection": {
-          "type": "string"
-        },
-        "status": {
-          "type": "string"
-        },
-        "created_by_user_id": {
-          "type": "string"
-        },
-        "created_at": {
-          "type": "string",
-          "format": "date-time"
-        },
-        "updated_at": {
-          "type": "string",
-          "format": "date-time"
-        }
-      }
-    },
-    "v1HandleGitHubWebhookResponse": {
-      "type": "object",
-      "properties": {
-        "status": {
-          "type": "string"
-        }
-      }
-    },
     "v1JWK": {
       "type": "object",
       "properties": {
@@ -2652,18 +2295,6 @@
           "items": {
             "type": "object",
             "$ref": "#/definitions/v1AuditEventInfo"
-          }
-        }
-      }
-    },
-    "v1ListGitHubInstallationsResponse": {
-      "type": "object",
-      "properties": {
-        "installations": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "$ref": "#/definitions/v1GitHubInstallationInfo"
           }
         }
       }
@@ -3003,17 +2634,6 @@
         },
         "current": {
           "type": "boolean"
-        }
-      }
-    },
-    "v1StartGitHubInstallationResponse": {
-      "type": "object",
-      "properties": {
-        "install_url": {
-          "type": "string"
-        },
-        "state": {
-          "type": "string"
         }
       }
     },

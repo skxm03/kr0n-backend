@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
-	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -14,7 +13,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/oauth"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/domain"
 	pkgAudit "github.com/skxm03/kr0n-backend/control-plane/pkg/audit"
 )
@@ -27,27 +25,20 @@ func mapOrgError(err error) error {
 		errors.Is(err, domain.ErrMemberNotFound),
 		errors.Is(err, domain.ErrInviteNotFound),
 		errors.Is(err, domain.ErrTokenNotFound),
-		errors.Is(err, domain.ErrUserNotFound),
-		errors.Is(err, domain.ErrInstallationNotFound),
-		errors.Is(err, oauth.ErrInstallationNotFound):
+		errors.Is(err, domain.ErrUserNotFound):
 		return status.Error(codes.NotFound, err.Error())
 	case errors.Is(err, domain.ErrSlugAlreadyExists),
-		errors.Is(err, domain.ErrMemberAlreadyExists),
-		errors.Is(err, domain.ErrInstallationAlreadyLinked):
+		errors.Is(err, domain.ErrMemberAlreadyExists):
 		return status.Error(codes.AlreadyExists, err.Error())
 	case errors.Is(err, domain.ErrLastOwner),
-		errors.Is(err, domain.ErrSoleOrg),
-		errors.Is(err, oauth.ErrGitHubAppNotConfigured):
+		errors.Is(err, domain.ErrSoleOrg):
 		return status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, domain.ErrInvalidOrg),
 		errors.Is(err, domain.ErrInvalidRole),
 		errors.Is(err, domain.ErrInvalidInviteToken),
 		errors.Is(err, domain.ErrInvalidAPIToken),
-		errors.Is(err, domain.ErrInvalidEmail),
-		errors.Is(err, oauth.ErrInvalidInstallationState):
+		errors.Is(err, domain.ErrInvalidEmail):
 		return status.Error(codes.InvalidArgument, err.Error())
-	case errors.Is(err, oauth.ErrGitHubAppAPI):
-		return status.Error(codes.Unavailable, err.Error())
 	case errors.Is(err, domain.ErrUserNotActive):
 		return status.Error(codes.PermissionDenied, err.Error())
 	default:
@@ -687,21 +678,6 @@ func (s *Server) ListAuditEvents(ctx context.Context, req *authv1.ListAuditEvent
 	return &authv1.ListAuditEventsResponse{Events: out}, nil
 }
 
-func toGitHubInstallationProto(inst *domain.GitHubInstallation) *authv1.GitHubInstallationInfo {
-	return &authv1.GitHubInstallationInfo{
-		Id:                  inst.ID.String(),
-		OrgId:               inst.OrganizationID.String(),
-		InstallationId:      inst.InstallationID,
-		AccountLogin:        inst.AccountLogin,
-		AccountType:         inst.AccountType,
-		RepositorySelection: inst.RepositorySelection,
-		Status:              inst.Status,
-		CreatedByUserId:     inst.CreatedByUserID.String(),
-		CreatedAt:           timestamppb.New(inst.CreatedAt),
-		UpdatedAt:           timestamppb.New(inst.UpdatedAt),
-	}
-}
-
 func (s *Server) parseOrgCall(ctx context.Context, c *authv1.CallerPrincipal, rawOrgID string) (domain.Principal, uuid.UUID, error) {
 	p, err := s.ParseCallerPrincipal(ctx, c)
 	if err != nil {
@@ -715,147 +691,4 @@ func (s *Server) parseOrgCall(ctx context.Context, c *authv1.CallerPrincipal, ra
 		return domain.Principal{}, uuid.Nil, status.Error(codes.InvalidArgument, "invalid org_id")
 	}
 	return p, orgID, nil
-}
-
-// StartGitHubInstallation generates a signed installation state token and GitHub App installation URL.
-func (s *Server) StartGitHubInstallation(ctx context.Context, req *authv1.StartGitHubInstallationRequest) (*authv1.StartGitHubInstallationResponse, error) {
-	p, orgID, err := s.parseOrgCall(ctx, req.GetCaller(), req.GetOrgId())
-	if err != nil {
-		return nil, err
-	}
-	installURL, state, err := s.orgService.StartGitHubInstallation(ctx, p, orgID)
-	if err != nil {
-		return nil, mapOrgError(err)
-	}
-	return &authv1.StartGitHubInstallationResponse{
-		InstallUrl: installURL,
-		State:      state,
-	}, nil
-}
-
-// CompleteGitHubInstallation verifies the installation state and links the GitHub App installation to the organization.
-func (s *Server) CompleteGitHubInstallation(ctx context.Context, req *authv1.CompleteGitHubInstallationRequest) (*authv1.CompleteGitHubInstallationResponse, error) {
-	p, orgID, err := s.parseOrgCall(ctx, req.GetCaller(), req.GetOrgId())
-	if err != nil {
-		return nil, err
-	}
-	inst, err := s.orgService.CompleteGitHubInstallation(ctx, p, orgID, req.GetInstallationId(), req.GetState())
-	if err != nil {
-		return nil, mapOrgError(err)
-	}
-	actorID := p.UserID
-	s.recordAudit(ctx, domain.AuditEvent{
-		OrganizationID: &orgID,
-		ActorUserID:    &actorID,
-		ActorType:      actorTypeFromPrincipal(p),
-		Action:         pkgAudit.ActionGitHubInstallationConnected.String(),
-		ResourceType:   pkgAudit.TargetTypeGitHubInstallation,
-		ResourceID:     strconv.FormatInt(inst.InstallationID, 10),
-		Metadata: map[string]any{
-			"installation_id": inst.InstallationID,
-			"account_login":   inst.AccountLogin,
-			"account_type":    inst.AccountType,
-		},
-	})
-	return &authv1.CompleteGitHubInstallationResponse{
-		Installation: toGitHubInstallationProto(inst),
-	}, nil
-}
-
-// ListGitHubInstallations lists GitHub App installations linked to the organization.
-func (s *Server) ListGitHubInstallations(ctx context.Context, req *authv1.ListGitHubInstallationsRequest) (*authv1.ListGitHubInstallationsResponse, error) {
-	p, orgID, err := s.parseOrgCall(ctx, req.GetCaller(), req.GetOrgId())
-	if err != nil {
-		return nil, err
-	}
-	installations, err := s.orgService.ListGitHubInstallations(ctx, p, orgID)
-	if err != nil {
-		return nil, mapOrgError(err)
-	}
-	out := make([]*authv1.GitHubInstallationInfo, 0, len(installations))
-	for i := range installations {
-		out = append(out, toGitHubInstallationProto(&installations[i]))
-	}
-	return &authv1.ListGitHubInstallationsResponse{Installations: out}, nil
-}
-
-// DisconnectGitHubInstallation unlinks a GitHub App installation from the organization.
-func (s *Server) DisconnectGitHubInstallation(ctx context.Context, req *authv1.DisconnectGitHubInstallationRequest) (*authv1.DisconnectGitHubInstallationResponse, error) {
-	p, orgID, err := s.parseOrgCall(ctx, req.GetCaller(), req.GetOrgId())
-	if err != nil {
-		return nil, err
-	}
-	if err := s.orgService.DisconnectGitHubInstallation(ctx, p, orgID, req.GetInstallationId()); err != nil {
-		return nil, mapOrgError(err)
-	}
-	actorID := p.UserID
-	s.recordAudit(ctx, domain.AuditEvent{
-		OrganizationID: &orgID,
-		ActorUserID:    &actorID,
-		ActorType:      actorTypeFromPrincipal(p),
-		Action:         pkgAudit.ActionGitHubInstallationDisconnected.String(),
-		ResourceType:   pkgAudit.TargetTypeGitHubInstallation,
-		ResourceID:     strconv.FormatInt(req.GetInstallationId(), 10),
-		Metadata: map[string]any{
-			"installation_id": req.GetInstallationId(),
-		},
-	})
-	return &authv1.DisconnectGitHubInstallationResponse{
-		Message: "github installation disconnected successfully",
-	}, nil
-}
-
-// GetGitHubInstallationToken exchanges organization permissions and caller principal for a scoped GitHub App installation token.
-func (s *Server) GetGitHubInstallationToken(ctx context.Context, req *authv1.GetGitHubInstallationTokenRequest) (*authv1.GetGitHubInstallationTokenResponse, error) {
-	p, orgID, err := s.parseOrgCall(ctx, req.GetCaller(), req.GetOrgId())
-	if err != nil {
-		return nil, err
-	}
-	tok, instID, exp, err := s.orgService.GetInstallationToken(ctx, p, orgID, req.GetInstallationId())
-	if err != nil {
-		return nil, mapOrgError(err)
-	}
-	return &authv1.GetGitHubInstallationTokenResponse{
-		Token:          tok,
-		InstallationId: instID,
-		ExpiresAtUnix:  exp.Unix(),
-	}, nil
-}
-
-// HandleGitHubWebhook verifies and processes raw GitHub App webhook deliveries over gRPC.
-func (s *Server) HandleGitHubWebhook(ctx context.Context, req *authv1.HandleGitHubWebhookRequest) (*authv1.HandleGitHubWebhookResponse, error) {
-	if s.serviceAuth.Enabled && !IsTrustedService(ctx) {
-		return nil, status.Error(codes.Unauthenticated, "trusted service authentication required")
-	}
-	if s.webhookHandler == nil {
-		return nil, status.Error(codes.Unimplemented, "github webhook handler not configured")
-	}
-
-	httpCode, _, err := s.webhookHandler.Process(
-		ctx,
-		req.GetEventType(),
-		req.GetDeliveryId(),
-		req.GetSignatureHeader(),
-		req.GetPayload(),
-	)
-	if err != nil {
-		switch httpCode {
-		case 401:
-			return nil, status.Error(codes.Unauthenticated, err.Error())
-		case 400:
-			return nil, status.Error(codes.InvalidArgument, err.Error())
-		case 413:
-			return nil, status.Error(codes.ResourceExhausted, err.Error())
-		default:
-			return nil, status.Error(codes.Internal, "internal webhook processing error")
-		}
-	}
-
-	respStatus := "received"
-	if strings.EqualFold(strings.TrimSpace(req.GetEventType()), "ping") {
-		respStatus = "pong"
-	}
-	return &authv1.HandleGitHubWebhookResponse{
-		Status: respStatus,
-	}, nil
 }

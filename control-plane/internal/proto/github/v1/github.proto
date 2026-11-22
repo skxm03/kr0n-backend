@@ -5,6 +5,7 @@ package github.v1;
 option go_package = "github.com/skxm03/kr0n-backend/control-plane/gen/github/v1;githubv1";
 
 import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
 import "auth/v1/auth.proto";
 import "protoc-gen-openapiv2/options/annotations.proto";
 
@@ -12,7 +13,7 @@ option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
   info: {
     title: "kr0n GitHub VCS Service API"
     version: "1.0.0"
-    description: "GitHub Version Control System microservice for repository exploration, branch indexing, and directory discovery."
+    description: "GitHub Version Control System microservice for repository exploration, branch indexing, directory discovery, and GitHub App installations."
     contact: {
       name: "kr0n engineering"
       url: "https://github.com/skxm03/kr0n-backend"
@@ -37,12 +38,96 @@ option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
     {
       name: "GitHub Repositories & VCS"
       description: "Explore repositories, branches, and directory trees connected via GitHub App installations."
+    },
+    {
+      name: "GitHub App Integrations"
+      description: "Install, link, and manage organization GitHub App installations."
     }
   ]
 };
 
-// GitHubService provides GitHub repository metadata, branch navigation, and file tree exploration.
+// GitHubService provides GitHub repository metadata, branch navigation, file tree exploration, and GitHub App management.
 service GitHubService {
+  // StartGitHubInstallation generates a signed installation state token and GitHub App installation URL.
+  rpc StartGitHubInstallation(StartGitHubInstallationRequest) returns (StartGitHubInstallationResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/orgs/{org_id}/github/installations/start"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["GitHub App Integrations"]
+      summary: "Start GitHub App installation"
+      description: "Initiates the GitHub App installation flow by generating a cryptographically signed HMAC state token and redirect URL. Requires `org:update`."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
+    };
+  }
+
+  // CompleteGitHubInstallation verifies the installation state and links the GitHub App installation to the organization.
+  rpc CompleteGitHubInstallation(CompleteGitHubInstallationRequest) returns (CompleteGitHubInstallationResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/orgs/{org_id}/github/installations"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["GitHub App Integrations"]
+      summary: "Complete GitHub App installation"
+      description: "Verifies the HMAC state token, fetches installation metadata from GitHub, and links the installation to the organization. Requires `org:update`."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
+    };
+  }
+
+  // ListGitHubInstallations lists GitHub App installations linked to the organization.
+  rpc ListGitHubInstallations(ListGitHubInstallationsRequest) returns (ListGitHubInstallationsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/orgs/{org_id}/github/installations"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["GitHub App Integrations"]
+      summary: "List GitHub App installations"
+      description: "Returns all active or suspended GitHub App installations associated with the specified organization. Requires `org:read`."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
+    };
+  }
+
+  // DisconnectGitHubInstallation unlinks a GitHub App installation from the organization.
+  rpc DisconnectGitHubInstallation(DisconnectGitHubInstallationRequest) returns (DisconnectGitHubInstallationResponse) {
+    option (google.api.http) = {
+      delete: "/api/v1/orgs/{org_id}/github/installations/{installation_id}"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+      tags: ["GitHub App Integrations"]
+      summary: "Disconnect GitHub App installation"
+      description: "Removes an active GitHub App installation linkage from the organization and revokes cached installation tokens. Requires `org:update`."
+      security: {
+        security_requirement: {
+          key: "BearerAuth"
+          value: {}
+        }
+      }
+    };
+  }
+
+  // GetGitHubInstallationToken exchanges organization permissions and caller principal for a scoped GitHub App installation token.
+  // Internal service-to-service RPC used by satellite services.
+  rpc GetGitHubInstallationToken(GetGitHubInstallationTokenRequest) returns (GetGitHubInstallationTokenResponse);
+
+  // HandleGitHubWebhook verifies and processes raw GitHub App webhook payloads (ping, installation, installation_repositories).
+  rpc HandleGitHubWebhook(HandleGitHubWebhookRequest) returns (HandleGitHubWebhookResponse);
+
   // ListRepositories lists GitHub repositories accessible to an organization installation.
   rpc ListRepositories(ListRepositoriesRequest) returns (ListRepositoriesResponse) {
     option (google.api.http) = {
@@ -96,6 +181,82 @@ service GitHubService {
       }
     };
   }
+}
+
+message GitHubInstallationInfo {
+  string id = 1;
+  string org_id = 2;
+  int64 installation_id = 3;
+  string account_login = 4;
+  string account_type = 5;
+  string repository_selection = 6;
+  string status = 7;
+  string created_by_user_id = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+message StartGitHubInstallationRequest {
+  auth.v1.CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
+  string org_id = 2;
+}
+
+message StartGitHubInstallationResponse {
+  string install_url = 1;
+  string state = 2;
+}
+
+message CompleteGitHubInstallationRequest {
+  auth.v1.CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
+  string org_id = 2;
+  int64 installation_id = 3;
+  string state = 4;
+}
+
+message CompleteGitHubInstallationResponse {
+  GitHubInstallationInfo installation = 1;
+}
+
+message ListGitHubInstallationsRequest {
+  auth.v1.CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
+  string org_id = 2;
+}
+
+message ListGitHubInstallationsResponse {
+  repeated GitHubInstallationInfo installations = 1;
+}
+
+message DisconnectGitHubInstallationRequest {
+  auth.v1.CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
+  string org_id = 2;
+  int64 installation_id = 3;
+}
+
+message DisconnectGitHubInstallationResponse {
+  string message = 1;
+}
+
+message GetGitHubInstallationTokenRequest {
+  auth.v1.CallerPrincipal caller = 1 [(grpc.gateway.protoc_gen_openapiv2.options.openapiv2_field) = {read_only: true}];
+  string org_id = 2;
+  int64 installation_id = 3;
+}
+
+message GetGitHubInstallationTokenResponse {
+  string token = 1;
+  int64 installation_id = 2;
+  int64 expires_at_unix = 3;
+}
+
+message HandleGitHubWebhookRequest {
+  bytes payload = 1;
+  string signature_header = 2;
+  string event_type = 3;
+  string delivery_id = 4;
+}
+
+message HandleGitHubWebhookResponse {
+  string status = 1;
 }
 
 message GitHubRepositoryInfo {

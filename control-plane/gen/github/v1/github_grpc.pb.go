@@ -19,17 +19,36 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	GitHubService_ListRepositories_FullMethodName = "/github.v1.GitHubService/ListRepositories"
-	GitHubService_ListBranches_FullMethodName     = "/github.v1.GitHubService/ListBranches"
-	GitHubService_ListDirectories_FullMethodName  = "/github.v1.GitHubService/ListDirectories"
+	GitHubService_StartGitHubInstallation_FullMethodName      = "/github.v1.GitHubService/StartGitHubInstallation"
+	GitHubService_CompleteGitHubInstallation_FullMethodName   = "/github.v1.GitHubService/CompleteGitHubInstallation"
+	GitHubService_ListGitHubInstallations_FullMethodName      = "/github.v1.GitHubService/ListGitHubInstallations"
+	GitHubService_DisconnectGitHubInstallation_FullMethodName = "/github.v1.GitHubService/DisconnectGitHubInstallation"
+	GitHubService_GetGitHubInstallationToken_FullMethodName   = "/github.v1.GitHubService/GetGitHubInstallationToken"
+	GitHubService_HandleGitHubWebhook_FullMethodName          = "/github.v1.GitHubService/HandleGitHubWebhook"
+	GitHubService_ListRepositories_FullMethodName             = "/github.v1.GitHubService/ListRepositories"
+	GitHubService_ListBranches_FullMethodName                 = "/github.v1.GitHubService/ListBranches"
+	GitHubService_ListDirectories_FullMethodName              = "/github.v1.GitHubService/ListDirectories"
 )
 
 // GitHubServiceClient is the client API for GitHubService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// GitHubService provides GitHub repository metadata, branch navigation, and file tree exploration.
+// GitHubService provides GitHub repository metadata, branch navigation, file tree exploration, and GitHub App management.
 type GitHubServiceClient interface {
+	// StartGitHubInstallation generates a signed installation state token and GitHub App installation URL.
+	StartGitHubInstallation(ctx context.Context, in *StartGitHubInstallationRequest, opts ...grpc.CallOption) (*StartGitHubInstallationResponse, error)
+	// CompleteGitHubInstallation verifies the installation state and links the GitHub App installation to the organization.
+	CompleteGitHubInstallation(ctx context.Context, in *CompleteGitHubInstallationRequest, opts ...grpc.CallOption) (*CompleteGitHubInstallationResponse, error)
+	// ListGitHubInstallations lists GitHub App installations linked to the organization.
+	ListGitHubInstallations(ctx context.Context, in *ListGitHubInstallationsRequest, opts ...grpc.CallOption) (*ListGitHubInstallationsResponse, error)
+	// DisconnectGitHubInstallation unlinks a GitHub App installation from the organization.
+	DisconnectGitHubInstallation(ctx context.Context, in *DisconnectGitHubInstallationRequest, opts ...grpc.CallOption) (*DisconnectGitHubInstallationResponse, error)
+	// GetGitHubInstallationToken exchanges organization permissions and caller principal for a scoped GitHub App installation token.
+	// Internal service-to-service RPC used by satellite services.
+	GetGitHubInstallationToken(ctx context.Context, in *GetGitHubInstallationTokenRequest, opts ...grpc.CallOption) (*GetGitHubInstallationTokenResponse, error)
+	// HandleGitHubWebhook verifies and processes raw GitHub App webhook payloads (ping, installation, installation_repositories).
+	HandleGitHubWebhook(ctx context.Context, in *HandleGitHubWebhookRequest, opts ...grpc.CallOption) (*HandleGitHubWebhookResponse, error)
 	// ListRepositories lists GitHub repositories accessible to an organization installation.
 	ListRepositories(ctx context.Context, in *ListRepositoriesRequest, opts ...grpc.CallOption) (*ListRepositoriesResponse, error)
 	// ListBranches lists branches in a GitHub repository accessible to an organization installation.
@@ -44,6 +63,66 @@ type gitHubServiceClient struct {
 
 func NewGitHubServiceClient(cc grpc.ClientConnInterface) GitHubServiceClient {
 	return &gitHubServiceClient{cc}
+}
+
+func (c *gitHubServiceClient) StartGitHubInstallation(ctx context.Context, in *StartGitHubInstallationRequest, opts ...grpc.CallOption) (*StartGitHubInstallationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(StartGitHubInstallationResponse)
+	err := c.cc.Invoke(ctx, GitHubService_StartGitHubInstallation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *gitHubServiceClient) CompleteGitHubInstallation(ctx context.Context, in *CompleteGitHubInstallationRequest, opts ...grpc.CallOption) (*CompleteGitHubInstallationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CompleteGitHubInstallationResponse)
+	err := c.cc.Invoke(ctx, GitHubService_CompleteGitHubInstallation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *gitHubServiceClient) ListGitHubInstallations(ctx context.Context, in *ListGitHubInstallationsRequest, opts ...grpc.CallOption) (*ListGitHubInstallationsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListGitHubInstallationsResponse)
+	err := c.cc.Invoke(ctx, GitHubService_ListGitHubInstallations_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *gitHubServiceClient) DisconnectGitHubInstallation(ctx context.Context, in *DisconnectGitHubInstallationRequest, opts ...grpc.CallOption) (*DisconnectGitHubInstallationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DisconnectGitHubInstallationResponse)
+	err := c.cc.Invoke(ctx, GitHubService_DisconnectGitHubInstallation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *gitHubServiceClient) GetGitHubInstallationToken(ctx context.Context, in *GetGitHubInstallationTokenRequest, opts ...grpc.CallOption) (*GetGitHubInstallationTokenResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetGitHubInstallationTokenResponse)
+	err := c.cc.Invoke(ctx, GitHubService_GetGitHubInstallationToken_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *gitHubServiceClient) HandleGitHubWebhook(ctx context.Context, in *HandleGitHubWebhookRequest, opts ...grpc.CallOption) (*HandleGitHubWebhookResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(HandleGitHubWebhookResponse)
+	err := c.cc.Invoke(ctx, GitHubService_HandleGitHubWebhook_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *gitHubServiceClient) ListRepositories(ctx context.Context, in *ListRepositoriesRequest, opts ...grpc.CallOption) (*ListRepositoriesResponse, error) {
@@ -80,8 +159,21 @@ func (c *gitHubServiceClient) ListDirectories(ctx context.Context, in *ListDirec
 // All implementations must embed UnimplementedGitHubServiceServer
 // for forward compatibility.
 //
-// GitHubService provides GitHub repository metadata, branch navigation, and file tree exploration.
+// GitHubService provides GitHub repository metadata, branch navigation, file tree exploration, and GitHub App management.
 type GitHubServiceServer interface {
+	// StartGitHubInstallation generates a signed installation state token and GitHub App installation URL.
+	StartGitHubInstallation(context.Context, *StartGitHubInstallationRequest) (*StartGitHubInstallationResponse, error)
+	// CompleteGitHubInstallation verifies the installation state and links the GitHub App installation to the organization.
+	CompleteGitHubInstallation(context.Context, *CompleteGitHubInstallationRequest) (*CompleteGitHubInstallationResponse, error)
+	// ListGitHubInstallations lists GitHub App installations linked to the organization.
+	ListGitHubInstallations(context.Context, *ListGitHubInstallationsRequest) (*ListGitHubInstallationsResponse, error)
+	// DisconnectGitHubInstallation unlinks a GitHub App installation from the organization.
+	DisconnectGitHubInstallation(context.Context, *DisconnectGitHubInstallationRequest) (*DisconnectGitHubInstallationResponse, error)
+	// GetGitHubInstallationToken exchanges organization permissions and caller principal for a scoped GitHub App installation token.
+	// Internal service-to-service RPC used by satellite services.
+	GetGitHubInstallationToken(context.Context, *GetGitHubInstallationTokenRequest) (*GetGitHubInstallationTokenResponse, error)
+	// HandleGitHubWebhook verifies and processes raw GitHub App webhook payloads (ping, installation, installation_repositories).
+	HandleGitHubWebhook(context.Context, *HandleGitHubWebhookRequest) (*HandleGitHubWebhookResponse, error)
 	// ListRepositories lists GitHub repositories accessible to an organization installation.
 	ListRepositories(context.Context, *ListRepositoriesRequest) (*ListRepositoriesResponse, error)
 	// ListBranches lists branches in a GitHub repository accessible to an organization installation.
@@ -98,6 +190,24 @@ type GitHubServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedGitHubServiceServer struct{}
 
+func (UnimplementedGitHubServiceServer) StartGitHubInstallation(context.Context, *StartGitHubInstallationRequest) (*StartGitHubInstallationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method StartGitHubInstallation not implemented")
+}
+func (UnimplementedGitHubServiceServer) CompleteGitHubInstallation(context.Context, *CompleteGitHubInstallationRequest) (*CompleteGitHubInstallationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CompleteGitHubInstallation not implemented")
+}
+func (UnimplementedGitHubServiceServer) ListGitHubInstallations(context.Context, *ListGitHubInstallationsRequest) (*ListGitHubInstallationsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListGitHubInstallations not implemented")
+}
+func (UnimplementedGitHubServiceServer) DisconnectGitHubInstallation(context.Context, *DisconnectGitHubInstallationRequest) (*DisconnectGitHubInstallationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DisconnectGitHubInstallation not implemented")
+}
+func (UnimplementedGitHubServiceServer) GetGitHubInstallationToken(context.Context, *GetGitHubInstallationTokenRequest) (*GetGitHubInstallationTokenResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetGitHubInstallationToken not implemented")
+}
+func (UnimplementedGitHubServiceServer) HandleGitHubWebhook(context.Context, *HandleGitHubWebhookRequest) (*HandleGitHubWebhookResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method HandleGitHubWebhook not implemented")
+}
 func (UnimplementedGitHubServiceServer) ListRepositories(context.Context, *ListRepositoriesRequest) (*ListRepositoriesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListRepositories not implemented")
 }
@@ -126,6 +236,114 @@ func RegisterGitHubServiceServer(s grpc.ServiceRegistrar, srv GitHubServiceServe
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&GitHubService_ServiceDesc, srv)
+}
+
+func _GitHubService_StartGitHubInstallation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StartGitHubInstallationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GitHubServiceServer).StartGitHubInstallation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GitHubService_StartGitHubInstallation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GitHubServiceServer).StartGitHubInstallation(ctx, req.(*StartGitHubInstallationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _GitHubService_CompleteGitHubInstallation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CompleteGitHubInstallationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GitHubServiceServer).CompleteGitHubInstallation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GitHubService_CompleteGitHubInstallation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GitHubServiceServer).CompleteGitHubInstallation(ctx, req.(*CompleteGitHubInstallationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _GitHubService_ListGitHubInstallations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListGitHubInstallationsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GitHubServiceServer).ListGitHubInstallations(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GitHubService_ListGitHubInstallations_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GitHubServiceServer).ListGitHubInstallations(ctx, req.(*ListGitHubInstallationsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _GitHubService_DisconnectGitHubInstallation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DisconnectGitHubInstallationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GitHubServiceServer).DisconnectGitHubInstallation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GitHubService_DisconnectGitHubInstallation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GitHubServiceServer).DisconnectGitHubInstallation(ctx, req.(*DisconnectGitHubInstallationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _GitHubService_GetGitHubInstallationToken_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetGitHubInstallationTokenRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GitHubServiceServer).GetGitHubInstallationToken(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GitHubService_GetGitHubInstallationToken_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GitHubServiceServer).GetGitHubInstallationToken(ctx, req.(*GetGitHubInstallationTokenRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _GitHubService_HandleGitHubWebhook_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HandleGitHubWebhookRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(GitHubServiceServer).HandleGitHubWebhook(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: GitHubService_HandleGitHubWebhook_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(GitHubServiceServer).HandleGitHubWebhook(ctx, req.(*HandleGitHubWebhookRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _GitHubService_ListRepositories_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -189,6 +407,30 @@ var GitHubService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "github.v1.GitHubService",
 	HandlerType: (*GitHubServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "StartGitHubInstallation",
+			Handler:    _GitHubService_StartGitHubInstallation_Handler,
+		},
+		{
+			MethodName: "CompleteGitHubInstallation",
+			Handler:    _GitHubService_CompleteGitHubInstallation_Handler,
+		},
+		{
+			MethodName: "ListGitHubInstallations",
+			Handler:    _GitHubService_ListGitHubInstallations_Handler,
+		},
+		{
+			MethodName: "DisconnectGitHubInstallation",
+			Handler:    _GitHubService_DisconnectGitHubInstallation_Handler,
+		},
+		{
+			MethodName: "GetGitHubInstallationToken",
+			Handler:    _GitHubService_GetGitHubInstallationToken_Handler,
+		},
+		{
+			MethodName: "HandleGitHubWebhook",
+			Handler:    _GitHubService_HandleGitHubWebhook_Handler,
+		},
 		{
 			MethodName: "ListRepositories",
 			Handler:    _GitHubService_ListRepositories_Handler,

@@ -110,14 +110,6 @@ services:
         use:
           - sensitive_api
 
-      webhooks:
-        match:
-          - path: "/api/v1/github/webhooks"
-            type: exact
-            methods: [POST]
-        use:
-          - webhook_ingress
-
   github:
     address: "${GITHUB_GRPC_ADDR:-127.0.0.1:50052}"
     enabled: true
@@ -131,6 +123,15 @@ services:
 
     middleware:
       - cors
+
+    groups:
+      webhooks:
+        match:
+          - path: "/api/v1/github/webhooks"
+            type: exact
+            methods: [POST]
+        use:
+          - webhook_ingress
 
   servicemanager:
     address: "${SERVICEMANAGER_GRPC_ADDR:-127.0.0.1:50053}"

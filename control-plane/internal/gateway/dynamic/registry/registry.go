@@ -137,20 +137,20 @@ var DefaultAuthEndpoints = []EndpointDescriptor{
 	{Method: "GET", Path: "/api/v1/orgs/{org_id}/tokens"},
 	{Method: "DELETE", Path: "/api/v1/orgs/{org_id}/tokens/{token_id}"},
 	{Method: "GET", Path: "/api/v1/orgs/{org_id}/audit"},
-	{Method: "GET", Path: "/api/v1/orgs/{org_id}/github/installations/start"},
-	{Method: "POST", Path: "/api/v1/orgs/{org_id}/github/installations"},
-	{Method: "GET", Path: "/api/v1/orgs/{org_id}/github/installations"},
-	{Method: "DELETE", Path: "/api/v1/orgs/{org_id}/github/installations/{installation_id}"},
 	{Method: "GET", Path: "/api/v1/auth/jwks"},
 	{Method: "GET", Path: "/api/v1/auth/github/start"},
 	{Method: "GET", Path: "/api/v1/auth/github/callback"},
 	{Method: "GET", Path: "/api/v1/auth/google/start"},
 	{Method: "GET", Path: "/api/v1/auth/google/callback"},
-	{Method: "POST", Path: "/api/v1/github/webhooks"},
 }
 
 // DefaultGitHubEndpoints provides the complete list of REST routes defined in github.proto.
 var DefaultGitHubEndpoints = []EndpointDescriptor{
+	{Method: "GET", Path: "/api/v1/orgs/{org_id}/github/installations/start"},
+	{Method: "POST", Path: "/api/v1/orgs/{org_id}/github/installations"},
+	{Method: "GET", Path: "/api/v1/orgs/{org_id}/github/installations"},
+	{Method: "DELETE", Path: "/api/v1/orgs/{org_id}/github/installations/{installation_id}"},
+	{Method: "POST", Path: "/api/v1/github/webhooks"},
 	{Method: "GET", Path: "/api/v1/orgs/{org_id}/github/repositories"},
 	{Method: "GET", Path: "/api/v1/orgs/{org_id}/github/repositories/{owner}/{repo}/branches"},
 	{Method: "GET", Path: "/api/v1/orgs/{org_id}/github/repositories/{owner}/{repo}/directories"},
@@ -192,7 +192,14 @@ func DefaultRegistry() *Registry {
 	_ = reg.RegisterService("auth", ServiceRegistration{
 		Registrar: func(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
 			client := authv1.NewAuthServiceClient(conn)
-			if err := authv1.RegisterAuthServiceHandlerClient(ctx, mux, client); err != nil {
+			return authv1.RegisterAuthServiceHandlerClient(ctx, mux, client)
+		},
+		Endpoints: DefaultAuthEndpoints,
+	})
+	_ = reg.RegisterService("github", ServiceRegistration{
+		Registrar: func(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
+			client := githubv1.NewGitHubServiceClient(conn)
+			if err := githubv1.RegisterGitHubServiceHandlerClient(ctx, mux, client); err != nil {
 				return err
 			}
 			// Mount custom raw-body handler for GitHub webhooks so exact payload bytes are preserved for HMAC-SHA256 verification.
@@ -205,7 +212,7 @@ func DefaultRegistry() *Registry {
 					_, _ = w.Write([]byte(`{"error":"payload too large"}`))
 					return
 				}
-				resp, err := client.HandleGitHubWebhook(r.Context(), &authv1.HandleGitHubWebhookRequest{
+				resp, err := client.HandleGitHubWebhook(r.Context(), &githubv1.HandleGitHubWebhookRequest{
 					Payload:         body,
 					SignatureHeader: r.Header.Get("X-Hub-Signature-256"),
 					EventType:       r.Header.Get("X-GitHub-Event"),
@@ -237,13 +244,6 @@ func DefaultRegistry() *Registry {
 				}
 				_, _ = fmt.Fprintf(w, `{"status":%q}`, st)
 			})
-		},
-		Endpoints: DefaultAuthEndpoints,
-	})
-	_ = reg.RegisterService("github", ServiceRegistration{
-		Registrar: func(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
-			client := githubv1.NewGitHubServiceClient(conn)
-			return githubv1.RegisterGitHubServiceHandlerClient(ctx, mux, client)
 		},
 		Endpoints: DefaultGitHubEndpoints,
 	})

@@ -18,7 +18,6 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/oauth"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/domain"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/service"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/webhook"
 	pkgAudit "github.com/skxm03/kr0n-backend/control-plane/pkg/audit"
 )
 
@@ -114,12 +113,7 @@ func WithServiceAuthConfig(cfg ServiceAuthConfig) Option {
 	}
 }
 
-// WithGitHubWebhookHandler configures the GitHub App webhook verifier and processor for Server.
-func WithGitHubWebhookHandler(wh *webhook.WebhookHandler) Option {
-	return func(s *Server) {
-		s.webhookHandler = wh
-	}
-}
+
 
 // Server implements authv1.AuthServiceServer.
 type Server struct {
@@ -132,7 +126,6 @@ type Server struct {
 	googleOAuth         GoogleOAuthProvider
 	orgService          *service.OrgService
 	auditService        *service.AuditService
-	webhookHandler      *webhook.WebhookHandler
 	serviceAuth         ServiceAuthConfig
 }
 

@@ -2,7 +2,7 @@
   "swagger": "2.0",
   "info": {
     "title": "kr0n GitHub VCS Service API",
-    "description": "GitHub Version Control System microservice for repository exploration, branch indexing, and directory discovery.",
+    "description": "GitHub Version Control System microservice for repository exploration, branch indexing, directory discovery, and GitHub App installations.",
     "version": "1.0.0",
     "contact": {
       "name": "kr0n engineering",
@@ -13,6 +13,10 @@
     {
       "name": "GitHub Repositories \u0026 VCS",
       "description": "Explore repositories, branches, and directory trees connected via GitHub App installations."
+    },
+    {
+      "name": "GitHub App Integrations",
+      "description": "Install, link, and manage organization GitHub App installations."
     }
   ],
   "host": "localhost:8080",
@@ -26,6 +30,269 @@
     "application/json"
   ],
   "paths": {
+    "/api/v1/orgs/{org_id}/github/installations/start": {
+      "get": {
+        "summary": "Start GitHub App installation",
+        "description": "Initiates the GitHub App installation flow by generating a cryptographically signed HMAC state token and redirect URL. Requires `org:update`.",
+        "operationId": "GitHubService_StartGitHubInstallation",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1StartGitHubInstallationResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "caller.user_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.kind",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_org_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_permissions",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "caller.session_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "GitHub App Integrations"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/orgs/{org_id}/github/installations": {
+      "get": {
+        "summary": "List GitHub App installations",
+        "description": "Returns all active or suspended GitHub App installations associated with the specified organization. Requires `org:read`.",
+        "operationId": "GitHubService_ListGitHubInstallations",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1ListGitHubInstallationsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "caller.user_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.kind",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_org_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_permissions",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "caller.session_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "GitHub App Integrations"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "Complete GitHub App installation",
+        "description": "Verifies the HMAC state token, fetches installation metadata from GitHub, and links the installation to the organization. Requires `org:update`.",
+        "operationId": "GitHubService_CompleteGitHubInstallation",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1CompleteGitHubInstallationResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/GitHubServiceCompleteGitHubInstallationBody"
+            }
+          }
+        ],
+        "tags": [
+          "GitHub App Integrations"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/orgs/{org_id}/github/installations/{installation_id}": {
+      "delete": {
+        "summary": "Disconnect GitHub App installation",
+        "description": "Removes an active GitHub App installation linkage from the organization and revokes cached installation tokens. Requires `org:update`.",
+        "operationId": "GitHubService_DisconnectGitHubInstallation",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1DisconnectGitHubInstallationResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "org_id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "installation_id",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "caller.user_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.kind",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_org_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "caller.token_permissions",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "collectionFormat": "multi"
+          },
+          {
+            "name": "caller.session_id",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "GitHub App Integrations"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ]
+      }
+    },
     "/api/v1/orgs/{org_id}/github/repositories": {
       "get": {
         "summary": "List accessible GitHub repositories",
@@ -292,6 +559,22 @@
     }
   },
   "definitions": {
+    "GitHubServiceCompleteGitHubInstallationBody": {
+      "type": "object",
+      "properties": {
+        "caller": {
+          "$ref": "#/definitions/v1CallerPrincipal",
+          "readOnly": true
+        },
+        "installation_id": {
+          "type": "string",
+          "format": "int64"
+        },
+        "state": {
+          "type": "string"
+        }
+      }
+    },
     "protobufAny": {
       "type": "object",
       "properties": {
@@ -343,6 +626,14 @@
         }
       }
     },
+    "v1CompleteGitHubInstallationResponse": {
+      "type": "object",
+      "properties": {
+        "installation": {
+          "$ref": "#/definitions/v1GitHubInstallationInfo"
+        }
+      }
+    },
     "v1DirectoryEntry": {
       "type": "object",
       "properties": {
@@ -381,6 +672,30 @@
         }
       }
     },
+    "v1DisconnectGitHubInstallationResponse": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string"
+        }
+      }
+    },
+    "v1GetGitHubInstallationTokenResponse": {
+      "type": "object",
+      "properties": {
+        "token": {
+          "type": "string"
+        },
+        "installation_id": {
+          "type": "string",
+          "format": "int64"
+        },
+        "expires_at_unix": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
     "v1GitHubBranchInfo": {
       "type": "object",
       "properties": {
@@ -392,6 +707,44 @@
         },
         "protected": {
           "type": "boolean"
+        }
+      }
+    },
+    "v1GitHubInstallationInfo": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "org_id": {
+          "type": "string"
+        },
+        "installation_id": {
+          "type": "string",
+          "format": "int64"
+        },
+        "account_login": {
+          "type": "string"
+        },
+        "account_type": {
+          "type": "string"
+        },
+        "repository_selection": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "created_by_user_id": {
+          "type": "string"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     },
@@ -434,6 +787,14 @@
         }
       }
     },
+    "v1HandleGitHubWebhookResponse": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string"
+        }
+      }
+    },
     "v1ListBranchesResponse": {
       "type": "object",
       "properties": {
@@ -467,6 +828,18 @@
         }
       }
     },
+    "v1ListGitHubInstallationsResponse": {
+      "type": "object",
+      "properties": {
+        "installations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1GitHubInstallationInfo"
+          }
+        }
+      }
+    },
     "v1ListRepositoriesResponse": {
       "type": "object",
       "properties": {
@@ -476,6 +849,17 @@
             "type": "object",
             "$ref": "#/definitions/v1GitHubRepositoryInfo"
           }
+        }
+      }
+    },
+    "v1StartGitHubInstallationResponse": {
+      "type": "object",
+      "properties": {
+        "install_url": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
         }
       }
     }

@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
+	githubv1 "github.com/skxm03/kr0n-backend/control-plane/gen/github/v1"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/servicemanager/domain"
 )
 
@@ -49,18 +50,18 @@ func (a *AuthClientAuthorizer) CheckPermission(ctx context.Context, p domain.Pri
 	return resp.GetAllowed(), nil
 }
 
-// AuthClientInstallationVerifier verifies GitHub installations by calling AuthService.ListGitHubInstallations over gRPC.
-type AuthClientInstallationVerifier struct {
-	client authv1.AuthServiceClient
+// GitHubClientInstallationVerifier verifies GitHub installations by calling GitHubService.ListGitHubInstallations over gRPC.
+type GitHubClientInstallationVerifier struct {
+	client githubv1.GitHubServiceClient
 }
 
-// NewAuthClientInstallationVerifier creates an AuthClientInstallationVerifier backed by an AuthService gRPC client.
-func NewAuthClientInstallationVerifier(client authv1.AuthServiceClient) *AuthClientInstallationVerifier {
-	return &AuthClientInstallationVerifier{client: client}
+// NewGitHubClientInstallationVerifier creates a GitHubClientInstallationVerifier backed by a GitHubService gRPC client.
+func NewGitHubClientInstallationVerifier(client githubv1.GitHubServiceClient) *GitHubClientInstallationVerifier {
+	return &GitHubClientInstallationVerifier{client: client}
 }
 
-func (v *AuthClientInstallationVerifier) VerifyActiveOrgInstallation(ctx context.Context, orgID uuid.UUID, installationID int64) (bool, error) {
-	resp, err := v.client.ListGitHubInstallations(ctx, &authv1.ListGitHubInstallationsRequest{
+func (v *GitHubClientInstallationVerifier) VerifyActiveOrgInstallation(ctx context.Context, orgID uuid.UUID, installationID int64) (bool, error) {
+	resp, err := v.client.ListGitHubInstallations(ctx, &githubv1.ListGitHubInstallationsRequest{
 		Caller: &authv1.CallerPrincipal{
 			Kind: "service",
 		},

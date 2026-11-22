@@ -40,6 +40,7 @@ import (
 
 	authmigrations "github.com/skxm03/kr0n-backend/control-plane/internal/auth/migrations"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
+	githubmigrations "github.com/skxm03/kr0n-backend/control-plane/internal/github/migrations"
 	secretsmigrations "github.com/skxm03/kr0n-backend/control-plane/internal/secrets/migrations"
 	smmigrations "github.com/skxm03/kr0n-backend/control-plane/internal/servicemanager/migrations"
 )
@@ -324,6 +325,7 @@ func EnsureLatest(dbURL string) error {
 		{"auth", authmigrations.FS, "schema_migrations_auth"},
 		{"servicemanager", smmigrations.FS, "schema_migrations_servicemanager"},
 		{"secrets", secretsmigrations.FS, "schema_migrations_secrets"},
+		{"github", githubmigrations.FS, "schema_migrations_github"},
 	}
 
 	for _, t := range targets {

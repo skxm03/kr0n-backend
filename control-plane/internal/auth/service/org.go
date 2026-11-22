@@ -10,21 +10,11 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/domain"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/oauth"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
 	emailpkg "github.com/skxm03/kr0n-backend/control-plane/internal/email"
 )
 
 var slugRegex = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
-
-// GitHubAppClient defines the GitHub App installation and token operations required by OrgService.
-type GitHubAppClient interface {
-	Configured() bool
-	StartInstallation(orgID, userID uuid.UUID) (installURL, state string, err error)
-	VerifyState(state string, expectedOrgID, expectedUserID uuid.UUID) error
-	GetInstallation(ctx context.Context, installationID int64) (*oauth.GitHubAppInstallation, error)
-	GetInstallationToken(ctx context.Context, installationID int64) (string, time.Time, error)
-}
 
 // OrgOption configures OrgService.
 type OrgOption func(*OrgService)
@@ -36,18 +26,10 @@ func WithOrgOutboxNotifier(notifier OutboxNotifier) OrgOption {
 	}
 }
 
-// WithGitHubApp configures an optional GitHub App client for organization GitHub installations and repository browsing.
-func WithGitHubApp(gh GitHubAppClient) OrgOption {
-	return func(s *OrgService) {
-		s.githubApp = gh
-	}
-}
-
 // OrgService orchestrates organizations, memberships, invites, RBAC checks, and API tokens.
 type OrgService struct {
-	repo      repository.OrgRepository
-	notifier  OutboxNotifier
-	githubApp GitHubAppClient
+	repo     repository.OrgRepository
+	notifier OutboxNotifier
 }
 
 // NewOrgService constructs an OrgService.
@@ -407,154 +389,4 @@ func (s *OrgService) ValidateAPIToken(ctx context.Context, rawToken string) (*do
 	}
 
 	return tok, nil
-}
-
-// StartGitHubInstallation generates a signed installation state token and GitHub App installation URL if the principal holds org:update.
-func (s *OrgService) StartGitHubInstallation(ctx context.Context, p domain.Principal, orgID uuid.UUID) (installURL, state string, err error) {
-	if err := s.require(ctx, p, orgID, "org:update"); err != nil {
-		return "", "", err
-	}
-	if s.githubApp == nil || !s.githubApp.Configured() {
-		return "", "", oauth.ErrGitHubAppNotConfigured
-	}
-	return s.githubApp.StartInstallation(orgID, p.UserID)
-}
-
-// CompleteGitHubInstallation verifies the state token, fetches installation metadata from GitHub, and links it to the organization.
-func (s *OrgService) CompleteGitHubInstallation(ctx context.Context, p domain.Principal, orgID uuid.UUID, installationID int64, state string) (*domain.GitHubInstallation, error) {
-	if err := s.require(ctx, p, orgID, "org:update"); err != nil {
-		return nil, err
-	}
-	if s.githubApp == nil || !s.githubApp.Configured() {
-		return nil, oauth.ErrGitHubAppNotConfigured
-	}
-	if installationID <= 0 {
-		return nil, oauth.ErrInvalidInstallationState
-	}
-	if err := s.githubApp.VerifyState(state, orgID, p.UserID); err != nil {
-		return nil, err
-	}
-	meta, err := s.githubApp.GetInstallation(ctx, installationID)
-	if err != nil {
-		return nil, err
-	}
-	now := time.Now().UTC()
-	inst := &domain.GitHubInstallation{
-		ID:                  uuid.New(),
-		OrganizationID:      orgID,
-		InstallationID:      meta.InstallationID,
-		AccountLogin:        meta.AccountLogin,
-		AccountType:         meta.AccountType,
-		RepositorySelection: meta.RepositorySelection,
-		Status:              meta.Status,
-		CreatedByUserID:     p.UserID,
-		CreatedAt:           now,
-		UpdatedAt:           now,
-	}
-	return s.repo.UpsertGitHubInstallation(ctx, inst)
-}
-
-// ListGitHubInstallations lists GitHub App installations linked to the organization if the principal holds service:read or org:read.
-func (s *OrgService) ListGitHubInstallations(ctx context.Context, p domain.Principal, orgID uuid.UUID) ([]domain.GitHubInstallation, error) {
-	if err := s.require(ctx, p, orgID, "service:read"); err != nil {
-		if err2 := s.require(ctx, p, orgID, "org:read"); err2 != nil {
-			return nil, err
-		}
-	}
-	return s.repo.ListGitHubInstallations(ctx, orgID)
-}
-
-// DisconnectGitHubInstallation unlinks a GitHub App installation from the organization if the principal holds org:update.
-func (s *OrgService) DisconnectGitHubInstallation(ctx context.Context, p domain.Principal, orgID uuid.UUID, installationID int64) error {
-	if err := s.require(ctx, p, orgID, "org:update"); err != nil {
-		return err
-	}
-	if err := s.repo.DeleteGitHubInstallation(ctx, orgID, installationID); err != nil {
-		return err
-	}
-	s.InvalidateGitHubInstallationToken(installationID)
-	return nil
-}
-
-// UpdateGitHubInstallationStatus updates the lifecycle status ('active', 'suspended', 'deleted') of an installation
-// in response to a verified GitHub webhook event, evicts any cached installation token when non-active,
-// and returns the installation record (if linked to an organization).
-func (s *OrgService) UpdateGitHubInstallationStatus(ctx context.Context, installationID int64, status string) (*domain.GitHubInstallation, error) {
-	if installationID <= 0 {
-		return nil, domain.ErrInstallationNotFound
-	}
-	status = strings.ToLower(strings.TrimSpace(status))
-	if status != "active" {
-		s.InvalidateGitHubInstallationToken(installationID)
-	}
-	inst, err := s.repo.GetGitHubInstallationByInstallationID(ctx, installationID)
-	if err != nil {
-		return nil, err
-	}
-	if err := s.repo.UpdateGitHubInstallationStatus(ctx, installationID, status); err != nil {
-		return nil, err
-	}
-	inst.Status = status
-	return inst, nil
-}
-
-// GetGitHubInstallationByInstallationID looks up a linked installation by its GitHub installation_id.
-func (s *OrgService) GetGitHubInstallationByInstallationID(ctx context.Context, installationID int64) (*domain.GitHubInstallation, error) {
-	if installationID <= 0 {
-		return nil, domain.ErrInstallationNotFound
-	}
-	return s.repo.GetGitHubInstallationByInstallationID(ctx, installationID)
-}
-
-// InvalidateGitHubInstallationToken evicts any cached installation token for installationID.
-func (s *OrgService) InvalidateGitHubInstallationToken(installationID int64) {
-	if inv, ok := s.githubApp.(interface{ InvalidateInstallationToken(int64) }); ok {
-		inv.InvalidateInstallationToken(installationID)
-	}
-}
-
-// GetInstallationToken authorizes caller with service:read, resolves the installation, and mints an ephemeral GitHub App token.
-func (s *OrgService) GetInstallationToken(ctx context.Context, p domain.Principal, orgID uuid.UUID, installationID int64) (string, int64, time.Time, error) {
-	instID, err := s.resolveOrgGitHubInstallation(ctx, p, orgID, installationID)
-	if err != nil {
-		return "", 0, time.Time{}, err
-	}
-	tok, exp, err := s.githubApp.GetInstallationToken(ctx, instID)
-	if err != nil {
-		if errors.Is(err, domain.ErrInstallationNotFound) || errors.Is(err, oauth.ErrInstallationNotFound) {
-			// Auto-heal: If uninstalled on GitHub, evict stale DB record so org returns to disconnected/reconnect state
-			_ = s.repo.DeleteGitHubInstallation(ctx, orgID, instID)
-			s.InvalidateGitHubInstallationToken(instID)
-			return "", 0, time.Time{}, domain.ErrInstallationNotFound
-		}
-		return "", 0, time.Time{}, err
-	}
-	return tok, instID, exp, nil
-}
-
-func (s *OrgService) resolveOrgGitHubInstallation(ctx context.Context, p domain.Principal, orgID uuid.UUID, installationID int64) (int64, error) {
-	if err := s.require(ctx, p, orgID, "service:read"); err != nil {
-		return 0, err
-	}
-	if s.githubApp == nil || !s.githubApp.Configured() {
-		return 0, oauth.ErrGitHubAppNotConfigured
-	}
-	installations, err := s.repo.ListGitHubInstallations(ctx, orgID)
-	if err != nil {
-		return 0, err
-	}
-	if installationID <= 0 {
-		for _, inst := range installations {
-			if inst.Status == "" || inst.Status == "active" {
-				return inst.InstallationID, nil
-			}
-		}
-		return 0, domain.ErrInstallationNotFound
-	}
-	for _, inst := range installations {
-		if inst.InstallationID == installationID && (inst.Status == "" || inst.Status == "active") {
-			return inst.InstallationID, nil
-		}
-	}
-	return 0, domain.ErrInstallationNotFound
 }

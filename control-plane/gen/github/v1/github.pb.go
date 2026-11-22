@@ -12,6 +12,7 @@ import (
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -23,6 +24,770 @@ const (
 	// Verify that runtime/protoimpl is sufficiently up-to-date.
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
+
+type GitHubInstallationInfo struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	Id                  string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	OrgId               string                 `protobuf:"bytes,2,opt,name=org_id,json=orgId,proto3" json:"org_id,omitempty"`
+	InstallationId      int64                  `protobuf:"varint,3,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
+	AccountLogin        string                 `protobuf:"bytes,4,opt,name=account_login,json=accountLogin,proto3" json:"account_login,omitempty"`
+	AccountType         string                 `protobuf:"bytes,5,opt,name=account_type,json=accountType,proto3" json:"account_type,omitempty"`
+	RepositorySelection string                 `protobuf:"bytes,6,opt,name=repository_selection,json=repositorySelection,proto3" json:"repository_selection,omitempty"`
+	Status              string                 `protobuf:"bytes,7,opt,name=status,proto3" json:"status,omitempty"`
+	CreatedByUserId     string                 `protobuf:"bytes,8,opt,name=created_by_user_id,json=createdByUserId,proto3" json:"created_by_user_id,omitempty"`
+	CreatedAt           *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt           *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *GitHubInstallationInfo) Reset() {
+	*x = GitHubInstallationInfo{}
+	mi := &file_github_v1_github_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GitHubInstallationInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GitHubInstallationInfo) ProtoMessage() {}
+
+func (x *GitHubInstallationInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_github_v1_github_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GitHubInstallationInfo.ProtoReflect.Descriptor instead.
+func (*GitHubInstallationInfo) Descriptor() ([]byte, []int) {
+	return file_github_v1_github_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *GitHubInstallationInfo) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *GitHubInstallationInfo) GetOrgId() string {
+	if x != nil {
+		return x.OrgId
+	}
+	return ""
+}
+
+func (x *GitHubInstallationInfo) GetInstallationId() int64 {
+	if x != nil {
+		return x.InstallationId
+	}
+	return 0
+}
+
+func (x *GitHubInstallationInfo) GetAccountLogin() string {
+	if x != nil {
+		return x.AccountLogin
+	}
+	return ""
+}
+
+func (x *GitHubInstallationInfo) GetAccountType() string {
+	if x != nil {
+		return x.AccountType
+	}
+	return ""
+}
+
+func (x *GitHubInstallationInfo) GetRepositorySelection() string {
+	if x != nil {
+		return x.RepositorySelection
+	}
+	return ""
+}
+
+func (x *GitHubInstallationInfo) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *GitHubInstallationInfo) GetCreatedByUserId() string {
+	if x != nil {
+		return x.CreatedByUserId
+	}
+	return ""
+}
+
+func (x *GitHubInstallationInfo) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *GitHubInstallationInfo) GetUpdatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return nil
+}
+
+type StartGitHubInstallationRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Caller        *v1.CallerPrincipal    `protobuf:"bytes,1,opt,name=caller,proto3" json:"caller,omitempty"`
+	OrgId         string                 `protobuf:"bytes,2,opt,name=org_id,json=orgId,proto3" json:"org_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StartGitHubInstallationRequest) Reset() {
+	*x = StartGitHubInstallationRequest{}
+	mi := &file_github_v1_github_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StartGitHubInstallationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StartGitHubInstallationRequest) ProtoMessage() {}
+
+func (x *StartGitHubInstallationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_github_v1_github_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StartGitHubInstallationRequest.ProtoReflect.Descriptor instead.
+func (*StartGitHubInstallationRequest) Descriptor() ([]byte, []int) {
+	return file_github_v1_github_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *StartGitHubInstallationRequest) GetCaller() *v1.CallerPrincipal {
+	if x != nil {
+		return x.Caller
+	}
+	return nil
+}
+
+func (x *StartGitHubInstallationRequest) GetOrgId() string {
+	if x != nil {
+		return x.OrgId
+	}
+	return ""
+}
+
+type StartGitHubInstallationResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	InstallUrl    string                 `protobuf:"bytes,1,opt,name=install_url,json=installUrl,proto3" json:"install_url,omitempty"`
+	State         string                 `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StartGitHubInstallationResponse) Reset() {
+	*x = StartGitHubInstallationResponse{}
+	mi := &file_github_v1_github_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StartGitHubInstallationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StartGitHubInstallationResponse) ProtoMessage() {}
+
+func (x *StartGitHubInstallationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_github_v1_github_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StartGitHubInstallationResponse.ProtoReflect.Descriptor instead.
+func (*StartGitHubInstallationResponse) Descriptor() ([]byte, []int) {
+	return file_github_v1_github_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *StartGitHubInstallationResponse) GetInstallUrl() string {
+	if x != nil {
+		return x.InstallUrl
+	}
+	return ""
+}
+
+func (x *StartGitHubInstallationResponse) GetState() string {
+	if x != nil {
+		return x.State
+	}
+	return ""
+}
+
+type CompleteGitHubInstallationRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Caller         *v1.CallerPrincipal    `protobuf:"bytes,1,opt,name=caller,proto3" json:"caller,omitempty"`
+	OrgId          string                 `protobuf:"bytes,2,opt,name=org_id,json=orgId,proto3" json:"org_id,omitempty"`
+	InstallationId int64                  `protobuf:"varint,3,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
+	State          string                 `protobuf:"bytes,4,opt,name=state,proto3" json:"state,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *CompleteGitHubInstallationRequest) Reset() {
+	*x = CompleteGitHubInstallationRequest{}
+	mi := &file_github_v1_github_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompleteGitHubInstallationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompleteGitHubInstallationRequest) ProtoMessage() {}
+
+func (x *CompleteGitHubInstallationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_github_v1_github_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CompleteGitHubInstallationRequest.ProtoReflect.Descriptor instead.
+func (*CompleteGitHubInstallationRequest) Descriptor() ([]byte, []int) {
+	return file_github_v1_github_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *CompleteGitHubInstallationRequest) GetCaller() *v1.CallerPrincipal {
+	if x != nil {
+		return x.Caller
+	}
+	return nil
+}
+
+func (x *CompleteGitHubInstallationRequest) GetOrgId() string {
+	if x != nil {
+		return x.OrgId
+	}
+	return ""
+}
+
+func (x *CompleteGitHubInstallationRequest) GetInstallationId() int64 {
+	if x != nil {
+		return x.InstallationId
+	}
+	return 0
+}
+
+func (x *CompleteGitHubInstallationRequest) GetState() string {
+	if x != nil {
+		return x.State
+	}
+	return ""
+}
+
+type CompleteGitHubInstallationResponse struct {
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	Installation  *GitHubInstallationInfo `protobuf:"bytes,1,opt,name=installation,proto3" json:"installation,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CompleteGitHubInstallationResponse) Reset() {
+	*x = CompleteGitHubInstallationResponse{}
+	mi := &file_github_v1_github_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompleteGitHubInstallationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompleteGitHubInstallationResponse) ProtoMessage() {}
+
+func (x *CompleteGitHubInstallationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_github_v1_github_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CompleteGitHubInstallationResponse.ProtoReflect.Descriptor instead.
+func (*CompleteGitHubInstallationResponse) Descriptor() ([]byte, []int) {
+	return file_github_v1_github_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *CompleteGitHubInstallationResponse) GetInstallation() *GitHubInstallationInfo {
+	if x != nil {
+		return x.Installation
+	}
+	return nil
+}
+
+type ListGitHubInstallationsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Caller        *v1.CallerPrincipal    `protobuf:"bytes,1,opt,name=caller,proto3" json:"caller,omitempty"`
+	OrgId         string                 `protobuf:"bytes,2,opt,name=org_id,json=orgId,proto3" json:"org_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListGitHubInstallationsRequest) Reset() {
+	*x = ListGitHubInstallationsRequest{}
+	mi := &file_github_v1_github_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListGitHubInstallationsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListGitHubInstallationsRequest) ProtoMessage() {}
+
+func (x *ListGitHubInstallationsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_github_v1_github_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListGitHubInstallationsRequest.ProtoReflect.Descriptor instead.
+func (*ListGitHubInstallationsRequest) Descriptor() ([]byte, []int) {
+	return file_github_v1_github_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *ListGitHubInstallationsRequest) GetCaller() *v1.CallerPrincipal {
+	if x != nil {
+		return x.Caller
+	}
+	return nil
+}
+
+func (x *ListGitHubInstallationsRequest) GetOrgId() string {
+	if x != nil {
+		return x.OrgId
+	}
+	return ""
+}
+
+type ListGitHubInstallationsResponse struct {
+	state         protoimpl.MessageState    `protogen:"open.v1"`
+	Installations []*GitHubInstallationInfo `protobuf:"bytes,1,rep,name=installations,proto3" json:"installations,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListGitHubInstallationsResponse) Reset() {
+	*x = ListGitHubInstallationsResponse{}
+	mi := &file_github_v1_github_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListGitHubInstallationsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListGitHubInstallationsResponse) ProtoMessage() {}
+
+func (x *ListGitHubInstallationsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_github_v1_github_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListGitHubInstallationsResponse.ProtoReflect.Descriptor instead.
+func (*ListGitHubInstallationsResponse) Descriptor() ([]byte, []int) {
+	return file_github_v1_github_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *ListGitHubInstallationsResponse) GetInstallations() []*GitHubInstallationInfo {
+	if x != nil {
+		return x.Installations
+	}
+	return nil
+}
+
+type DisconnectGitHubInstallationRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Caller         *v1.CallerPrincipal    `protobuf:"bytes,1,opt,name=caller,proto3" json:"caller,omitempty"`
+	OrgId          string                 `protobuf:"bytes,2,opt,name=org_id,json=orgId,proto3" json:"org_id,omitempty"`
+	InstallationId int64                  `protobuf:"varint,3,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *DisconnectGitHubInstallationRequest) Reset() {
+	*x = DisconnectGitHubInstallationRequest{}
+	mi := &file_github_v1_github_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DisconnectGitHubInstallationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DisconnectGitHubInstallationRequest) ProtoMessage() {}
+
+func (x *DisconnectGitHubInstallationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_github_v1_github_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DisconnectGitHubInstallationRequest.ProtoReflect.Descriptor instead.
+func (*DisconnectGitHubInstallationRequest) Descriptor() ([]byte, []int) {
+	return file_github_v1_github_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *DisconnectGitHubInstallationRequest) GetCaller() *v1.CallerPrincipal {
+	if x != nil {
+		return x.Caller
+	}
+	return nil
+}
+
+func (x *DisconnectGitHubInstallationRequest) GetOrgId() string {
+	if x != nil {
+		return x.OrgId
+	}
+	return ""
+}
+
+func (x *DisconnectGitHubInstallationRequest) GetInstallationId() int64 {
+	if x != nil {
+		return x.InstallationId
+	}
+	return 0
+}
+
+type DisconnectGitHubInstallationResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DisconnectGitHubInstallationResponse) Reset() {
+	*x = DisconnectGitHubInstallationResponse{}
+	mi := &file_github_v1_github_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DisconnectGitHubInstallationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DisconnectGitHubInstallationResponse) ProtoMessage() {}
+
+func (x *DisconnectGitHubInstallationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_github_v1_github_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DisconnectGitHubInstallationResponse.ProtoReflect.Descriptor instead.
+func (*DisconnectGitHubInstallationResponse) Descriptor() ([]byte, []int) {
+	return file_github_v1_github_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *DisconnectGitHubInstallationResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+type GetGitHubInstallationTokenRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Caller         *v1.CallerPrincipal    `protobuf:"bytes,1,opt,name=caller,proto3" json:"caller,omitempty"`
+	OrgId          string                 `protobuf:"bytes,2,opt,name=org_id,json=orgId,proto3" json:"org_id,omitempty"`
+	InstallationId int64                  `protobuf:"varint,3,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *GetGitHubInstallationTokenRequest) Reset() {
+	*x = GetGitHubInstallationTokenRequest{}
+	mi := &file_github_v1_github_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetGitHubInstallationTokenRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetGitHubInstallationTokenRequest) ProtoMessage() {}
+
+func (x *GetGitHubInstallationTokenRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_github_v1_github_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetGitHubInstallationTokenRequest.ProtoReflect.Descriptor instead.
+func (*GetGitHubInstallationTokenRequest) Descriptor() ([]byte, []int) {
+	return file_github_v1_github_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *GetGitHubInstallationTokenRequest) GetCaller() *v1.CallerPrincipal {
+	if x != nil {
+		return x.Caller
+	}
+	return nil
+}
+
+func (x *GetGitHubInstallationTokenRequest) GetOrgId() string {
+	if x != nil {
+		return x.OrgId
+	}
+	return ""
+}
+
+func (x *GetGitHubInstallationTokenRequest) GetInstallationId() int64 {
+	if x != nil {
+		return x.InstallationId
+	}
+	return 0
+}
+
+type GetGitHubInstallationTokenResponse struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Token          string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	InstallationId int64                  `protobuf:"varint,2,opt,name=installation_id,json=installationId,proto3" json:"installation_id,omitempty"`
+	ExpiresAtUnix  int64                  `protobuf:"varint,3,opt,name=expires_at_unix,json=expiresAtUnix,proto3" json:"expires_at_unix,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *GetGitHubInstallationTokenResponse) Reset() {
+	*x = GetGitHubInstallationTokenResponse{}
+	mi := &file_github_v1_github_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetGitHubInstallationTokenResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetGitHubInstallationTokenResponse) ProtoMessage() {}
+
+func (x *GetGitHubInstallationTokenResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_github_v1_github_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetGitHubInstallationTokenResponse.ProtoReflect.Descriptor instead.
+func (*GetGitHubInstallationTokenResponse) Descriptor() ([]byte, []int) {
+	return file_github_v1_github_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *GetGitHubInstallationTokenResponse) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+func (x *GetGitHubInstallationTokenResponse) GetInstallationId() int64 {
+	if x != nil {
+		return x.InstallationId
+	}
+	return 0
+}
+
+func (x *GetGitHubInstallationTokenResponse) GetExpiresAtUnix() int64 {
+	if x != nil {
+		return x.ExpiresAtUnix
+	}
+	return 0
+}
+
+type HandleGitHubWebhookRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Payload         []byte                 `protobuf:"bytes,1,opt,name=payload,proto3" json:"payload,omitempty"`
+	SignatureHeader string                 `protobuf:"bytes,2,opt,name=signature_header,json=signatureHeader,proto3" json:"signature_header,omitempty"`
+	EventType       string                 `protobuf:"bytes,3,opt,name=event_type,json=eventType,proto3" json:"event_type,omitempty"`
+	DeliveryId      string                 `protobuf:"bytes,4,opt,name=delivery_id,json=deliveryId,proto3" json:"delivery_id,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *HandleGitHubWebhookRequest) Reset() {
+	*x = HandleGitHubWebhookRequest{}
+	mi := &file_github_v1_github_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HandleGitHubWebhookRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HandleGitHubWebhookRequest) ProtoMessage() {}
+
+func (x *HandleGitHubWebhookRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_github_v1_github_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HandleGitHubWebhookRequest.ProtoReflect.Descriptor instead.
+func (*HandleGitHubWebhookRequest) Descriptor() ([]byte, []int) {
+	return file_github_v1_github_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *HandleGitHubWebhookRequest) GetPayload() []byte {
+	if x != nil {
+		return x.Payload
+	}
+	return nil
+}
+
+func (x *HandleGitHubWebhookRequest) GetSignatureHeader() string {
+	if x != nil {
+		return x.SignatureHeader
+	}
+	return ""
+}
+
+func (x *HandleGitHubWebhookRequest) GetEventType() string {
+	if x != nil {
+		return x.EventType
+	}
+	return ""
+}
+
+func (x *HandleGitHubWebhookRequest) GetDeliveryId() string {
+	if x != nil {
+		return x.DeliveryId
+	}
+	return ""
+}
+
+type HandleGitHubWebhookResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Status        string                 `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HandleGitHubWebhookResponse) Reset() {
+	*x = HandleGitHubWebhookResponse{}
+	mi := &file_github_v1_github_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HandleGitHubWebhookResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HandleGitHubWebhookResponse) ProtoMessage() {}
+
+func (x *HandleGitHubWebhookResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_github_v1_github_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HandleGitHubWebhookResponse.ProtoReflect.Descriptor instead.
+func (*HandleGitHubWebhookResponse) Descriptor() ([]byte, []int) {
+	return file_github_v1_github_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *HandleGitHubWebhookResponse) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
 
 type GitHubRepositoryInfo struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -43,7 +808,7 @@ type GitHubRepositoryInfo struct {
 
 func (x *GitHubRepositoryInfo) Reset() {
 	*x = GitHubRepositoryInfo{}
-	mi := &file_github_v1_github_proto_msgTypes[0]
+	mi := &file_github_v1_github_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -55,7 +820,7 @@ func (x *GitHubRepositoryInfo) String() string {
 func (*GitHubRepositoryInfo) ProtoMessage() {}
 
 func (x *GitHubRepositoryInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_github_v1_github_proto_msgTypes[0]
+	mi := &file_github_v1_github_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -68,7 +833,7 @@ func (x *GitHubRepositoryInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GitHubRepositoryInfo.ProtoReflect.Descriptor instead.
 func (*GitHubRepositoryInfo) Descriptor() ([]byte, []int) {
-	return file_github_v1_github_proto_rawDescGZIP(), []int{0}
+	return file_github_v1_github_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *GitHubRepositoryInfo) GetId() int64 {
@@ -159,7 +924,7 @@ type ListRepositoriesRequest struct {
 
 func (x *ListRepositoriesRequest) Reset() {
 	*x = ListRepositoriesRequest{}
-	mi := &file_github_v1_github_proto_msgTypes[1]
+	mi := &file_github_v1_github_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -171,7 +936,7 @@ func (x *ListRepositoriesRequest) String() string {
 func (*ListRepositoriesRequest) ProtoMessage() {}
 
 func (x *ListRepositoriesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_v1_github_proto_msgTypes[1]
+	mi := &file_github_v1_github_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -184,7 +949,7 @@ func (x *ListRepositoriesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRepositoriesRequest.ProtoReflect.Descriptor instead.
 func (*ListRepositoriesRequest) Descriptor() ([]byte, []int) {
-	return file_github_v1_github_proto_rawDescGZIP(), []int{1}
+	return file_github_v1_github_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ListRepositoriesRequest) GetCaller() *v1.CallerPrincipal {
@@ -217,7 +982,7 @@ type ListRepositoriesResponse struct {
 
 func (x *ListRepositoriesResponse) Reset() {
 	*x = ListRepositoriesResponse{}
-	mi := &file_github_v1_github_proto_msgTypes[2]
+	mi := &file_github_v1_github_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -229,7 +994,7 @@ func (x *ListRepositoriesResponse) String() string {
 func (*ListRepositoriesResponse) ProtoMessage() {}
 
 func (x *ListRepositoriesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_github_v1_github_proto_msgTypes[2]
+	mi := &file_github_v1_github_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -242,7 +1007,7 @@ func (x *ListRepositoriesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListRepositoriesResponse.ProtoReflect.Descriptor instead.
 func (*ListRepositoriesResponse) Descriptor() ([]byte, []int) {
-	return file_github_v1_github_proto_rawDescGZIP(), []int{2}
+	return file_github_v1_github_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ListRepositoriesResponse) GetRepositories() []*GitHubRepositoryInfo {
@@ -263,7 +1028,7 @@ type GitHubBranchInfo struct {
 
 func (x *GitHubBranchInfo) Reset() {
 	*x = GitHubBranchInfo{}
-	mi := &file_github_v1_github_proto_msgTypes[3]
+	mi := &file_github_v1_github_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -275,7 +1040,7 @@ func (x *GitHubBranchInfo) String() string {
 func (*GitHubBranchInfo) ProtoMessage() {}
 
 func (x *GitHubBranchInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_github_v1_github_proto_msgTypes[3]
+	mi := &file_github_v1_github_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -288,7 +1053,7 @@ func (x *GitHubBranchInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GitHubBranchInfo.ProtoReflect.Descriptor instead.
 func (*GitHubBranchInfo) Descriptor() ([]byte, []int) {
-	return file_github_v1_github_proto_rawDescGZIP(), []int{3}
+	return file_github_v1_github_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GitHubBranchInfo) GetName() string {
@@ -325,7 +1090,7 @@ type ListBranchesRequest struct {
 
 func (x *ListBranchesRequest) Reset() {
 	*x = ListBranchesRequest{}
-	mi := &file_github_v1_github_proto_msgTypes[4]
+	mi := &file_github_v1_github_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -337,7 +1102,7 @@ func (x *ListBranchesRequest) String() string {
 func (*ListBranchesRequest) ProtoMessage() {}
 
 func (x *ListBranchesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_v1_github_proto_msgTypes[4]
+	mi := &file_github_v1_github_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -350,7 +1115,7 @@ func (x *ListBranchesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBranchesRequest.ProtoReflect.Descriptor instead.
 func (*ListBranchesRequest) Descriptor() ([]byte, []int) {
-	return file_github_v1_github_proto_rawDescGZIP(), []int{4}
+	return file_github_v1_github_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ListBranchesRequest) GetCaller() *v1.CallerPrincipal {
@@ -397,7 +1162,7 @@ type ListBranchesResponse struct {
 
 func (x *ListBranchesResponse) Reset() {
 	*x = ListBranchesResponse{}
-	mi := &file_github_v1_github_proto_msgTypes[5]
+	mi := &file_github_v1_github_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -409,7 +1174,7 @@ func (x *ListBranchesResponse) String() string {
 func (*ListBranchesResponse) ProtoMessage() {}
 
 func (x *ListBranchesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_github_v1_github_proto_msgTypes[5]
+	mi := &file_github_v1_github_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -422,7 +1187,7 @@ func (x *ListBranchesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBranchesResponse.ProtoReflect.Descriptor instead.
 func (*ListBranchesResponse) Descriptor() ([]byte, []int) {
-	return file_github_v1_github_proto_rawDescGZIP(), []int{5}
+	return file_github_v1_github_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ListBranchesResponse) GetBranches() []*GitHubBranchInfo {
@@ -446,7 +1211,7 @@ type ListDirectoriesRequest struct {
 
 func (x *ListDirectoriesRequest) Reset() {
 	*x = ListDirectoriesRequest{}
-	mi := &file_github_v1_github_proto_msgTypes[6]
+	mi := &file_github_v1_github_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -458,7 +1223,7 @@ func (x *ListDirectoriesRequest) String() string {
 func (*ListDirectoriesRequest) ProtoMessage() {}
 
 func (x *ListDirectoriesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_github_v1_github_proto_msgTypes[6]
+	mi := &file_github_v1_github_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -471,7 +1236,7 @@ func (x *ListDirectoriesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDirectoriesRequest.ProtoReflect.Descriptor instead.
 func (*ListDirectoriesRequest) Descriptor() ([]byte, []int) {
-	return file_github_v1_github_proto_rawDescGZIP(), []int{6}
+	return file_github_v1_github_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ListDirectoriesRequest) GetCaller() *v1.CallerPrincipal {
@@ -528,7 +1293,7 @@ type DirectoryEntry struct {
 
 func (x *DirectoryEntry) Reset() {
 	*x = DirectoryEntry{}
-	mi := &file_github_v1_github_proto_msgTypes[7]
+	mi := &file_github_v1_github_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -540,7 +1305,7 @@ func (x *DirectoryEntry) String() string {
 func (*DirectoryEntry) ProtoMessage() {}
 
 func (x *DirectoryEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_github_v1_github_proto_msgTypes[7]
+	mi := &file_github_v1_github_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -553,7 +1318,7 @@ func (x *DirectoryEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DirectoryEntry.ProtoReflect.Descriptor instead.
 func (*DirectoryEntry) Descriptor() ([]byte, []int) {
-	return file_github_v1_github_proto_rawDescGZIP(), []int{7}
+	return file_github_v1_github_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *DirectoryEntry) GetPath() string {
@@ -596,7 +1361,7 @@ type DirectoryNode struct {
 
 func (x *DirectoryNode) Reset() {
 	*x = DirectoryNode{}
-	mi := &file_github_v1_github_proto_msgTypes[8]
+	mi := &file_github_v1_github_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -608,7 +1373,7 @@ func (x *DirectoryNode) String() string {
 func (*DirectoryNode) ProtoMessage() {}
 
 func (x *DirectoryNode) ProtoReflect() protoreflect.Message {
-	mi := &file_github_v1_github_proto_msgTypes[8]
+	mi := &file_github_v1_github_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -621,7 +1386,7 @@ func (x *DirectoryNode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DirectoryNode.ProtoReflect.Descriptor instead.
 func (*DirectoryNode) Descriptor() ([]byte, []int) {
-	return file_github_v1_github_proto_rawDescGZIP(), []int{8}
+	return file_github_v1_github_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *DirectoryNode) GetPath() string {
@@ -663,7 +1428,7 @@ type ListDirectoriesResponse struct {
 
 func (x *ListDirectoriesResponse) Reset() {
 	*x = ListDirectoriesResponse{}
-	mi := &file_github_v1_github_proto_msgTypes[9]
+	mi := &file_github_v1_github_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -675,7 +1440,7 @@ func (x *ListDirectoriesResponse) String() string {
 func (*ListDirectoriesResponse) ProtoMessage() {}
 
 func (x *ListDirectoriesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_github_v1_github_proto_msgTypes[9]
+	mi := &file_github_v1_github_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -688,7 +1453,7 @@ func (x *ListDirectoriesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDirectoriesResponse.ProtoReflect.Descriptor instead.
 func (*ListDirectoriesResponse) Descriptor() ([]byte, []int) {
-	return file_github_v1_github_proto_rawDescGZIP(), []int{9}
+	return file_github_v1_github_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ListDirectoriesResponse) GetDirectories() []string {
@@ -716,7 +1481,63 @@ var File_github_v1_github_proto protoreflect.FileDescriptor
 
 const file_github_v1_github_proto_rawDesc = "" +
 	"\n" +
-	"\x16github/v1/github.proto\x12\tgithub.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x12auth/v1/auth.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"\xc3\x02\n" +
+	"\x16github/v1/github.proto\x12\tgithub.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x12auth/v1/auth.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"\x9e\x03\n" +
+	"\x16GitHubInstallationInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x15\n" +
+	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12'\n" +
+	"\x0finstallation_id\x18\x03 \x01(\x03R\x0einstallationId\x12#\n" +
+	"\raccount_login\x18\x04 \x01(\tR\faccountLogin\x12!\n" +
+	"\faccount_type\x18\x05 \x01(\tR\vaccountType\x121\n" +
+	"\x14repository_selection\x18\x06 \x01(\tR\x13repositorySelection\x12\x16\n" +
+	"\x06status\x18\a \x01(\tR\x06status\x12+\n" +
+	"\x12created_by_user_id\x18\b \x01(\tR\x0fcreatedByUserId\x129\n" +
+	"\n" +
+	"created_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"updated_at\x18\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"p\n" +
+	"\x1eStartGitHubInstallationRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x15\n" +
+	"\x06org_id\x18\x02 \x01(\tR\x05orgId\"X\n" +
+	"\x1fStartGitHubInstallationResponse\x12\x1f\n" +
+	"\vinstall_url\x18\x01 \x01(\tR\n" +
+	"installUrl\x12\x14\n" +
+	"\x05state\x18\x02 \x01(\tR\x05state\"\xb2\x01\n" +
+	"!CompleteGitHubInstallationRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x15\n" +
+	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12'\n" +
+	"\x0finstallation_id\x18\x03 \x01(\x03R\x0einstallationId\x12\x14\n" +
+	"\x05state\x18\x04 \x01(\tR\x05state\"k\n" +
+	"\"CompleteGitHubInstallationResponse\x12E\n" +
+	"\finstallation\x18\x01 \x01(\v2!.github.v1.GitHubInstallationInfoR\finstallation\"p\n" +
+	"\x1eListGitHubInstallationsRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x15\n" +
+	"\x06org_id\x18\x02 \x01(\tR\x05orgId\"j\n" +
+	"\x1fListGitHubInstallationsResponse\x12G\n" +
+	"\rinstallations\x18\x01 \x03(\v2!.github.v1.GitHubInstallationInfoR\rinstallations\"\x9e\x01\n" +
+	"#DisconnectGitHubInstallationRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x15\n" +
+	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12'\n" +
+	"\x0finstallation_id\x18\x03 \x01(\x03R\x0einstallationId\"@\n" +
+	"$DisconnectGitHubInstallationResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"\x9c\x01\n" +
+	"!GetGitHubInstallationTokenRequest\x127\n" +
+	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x15\n" +
+	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12'\n" +
+	"\x0finstallation_id\x18\x03 \x01(\x03R\x0einstallationId\"\x8b\x01\n" +
+	"\"GetGitHubInstallationTokenResponse\x12\x14\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\x12'\n" +
+	"\x0finstallation_id\x18\x02 \x01(\x03R\x0einstallationId\x12&\n" +
+	"\x0fexpires_at_unix\x18\x03 \x01(\x03R\rexpiresAtUnix\"\xa1\x01\n" +
+	"\x1aHandleGitHubWebhookRequest\x12\x18\n" +
+	"\apayload\x18\x01 \x01(\fR\apayload\x12)\n" +
+	"\x10signature_header\x18\x02 \x01(\tR\x0fsignatureHeader\x12\x1d\n" +
+	"\n" +
+	"event_type\x18\x03 \x01(\tR\teventType\x12\x1f\n" +
+	"\vdelivery_id\x18\x04 \x01(\tR\n" +
+	"deliveryId\"5\n" +
+	"\x1bHandleGitHubWebhookResponse\x12\x16\n" +
+	"\x06status\x18\x01 \x01(\tR\x06status\"\xc3\x02\n" +
 	"\x14GitHubRepositoryInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x14\n" +
 	"\x05owner\x18\x02 \x01(\tR\x05owner\x12\x12\n" +
@@ -771,8 +1592,30 @@ const file_github_v1_github_proto_rawDesc = "" +
 	"\x17ListDirectoriesResponse\x12 \n" +
 	"\vdirectories\x18\x01 \x03(\tR\vdirectories\x123\n" +
 	"\aentries\x18\x02 \x03(\v2\x19.github.v1.DirectoryEntryR\aentries\x12,\n" +
-	"\x04root\x18\x03 \x01(\v2\x18.github.v1.DirectoryNodeR\x04root2\x9c\t\n" +
-	"\rGitHubService\x12\x80\x03\n" +
+	"\x04root\x18\x03 \x01(\v2\x18.github.v1.DirectoryNodeR\x04root2\xb7\x17\n" +
+	"\rGitHubService\x12\x89\x03\n" +
+	"\x17StartGitHubInstallation\x12).github.v1.StartGitHubInstallationRequest\x1a*.github.v1.StartGitHubInstallationResponse\"\x96\x02\x92A\xda\x01\n" +
+	"\x17GitHub App Integrations\x12\x1dStart GitHub App installation\x1a\x8d\x01Initiates the GitHub App installation flow by generating a cryptographically signed HMAC state token and redirect URL. Requires `org:update`.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x022\x120/api/v1/orgs/{org_id}/github/installations/start\x12\x95\x03\n" +
+	"\x1aCompleteGitHubInstallation\x12,.github.v1.CompleteGitHubInstallationRequest\x1a-.github.v1.CompleteGitHubInstallationResponse\"\x99\x02\x92A\xe0\x01\n" +
+	"\x17GitHub App Integrations\x12 Complete GitHub App installation\x1a\x90\x01Verifies the HMAC state token, fetches installation metadata from GitHub, and links the installation to the organization. Requires `org:update`.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02/:\x01*\"*/api/v1/orgs/{org_id}/github/installations\x12\xee\x02\n" +
+	"\x17ListGitHubInstallations\x12).github.v1.ListGitHubInstallationsRequest\x1a*.github.v1.ListGitHubInstallationsResponse\"\xfb\x01\x92A\xc5\x01\n" +
+	"\x17GitHub App Integrations\x12\x1dList GitHub App installations\x1ayReturns all active or suspended GitHub App installations associated with the specified organization. Requires `org:read`.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02,\x12*/api/v1/orgs/{org_id}/github/installations\x12\xa2\x03\n" +
+	"\x1cDisconnectGitHubInstallation\x12..github.v1.DisconnectGitHubInstallationRequest\x1a/.github.v1.DisconnectGitHubInstallationResponse\"\xa0\x02\x92A\xd8\x01\n" +
+	"\x17GitHub App Integrations\x12\"Disconnect GitHub App installation\x1a\x86\x01Removes an active GitHub App installation linkage from the organization and revokes cached installation tokens. Requires `org:update`.b\x10\n" +
+	"\x0e\n" +
+	"\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02>*</api/v1/orgs/{org_id}/github/installations/{installation_id}\x12y\n" +
+	"\x1aGetGitHubInstallationToken\x12,.github.v1.GetGitHubInstallationTokenRequest\x1a-.github.v1.GetGitHubInstallationTokenResponse\x12d\n" +
+	"\x13HandleGitHubWebhook\x12%.github.v1.HandleGitHubWebhookRequest\x1a&.github.v1.HandleGitHubWebhookResponse\x12\x80\x03\n" +
 	"\x10ListRepositories\x12\".github.v1.ListRepositoriesRequest\x1a#.github.v1.ListRepositoriesResponse\"\xa2\x02\x92A\xed\x01\n" +
 	"\x19GitHub Repositories & VCS\x12#List accessible GitHub repositories\x1a\x98\x01Queries the GitHub API via installation credentials to list all repositories accessible to the linked organization installation. Requires `github:read`.b\x10\n" +
 	"\x0e\n" +
@@ -787,13 +1630,14 @@ const file_github_v1_github_proto_rawDesc = "" +
 	"\x19GitHub Repositories & VCS\x12#List repository directory structure\x1a\xa6\x01Discovers canonical directory structures (e.g. root '/', monorepo app subdirectories) at a given git commit/ref to assist workspace discovery. Requires `github:read`.b\x10\n" +
 	"\x0e\n" +
 	"\n" +
-	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02F\x12D/api/v1/orgs/{org_id}/github/repositories/{owner}/{repo}/directoriesB\x90\x05\x92A\xe6\x03\x12\xd2\x01\n" +
-	"\x1bkr0n GitHub VCS Service API\x12pGitHub Version Control System microservice for repository exploration, branch indexing, and directory discovery.\":\n" +
+	"BearerAuth\x12\x00\x82\xd3\xe4\x93\x02F\x12D/api/v1/orgs/{org_id}/github/repositories/{owner}/{repo}/directoriesB\x88\x06\x92A\xde\x04\x12\xed\x01\n" +
+	"\x1bkr0n GitHub VCS Service API\x12\x8a\x01GitHub Version Control System microservice for repository exploration, branch indexing, directory discovery, and GitHub App installations.\":\n" +
 	"\x10kr0n engineering\x12&https://github.com/skxm03/kr0n-backend2\x051.0.0\x1a\x0elocalhost:8080*\x01\x012\x10application/json:\x10application/jsonZ^\n" +
 	"\\\n" +
 	"\n" +
 	"BearerAuth\x12N\b\x02\x129Standard JWT Bearer token format: `Bearer <access_token>`\x1a\rAuthorization \x02jx\n" +
-	"\x19GitHub Repositories & VCS\x12[Explore repositories, branches, and directory trees connected via GitHub App installations.\n" +
+	"\x19GitHub Repositories & VCS\x12[Explore repositories, branches, and directory trees connected via GitHub App installations.j[\n" +
+	"\x17GitHub App Integrations\x12@Install, link, and manage organization GitHub App installations.\n" +
 	"\rcom.github.v1B\vGithubProtoP\x01ZCgithub.com/skxm03/kr0n-backend/control-plane/gen/github/v1;githubv1\xa2\x02\x03GXX\xaa\x02\tGithub.V1\xca\x02\tGithub\\V1\xe2\x02\x15Github\\V1\\GPBMetadata\xea\x02\n" +
 	"Github::V1b\x06proto3"
 
@@ -809,40 +1653,75 @@ func file_github_v1_github_proto_rawDescGZIP() []byte {
 	return file_github_v1_github_proto_rawDescData
 }
 
-var file_github_v1_github_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_github_v1_github_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
 var file_github_v1_github_proto_goTypes = []any{
-	(*GitHubRepositoryInfo)(nil),     // 0: github.v1.GitHubRepositoryInfo
-	(*ListRepositoriesRequest)(nil),  // 1: github.v1.ListRepositoriesRequest
-	(*ListRepositoriesResponse)(nil), // 2: github.v1.ListRepositoriesResponse
-	(*GitHubBranchInfo)(nil),         // 3: github.v1.GitHubBranchInfo
-	(*ListBranchesRequest)(nil),      // 4: github.v1.ListBranchesRequest
-	(*ListBranchesResponse)(nil),     // 5: github.v1.ListBranchesResponse
-	(*ListDirectoriesRequest)(nil),   // 6: github.v1.ListDirectoriesRequest
-	(*DirectoryEntry)(nil),           // 7: github.v1.DirectoryEntry
-	(*DirectoryNode)(nil),            // 8: github.v1.DirectoryNode
-	(*ListDirectoriesResponse)(nil),  // 9: github.v1.ListDirectoriesResponse
-	(*v1.CallerPrincipal)(nil),       // 10: auth.v1.CallerPrincipal
+	(*GitHubInstallationInfo)(nil),               // 0: github.v1.GitHubInstallationInfo
+	(*StartGitHubInstallationRequest)(nil),       // 1: github.v1.StartGitHubInstallationRequest
+	(*StartGitHubInstallationResponse)(nil),      // 2: github.v1.StartGitHubInstallationResponse
+	(*CompleteGitHubInstallationRequest)(nil),    // 3: github.v1.CompleteGitHubInstallationRequest
+	(*CompleteGitHubInstallationResponse)(nil),   // 4: github.v1.CompleteGitHubInstallationResponse
+	(*ListGitHubInstallationsRequest)(nil),       // 5: github.v1.ListGitHubInstallationsRequest
+	(*ListGitHubInstallationsResponse)(nil),      // 6: github.v1.ListGitHubInstallationsResponse
+	(*DisconnectGitHubInstallationRequest)(nil),  // 7: github.v1.DisconnectGitHubInstallationRequest
+	(*DisconnectGitHubInstallationResponse)(nil), // 8: github.v1.DisconnectGitHubInstallationResponse
+	(*GetGitHubInstallationTokenRequest)(nil),    // 9: github.v1.GetGitHubInstallationTokenRequest
+	(*GetGitHubInstallationTokenResponse)(nil),   // 10: github.v1.GetGitHubInstallationTokenResponse
+	(*HandleGitHubWebhookRequest)(nil),           // 11: github.v1.HandleGitHubWebhookRequest
+	(*HandleGitHubWebhookResponse)(nil),          // 12: github.v1.HandleGitHubWebhookResponse
+	(*GitHubRepositoryInfo)(nil),                 // 13: github.v1.GitHubRepositoryInfo
+	(*ListRepositoriesRequest)(nil),              // 14: github.v1.ListRepositoriesRequest
+	(*ListRepositoriesResponse)(nil),             // 15: github.v1.ListRepositoriesResponse
+	(*GitHubBranchInfo)(nil),                     // 16: github.v1.GitHubBranchInfo
+	(*ListBranchesRequest)(nil),                  // 17: github.v1.ListBranchesRequest
+	(*ListBranchesResponse)(nil),                 // 18: github.v1.ListBranchesResponse
+	(*ListDirectoriesRequest)(nil),               // 19: github.v1.ListDirectoriesRequest
+	(*DirectoryEntry)(nil),                       // 20: github.v1.DirectoryEntry
+	(*DirectoryNode)(nil),                        // 21: github.v1.DirectoryNode
+	(*ListDirectoriesResponse)(nil),              // 22: github.v1.ListDirectoriesResponse
+	(*timestamppb.Timestamp)(nil),                // 23: google.protobuf.Timestamp
+	(*v1.CallerPrincipal)(nil),                   // 24: auth.v1.CallerPrincipal
 }
 var file_github_v1_github_proto_depIdxs = []int32{
-	10, // 0: github.v1.ListRepositoriesRequest.caller:type_name -> auth.v1.CallerPrincipal
-	0,  // 1: github.v1.ListRepositoriesResponse.repositories:type_name -> github.v1.GitHubRepositoryInfo
-	10, // 2: github.v1.ListBranchesRequest.caller:type_name -> auth.v1.CallerPrincipal
-	3,  // 3: github.v1.ListBranchesResponse.branches:type_name -> github.v1.GitHubBranchInfo
-	10, // 4: github.v1.ListDirectoriesRequest.caller:type_name -> auth.v1.CallerPrincipal
-	8,  // 5: github.v1.DirectoryNode.children:type_name -> github.v1.DirectoryNode
-	7,  // 6: github.v1.ListDirectoriesResponse.entries:type_name -> github.v1.DirectoryEntry
-	8,  // 7: github.v1.ListDirectoriesResponse.root:type_name -> github.v1.DirectoryNode
-	1,  // 8: github.v1.GitHubService.ListRepositories:input_type -> github.v1.ListRepositoriesRequest
-	4,  // 9: github.v1.GitHubService.ListBranches:input_type -> github.v1.ListBranchesRequest
-	6,  // 10: github.v1.GitHubService.ListDirectories:input_type -> github.v1.ListDirectoriesRequest
-	2,  // 11: github.v1.GitHubService.ListRepositories:output_type -> github.v1.ListRepositoriesResponse
-	5,  // 12: github.v1.GitHubService.ListBranches:output_type -> github.v1.ListBranchesResponse
-	9,  // 13: github.v1.GitHubService.ListDirectories:output_type -> github.v1.ListDirectoriesResponse
-	11, // [11:14] is the sub-list for method output_type
-	8,  // [8:11] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	23, // 0: github.v1.GitHubInstallationInfo.created_at:type_name -> google.protobuf.Timestamp
+	23, // 1: github.v1.GitHubInstallationInfo.updated_at:type_name -> google.protobuf.Timestamp
+	24, // 2: github.v1.StartGitHubInstallationRequest.caller:type_name -> auth.v1.CallerPrincipal
+	24, // 3: github.v1.CompleteGitHubInstallationRequest.caller:type_name -> auth.v1.CallerPrincipal
+	0,  // 4: github.v1.CompleteGitHubInstallationResponse.installation:type_name -> github.v1.GitHubInstallationInfo
+	24, // 5: github.v1.ListGitHubInstallationsRequest.caller:type_name -> auth.v1.CallerPrincipal
+	0,  // 6: github.v1.ListGitHubInstallationsResponse.installations:type_name -> github.v1.GitHubInstallationInfo
+	24, // 7: github.v1.DisconnectGitHubInstallationRequest.caller:type_name -> auth.v1.CallerPrincipal
+	24, // 8: github.v1.GetGitHubInstallationTokenRequest.caller:type_name -> auth.v1.CallerPrincipal
+	24, // 9: github.v1.ListRepositoriesRequest.caller:type_name -> auth.v1.CallerPrincipal
+	13, // 10: github.v1.ListRepositoriesResponse.repositories:type_name -> github.v1.GitHubRepositoryInfo
+	24, // 11: github.v1.ListBranchesRequest.caller:type_name -> auth.v1.CallerPrincipal
+	16, // 12: github.v1.ListBranchesResponse.branches:type_name -> github.v1.GitHubBranchInfo
+	24, // 13: github.v1.ListDirectoriesRequest.caller:type_name -> auth.v1.CallerPrincipal
+	21, // 14: github.v1.DirectoryNode.children:type_name -> github.v1.DirectoryNode
+	20, // 15: github.v1.ListDirectoriesResponse.entries:type_name -> github.v1.DirectoryEntry
+	21, // 16: github.v1.ListDirectoriesResponse.root:type_name -> github.v1.DirectoryNode
+	1,  // 17: github.v1.GitHubService.StartGitHubInstallation:input_type -> github.v1.StartGitHubInstallationRequest
+	3,  // 18: github.v1.GitHubService.CompleteGitHubInstallation:input_type -> github.v1.CompleteGitHubInstallationRequest
+	5,  // 19: github.v1.GitHubService.ListGitHubInstallations:input_type -> github.v1.ListGitHubInstallationsRequest
+	7,  // 20: github.v1.GitHubService.DisconnectGitHubInstallation:input_type -> github.v1.DisconnectGitHubInstallationRequest
+	9,  // 21: github.v1.GitHubService.GetGitHubInstallationToken:input_type -> github.v1.GetGitHubInstallationTokenRequest
+	11, // 22: github.v1.GitHubService.HandleGitHubWebhook:input_type -> github.v1.HandleGitHubWebhookRequest
+	14, // 23: github.v1.GitHubService.ListRepositories:input_type -> github.v1.ListRepositoriesRequest
+	17, // 24: github.v1.GitHubService.ListBranches:input_type -> github.v1.ListBranchesRequest
+	19, // 25: github.v1.GitHubService.ListDirectories:input_type -> github.v1.ListDirectoriesRequest
+	2,  // 26: github.v1.GitHubService.StartGitHubInstallation:output_type -> github.v1.StartGitHubInstallationResponse
+	4,  // 27: github.v1.GitHubService.CompleteGitHubInstallation:output_type -> github.v1.CompleteGitHubInstallationResponse
+	6,  // 28: github.v1.GitHubService.ListGitHubInstallations:output_type -> github.v1.ListGitHubInstallationsResponse
+	8,  // 29: github.v1.GitHubService.DisconnectGitHubInstallation:output_type -> github.v1.DisconnectGitHubInstallationResponse
+	10, // 30: github.v1.GitHubService.GetGitHubInstallationToken:output_type -> github.v1.GetGitHubInstallationTokenResponse
+	12, // 31: github.v1.GitHubService.HandleGitHubWebhook:output_type -> github.v1.HandleGitHubWebhookResponse
+	15, // 32: github.v1.GitHubService.ListRepositories:output_type -> github.v1.ListRepositoriesResponse
+	18, // 33: github.v1.GitHubService.ListBranches:output_type -> github.v1.ListBranchesResponse
+	22, // 34: github.v1.GitHubService.ListDirectories:output_type -> github.v1.ListDirectoriesResponse
+	26, // [26:35] is the sub-list for method output_type
+	17, // [17:26] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
 func init() { file_github_v1_github_proto_init() }
@@ -856,7 +1735,7 @@ func file_github_v1_github_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_github_v1_github_proto_rawDesc), len(file_github_v1_github_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   23,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
