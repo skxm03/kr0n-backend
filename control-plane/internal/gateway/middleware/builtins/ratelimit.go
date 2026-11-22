@@ -2,6 +2,7 @@ package builtins
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -74,11 +75,17 @@ func (m *memoryLimiter) Allow(ctx context.Context, key string) (ratelimit.Result
 
 // NewRateLimitFactory creates a MiddlewareFactory for rate limiting.
 func NewRateLimitFactory(deps SharedDeps) middleware.MiddlewareFactory {
+	var (
+		memMu       sync.Mutex
+		memLimiters = make(map[string]*memoryLimiter)
+	)
+
 	return func(cfg map[string]any) (middleware.Middleware, error) {
 		capacity := 100
 		leakPerSec := 10.0
 		keyKind := "ip"
 		failOpen := true
+		prefix := ""
 
 		if cfg != nil {
 			if reqs, ok := cfg["requests"].(int); ok && reqs > 0 {
@@ -102,6 +109,17 @@ func NewRateLimitFactory(deps SharedDeps) middleware.MiddlewareFactory {
 			if fo, ok := cfg["fail_open"].(bool); ok {
 				failOpen = fo
 			}
+			if p, ok := cfg["prefix"].(string); ok && p != "" {
+				prefix = p
+			} else if z, ok := cfg["zone"].(string); ok && z != "" {
+				prefix = "rl:" + z
+			} else if n, ok := cfg["name"].(string); ok && n != "" {
+				prefix = "rl:" + n
+			}
+		}
+
+		if prefix == "" {
+			prefix = fmt.Sprintf("rl:%d:%d", capacity, int(leakPerSec*1000))
 		}
 
 		policy := ratelimit.Policy{
@@ -109,9 +127,31 @@ func NewRateLimitFactory(deps SharedDeps) middleware.MiddlewareFactory {
 			LeakPerSec: leakPerSec,
 		}
 
-		limiter := deps.Limiter
-		if limiter == nil {
-			limiter = newMemoryLimiter(policy)
+		var limiter ratelimit.Limiter
+		if deps.LimiterFactory != nil {
+			l, err := deps.LimiterFactory(prefix, policy)
+			if err != nil {
+				return nil, err
+			}
+			limiter = l
+		} else if deps.RedisClient != nil {
+			l, err := ratelimit.NewRedis(deps.RedisClient, prefix, policy)
+			if err != nil {
+				return nil, err
+			}
+			limiter = l
+		} else if deps.Limiter != nil {
+			limiter = deps.Limiter
+		} else {
+			cacheKey := fmt.Sprintf("%s:%d:%.4f", prefix, policy.Capacity, policy.LeakPerSec)
+			memMu.Lock()
+			l, ok := memLimiters[cacheKey]
+			if !ok {
+				l = newMemoryLimiter(policy)
+				memLimiters[cacheKey] = l
+			}
+			memMu.Unlock()
+			limiter = l
 		}
 
 		keyFunc := func(r *http.Request) string {

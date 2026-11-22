@@ -22,6 +22,8 @@ type BatchConfig struct {
 	BatchSize    int
 	BatchTimeout time.Duration
 	Workers      int
+	MaxRetries   int
+	RetryBackoff time.Duration
 }
 
 // BatchProcessor collects RabbitMQ deliveries into batches and dispatches them concurrently
@@ -43,6 +45,12 @@ func NewBatchProcessor(engine *Engine, dispatcher Dispatcher, cfg BatchConfig) *
 	if cfg.Workers < 1 {
 		cfg.Workers = 8
 	}
+	if cfg.MaxRetries < 1 {
+		cfg.MaxRetries = 3
+	}
+	if cfg.RetryBackoff <= 0 {
+		cfg.RetryBackoff = 100 * time.Millisecond
+	}
 	return &BatchProcessor{
 		engine:     engine,
 		dispatcher: dispatcher,
@@ -57,24 +65,26 @@ func (bp *BatchProcessor) Run(ctx context.Context, deliveries <-chan amqp.Delive
 	timer := time.NewTimer(bp.cfg.BatchTimeout)
 	defer timer.Stop()
 
-	flush := func() {
+	flush := func(procCtx context.Context) {
 		if len(batch) == 0 {
 			return
 		}
 		toProcess := make([]amqp.Delivery, len(batch))
 		copy(toProcess, batch)
 		batch = batch[:0]
-		bp.ProcessBatch(ctx, toProcess)
+		bp.ProcessBatch(procCtx, toProcess)
 	}
 
 	for {
 		select {
 		case <-ctx.Done():
-			flush()
+			drainCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			flush(drainCtx)
+			cancel()
 			return nil
 		case d, ok := <-deliveries:
 			if !ok {
-				flush()
+				flush(ctx)
 				return nil
 			}
 			if len(batch) == 0 {
@@ -88,10 +98,10 @@ func (bp *BatchProcessor) Run(ctx context.Context, deliveries <-chan amqp.Delive
 			}
 			batch = append(batch, d)
 			if len(batch) >= bp.cfg.BatchSize {
-				flush()
+				flush(ctx)
 			}
 		case <-timer.C:
-			flush()
+			flush(ctx)
 		}
 	}
 }
@@ -117,10 +127,16 @@ func (bp *BatchProcessor) ProcessBatch(ctx context.Context, batch []amqp.Deliver
 }
 
 func (bp *BatchProcessor) handleDelivery(ctx context.Context, msg amqp.Delivery) {
+	if ctx.Err() != nil {
+		// Shutdown or context canceled -> requeue rather than dropping to DLQ
+		_ = msg.Nack(false, true)
+		return
+	}
+
 	var job email.JobMessage
 	if err := json.Unmarshal(msg.Body, &job); err != nil {
 		log.Printf("[mailer] rejecting malformed JSON message %q: %v", msg.MessageId, err)
-		_ = msg.Nack(false, false) // route to DLQ
+		_ = msg.Nack(false, false) // permanent validation error -> route to DLQ
 		return
 	}
 
@@ -131,11 +147,42 @@ func (bp *BatchProcessor) handleDelivery(ctx context.Context, msg amqp.Delivery)
 		return
 	}
 
-	if err := bp.dispatcher.DispatchMIME(ctx, rendered.Recipient, rendered.Subject, rendered.TextBody, rendered.HTMLBody); err != nil {
-		log.Printf("[mailer] failed to send email job %q to %s (routed to dlq): %v", job.ID, rendered.Recipient, err)
-		_ = msg.Nack(false, false) // route to DLQ
-		return
+	maxRetries := bp.cfg.MaxRetries
+	if maxRetries < 1 {
+		maxRetries = 3
+	}
+	baseBackoff := bp.cfg.RetryBackoff
+	if baseBackoff <= 0 {
+		baseBackoff = 100 * time.Millisecond
 	}
 
-	_ = msg.Ack(false)
+	var lastErr error
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if ctx.Err() != nil {
+			// Context canceled during retry loop -> requeue for another consumer
+			_ = msg.Nack(false, true)
+			return
+		}
+
+		if attempt > 0 {
+			backoff := baseBackoff * (1 << (attempt - 1))
+			select {
+			case <-time.After(backoff):
+			case <-ctx.Done():
+				_ = msg.Nack(false, true)
+				return
+			}
+		}
+
+		lastErr = bp.dispatcher.DispatchMIME(ctx, rendered.Recipient, rendered.Subject, rendered.TextBody, rendered.HTMLBody)
+		if lastErr == nil {
+			_ = msg.Ack(false)
+			return
+		}
+		log.Printf("[mailer] attempt %d/%d failed to send email job %q to %s: %v", attempt+1, maxRetries, job.ID, rendered.Recipient, lastErr)
+	}
+
+	// All retries exhausted -> route to DLQ
+	log.Printf("[mailer] exhausted %d retries sending email job %q to %s (routed to dlq): %v", maxRetries, job.ID, rendered.Recipient, lastErr)
+	_ = msg.Nack(false, false)
 }

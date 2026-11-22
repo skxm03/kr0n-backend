@@ -125,6 +125,10 @@ func (r *Redis) Allow(ctx context.Context, key string) (Result, error) {
 			return out, nil
 		}
 		if errors.Is(err, redis.TxFailedErr) {
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return Result{}, ctxErr
+			}
+			time.Sleep(time.Duration(1+attempt%5) * time.Millisecond)
 			continue
 		}
 		return Result{}, fmt.Errorf("ratelimit: %w", err)

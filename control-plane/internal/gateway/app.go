@@ -152,6 +152,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 		Verifier:         verifier,
 		APITokenVerifier: apiTokenVerifier,
 		Limiter:          generalLimiter,
+		RedisClient:      rdb,
 		TrustedProxies:   trustedProxies,
 		MaxBodyBytes:     dynCfg.Gateway.MaxBodyBytes,
 	})

@@ -99,6 +99,8 @@ func TestBatchProcessor_SizeAndTimeoutFlushWithBoundedConcurrency(t *testing.T) 
 		BatchSize:    4,
 		BatchTimeout: 40 * time.Millisecond,
 		Workers:      2,
+		MaxRetries:   2,
+		RetryBackoff: 5 * time.Millisecond,
 	})
 
 	ack := newFakeAcknowledger()
@@ -158,5 +160,106 @@ func TestBatchProcessor_SizeAndTimeoutFlushWithBoundedConcurrency(t *testing.T) 
 	}
 	if !ack.nacked[6] || ack.requeue[6] {
 		t.Errorf("delivery 6 (malformed JSON) expected Nack with requeue=false (DLQ), got nacked=%v requeue=%v", ack.nacked[6], ack.requeue[6])
+	}
+}
+
+type retryFailingDispatcher struct {
+	mu       sync.Mutex
+	attempts map[string]int
+}
+
+func (r *retryFailingDispatcher) DispatchMIME(_ context.Context, recipient, _, _, _ string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.attempts == nil {
+		r.attempts = make(map[string]int)
+	}
+	r.attempts[recipient]++
+	if r.attempts[recipient] == 1 {
+		return errors.New("transient smtp connection reset")
+	}
+	return nil
+}
+
+func TestBatchProcessor_RetrySucceedsOnSecondAttempt(t *testing.T) {
+	engine, err := NewEngine()
+	if err != nil {
+		t.Fatalf("NewEngine() error: %v", err)
+	}
+
+	disp := &retryFailingDispatcher{}
+	bp := NewBatchProcessor(engine, disp, BatchConfig{
+		BatchSize:    1,
+		BatchTimeout: 10 * time.Millisecond,
+		Workers:      1,
+		MaxRetries:   3,
+		RetryBackoff: 5 * time.Millisecond,
+	})
+
+	ack := newFakeAcknowledger()
+	deliveries := make(chan amqp.Delivery, 1)
+
+	b, _ := json.Marshal(email.JobMessage{
+		ID:        "job-1",
+		Type:      email.TemplateVerifyEmail,
+		Recipient: "transient@example.com",
+		Data:      map[string]string{"token": "tok-123"},
+	})
+	deliveries <- amqp.Delivery{
+		Acknowledger: ack,
+		DeliveryTag:  1,
+		Body:         b,
+	}
+	close(deliveries)
+
+	if err := bp.Run(context.Background(), deliveries); err != nil {
+		t.Fatalf("Run() error: %v", err)
+	}
+
+	ack.mu.Lock()
+	defer ack.mu.Unlock()
+	if !ack.acked[1] {
+		t.Errorf("expected delivery 1 to be Acked after retry, got acked=%v, nacked=%v", ack.acked[1], ack.nacked[1])
+	}
+	if disp.attempts["transient@example.com"] != 2 {
+		t.Errorf("expected exactly 2 attempts, got %d", disp.attempts["transient@example.com"])
+	}
+}
+
+func TestBatchProcessor_GracefulShutdownRequeues(t *testing.T) {
+	engine, err := NewEngine()
+	if err != nil {
+		t.Fatalf("NewEngine() error: %v", err)
+	}
+
+	disp := &fakeDispatcher{}
+	bp := NewBatchProcessor(engine, disp, BatchConfig{
+		BatchSize:    1,
+		BatchTimeout: 10 * time.Millisecond,
+		Workers:      1,
+	})
+
+	ack := newFakeAcknowledger()
+	canceledCtx, cancel := context.WithCancel(context.Background())
+	cancel() // Immediately canceled context
+
+	b, _ := json.Marshal(email.JobMessage{
+		ID:        "job-cancel",
+		Type:      email.TemplateVerifyEmail,
+		Recipient: "cancel@example.com",
+		Data:      map[string]string{"token": "tok-123"},
+	})
+	delivery := amqp.Delivery{
+		Acknowledger: ack,
+		DeliveryTag:  42,
+		Body:         b,
+	}
+
+	bp.handleDelivery(canceledCtx, delivery)
+
+	ack.mu.Lock()
+	defer ack.mu.Unlock()
+	if !ack.nacked[42] || !ack.requeue[42] {
+		t.Errorf("expected Nack with requeue=true on canceled context, got nacked=%v, requeue=%v", ack.nacked[42], ack.requeue[42])
 	}
 }

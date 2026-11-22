@@ -19,6 +19,7 @@ type OutboxRepository interface {
 	MarkPublished(ctx context.Context, id uuid.UUID, publishedAt time.Time) error
 	MarkFailed(ctx context.Context, id uuid.UUID, lastErr string, nextSchedule time.Time, permanentlyFailed bool) error
 	ReapStaleProcessing(ctx context.Context, olderThan time.Duration) (int64, error)
+	PrunePublished(ctx context.Context, olderThan time.Duration) (int64, error)
 }
 
 // PostgresOutboxRepository implements OutboxRepository using PostgreSQL.
@@ -181,7 +182,7 @@ func (r *PostgresOutboxRepository) FetchPending(ctx context.Context, limit int, 
 	return events, nil
 }
 
-// MarkPublished marks an outbox event as successfully dispatched.
+// MarkPublished marks an outbox event as successfully dispatched and sanitizes sensitive plaintext tokens in payload.
 func (r *PostgresOutboxRepository) MarkPublished(ctx context.Context, id uuid.UUID, publishedAt time.Time) error {
 	if publishedAt.IsZero() {
 		publishedAt = time.Now().UTC()
@@ -190,7 +191,14 @@ func (r *PostgresOutboxRepository) MarkPublished(ctx context.Context, id uuid.UU
 		UPDATE outbox_events
 		SET status = 'published',
 		    published_at = $2,
-		    last_error = NULL
+		    last_error = NULL,
+		    payload = (
+		        CASE
+		            WHEN payload #> '{data,token}' IS NOT NULL THEN jsonb_set(payload, '{data,token}', '"[REDACTED]"'::jsonb)
+		            WHEN payload ? 'token' THEN jsonb_set(payload, '{token}', '"[REDACTED]"'::jsonb)
+		            ELSE payload
+		        END
+		    )
 		WHERE id = $1;
 	`
 	_, err := r.pool.Exec(ctx, updateSQL, id, publishedAt)
@@ -201,6 +209,7 @@ func (r *PostgresOutboxRepository) MarkPublished(ctx context.Context, id uuid.UU
 }
 
 // MarkFailed increments the retry count and records the error with a scheduled retry timestamp.
+// If permanentlyFailed is true, sensitive tokens in the payload are redacted to avoid plaintext token leakage.
 func (r *PostgresOutboxRepository) MarkFailed(ctx context.Context, id uuid.UUID, lastErr string, nextSchedule time.Time, permanentlyFailed bool) error {
 	status := OutboxStatusFailed
 	if permanentlyFailed {
@@ -211,10 +220,20 @@ func (r *PostgresOutboxRepository) MarkFailed(ctx context.Context, id uuid.UUID,
 		SET status = $2,
 		    retry_count = retry_count + 1,
 		    last_error = $3,
-		    scheduled_at = $4
+		    scheduled_at = $4,
+		    payload = CASE
+		        WHEN $5 = true THEN (
+		            CASE
+		                WHEN payload #> '{data,token}' IS NOT NULL THEN jsonb_set(payload, '{data,token}', '"[REDACTED]"'::jsonb)
+		                WHEN payload ? 'token' THEN jsonb_set(payload, '{token}', '"[REDACTED]"'::jsonb)
+		                ELSE payload
+		            END
+		        )
+		        ELSE payload
+		    END
 		WHERE id = $1;
 	`
-	_, err := r.pool.Exec(ctx, updateSQL, id, status, lastErr, nextSchedule)
+	_, err := r.pool.Exec(ctx, updateSQL, id, status, lastErr, nextSchedule, permanentlyFailed)
 	if err != nil {
 		return fmt.Errorf("mark outbox failed: %w", err)
 	}
@@ -232,6 +251,20 @@ func (r *PostgresOutboxRepository) ReapStaleProcessing(ctx context.Context, olde
 	tag, err := r.pool.Exec(ctx, reapSQL, cutoff)
 	if err != nil {
 		return 0, fmt.Errorf("reap stale outbox processing: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
+// PrunePublished deletes published outbox events that are older than olderThan duration.
+func (r *PostgresOutboxRepository) PrunePublished(ctx context.Context, olderThan time.Duration) (int64, error) {
+	cutoff := time.Now().UTC().Add(-olderThan)
+	const pruneSQL = `
+		DELETE FROM outbox_events
+		WHERE status = 'published' AND published_at <= $1;
+	`
+	tag, err := r.pool.Exec(ctx, pruneSQL, cutoff)
+	if err != nil {
+		return 0, fmt.Errorf("prune published outbox events: %w", err)
 	}
 	return tag.RowsAffected(), nil
 }

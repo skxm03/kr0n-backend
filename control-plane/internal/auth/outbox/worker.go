@@ -13,23 +13,27 @@ import (
 
 // Config defines operational parameters for the background outbox worker.
 type Config struct {
-	PollInterval time.Duration
-	BatchSize    int
-	MaxRetries   int
-	BaseBackoff  time.Duration
-	ReapInterval time.Duration
-	StaleTimeout time.Duration
+	PollInterval  time.Duration
+	BatchSize     int
+	MaxRetries    int
+	BaseBackoff   time.Duration
+	ReapInterval  time.Duration
+	StaleTimeout  time.Duration
+	PruneInterval time.Duration
+	Retention     time.Duration
 }
 
 // DefaultConfig provides conservative production defaults.
 func DefaultConfig() Config {
 	return Config{
-		PollInterval: 1 * time.Second,
-		BatchSize:    50,
-		MaxRetries:   5,
-		BaseBackoff:  2 * time.Second,
-		ReapInterval: 1 * time.Minute,
-		StaleTimeout: 5 * time.Minute,
+		PollInterval:  1 * time.Second,
+		BatchSize:     50,
+		MaxRetries:    5,
+		BaseBackoff:   2 * time.Second,
+		ReapInterval:  1 * time.Minute,
+		StaleTimeout:  5 * time.Minute,
+		PruneInterval: 10 * time.Minute,
+		Retention:     24 * time.Hour,
 	}
 }
 
@@ -62,6 +66,12 @@ func NewWorker(repo repository.OutboxRepository, publisher Publisher, cfg Config
 	}
 	if cfg.StaleTimeout <= 0 {
 		cfg.StaleTimeout = 5 * time.Minute
+	}
+	if cfg.PruneInterval <= 0 {
+		cfg.PruneInterval = 10 * time.Minute
+	}
+	if cfg.Retention <= 0 {
+		cfg.Retention = 24 * time.Hour
 	}
 
 	return &Worker{
@@ -102,6 +112,9 @@ func (w *Worker) Start(ctx context.Context) error {
 	reapTicker := time.NewTicker(w.cfg.ReapInterval)
 	defer reapTicker.Stop()
 
+	pruneTicker := time.NewTicker(w.cfg.PruneInterval)
+	defer pruneTicker.Stop()
+
 	// Initial sweep
 	_, _ = w.ProcessBatch(ctx)
 
@@ -116,6 +129,10 @@ func (w *Worker) Start(ctx context.Context) error {
 		case <-reapTicker.C:
 			if n, err := w.repo.ReapStaleProcessing(ctx, w.cfg.StaleTimeout); err == nil && n > 0 {
 				log.Printf("outbox: reaped %d stale processing events", n)
+			}
+		case <-pruneTicker.C:
+			if n, err := w.repo.PrunePublished(ctx, w.cfg.Retention); err == nil && n > 0 {
+				log.Printf("outbox: pruned %d expired published events", n)
 			}
 		}
 	}

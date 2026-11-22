@@ -20,6 +20,8 @@ type Config struct {
 	SMTPUsername string        `env:"SMTP_USERNAME"`
 	SMTPPassword string        `env:"SMTP_PASSWORD"`
 	SMTPTimeout  time.Duration `env:"SMTP_TIMEOUT"`
+	MaxRetries   int           `env:"EMAIL_MAX_RETRIES"`
+	RetryBackoff time.Duration `env:"EMAIL_RETRY_BACKOFF"`
 }
 
 func LoadConfig() (*Config, error) {

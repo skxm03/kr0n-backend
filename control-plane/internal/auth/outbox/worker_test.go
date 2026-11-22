@@ -88,6 +88,23 @@ func (m *mockOutboxRepo) ReapStaleProcessing(ctx context.Context, olderThan time
 	return 0, nil
 }
 
+func (m *mockOutboxRepo) PrunePublished(ctx context.Context, olderThan time.Duration) (int64, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	cutoff := time.Now().UTC().Add(-olderThan)
+	var remaining []*repository.OutboxEvent
+	var pruned int64
+	for _, ev := range m.events {
+		if ev.Status == repository.OutboxStatusPublished && ev.PublishedAt != nil && !ev.PublishedAt.After(cutoff) {
+			pruned++
+		} else {
+			remaining = append(remaining, ev)
+		}
+	}
+	m.events = remaining
+	return pruned, nil
+}
+
 type mockPublisher struct {
 	mu        sync.Mutex
 	published []*repository.OutboxEvent
@@ -268,5 +285,30 @@ func TestWorker_BackgroundLoopAndNotify(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("worker did not shut down in time")
+	}
+}
+
+func TestWorker_PruneExpiredPublished(t *testing.T) {
+	now := time.Now().UTC()
+	oldTime := now.Add(-48 * time.Hour)
+	recentTime := now.Add(-1 * time.Hour)
+
+	repo := &mockOutboxRepo{
+		events: []*repository.OutboxEvent{
+			{ID: uuid.New(), Status: repository.OutboxStatusPublished, PublishedAt: &oldTime},
+			{ID: uuid.New(), Status: repository.OutboxStatusPublished, PublishedAt: &recentTime},
+			{ID: uuid.New(), Status: repository.OutboxStatusPending, ScheduledAt: now},
+		},
+	}
+
+	pruned, err := repo.PrunePublished(context.Background(), 24*time.Hour)
+	if err != nil {
+		t.Fatalf("unexpected prune error: %v", err)
+	}
+	if pruned != 1 {
+		t.Fatalf("expected 1 pruned event, got %d", pruned)
+	}
+	if len(repo.events) != 2 {
+		t.Fatalf("expected 2 remaining events, got %d", len(repo.events))
 	}
 }

@@ -72,6 +72,8 @@ func NewApp(cfg *config.Config) (*App, error) {
 		BatchSize:    batchSize,
 		BatchTimeout: cfg.BatchTimeout,
 		Workers:      cfg.BatchWorkers,
+		MaxRetries:   cfg.MaxRetries,
+		RetryBackoff: cfg.RetryBackoff,
 	})
 
 	return &App{

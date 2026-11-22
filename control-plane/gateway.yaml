@@ -16,6 +16,8 @@ middleware_profiles:
         allow_credentials: true
     - request_validation
     - rate_limit:
+        zone: public
+        key: ip
         requests: 100
         window: 1m
 
@@ -26,6 +28,8 @@ middleware_profiles:
     - authentication:
         allow_api_tokens: true
     - rate_limit:
+        zone: authenticated
+        key: user
         requests: 300
         window: 1m
 
@@ -36,8 +40,11 @@ middleware_profiles:
     - authentication:
         allow_api_tokens: true
     - rate_limit:
+        zone: sensitive
+        key: user
         requests: 50
         window: 1m
+        fail_open: false
 
   webhook_ingress:
     - recovery
