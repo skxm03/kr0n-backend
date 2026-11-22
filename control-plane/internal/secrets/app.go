@@ -72,9 +72,10 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 	secretsRepo := repository.NewPostgresSecretsRepository(dbPool)
 	authorizer := service.NewLocalDBAuthorizer(dbPool)
 	projectVerifier := service.NewLocalDBProjectVerifier(dbPool)
+	vaultCipher := crypto.NewEnvelopeCipher(keyManager)
 	secretsSvc := service.NewSecretsService(
 		secretsRepo,
-		keyManager,
+		vaultCipher,
 		service.WithAuthorizer(authorizer),
 		service.WithProjectVerifier(projectVerifier),
 	)

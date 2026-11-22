@@ -21,6 +21,7 @@ import (
 	pkgAudit "github.com/skxm03/kr0n-backend/control-plane/pkg/audit"
 )
 
+// memorySecretsRepo is a pure in-memory persistence adapter with zero cryptographic knowledge.
 type memorySecretsRepo struct {
 	mu       sync.Mutex
 	roles    map[uuid.UUID]string
@@ -72,55 +73,41 @@ func (m *memorySecretsRepo) ProjectExists(_ context.Context, projectID uuid.UUID
 	return ok, nil
 }
 
-func (m *memorySecretsRepo) GetOrCreateProjectDEK(_ context.Context, projectID uuid.UUID, km *crypto.KeyManager) ([]byte, int, error) {
+func (m *memorySecretsRepo) GetProjectKey(_ context.Context, projectID uuid.UUID) (*domain.ProjectKey, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.getOrCreateDEKLocked(projectID, km)
-}
-
-func (m *memorySecretsRepo) getOrCreateDEKLocked(projectID uuid.UUID, km *crypto.KeyManager) ([]byte, int, error) {
-	if km == nil {
-		return nil, 0, domain.ErrMasterKeyNotConfigured
-	}
 	pk, ok := m.keys[projectID]
 	if !ok {
-		dek, err := crypto.GenerateRandomKey()
-		if err != nil {
-			return nil, 0, err
-		}
-		enc, nonce, err := km.WrapDEK(projectID, dek)
-		if err != nil {
-			return nil, 0, err
-		}
-		pk = domain.ProjectKey{
-			ProjectID:    projectID,
-			EncryptedDEK: enc,
-			Nonce:        nonce,
-			DEKVersion:   1,
-			KEKVersion:   km.KEKVersion(),
-			CreatedAt:    time.Now().UTC(),
-			UpdatedAt:    time.Now().UTC(),
-		}
-		m.keys[projectID] = pk
+		return nil, domain.ErrProjectKeyNotFound
 	}
-	dek, err := km.UnwrapDEK(projectID, pk.EncryptedDEK, pk.Nonce)
-	if err != nil {
-		return nil, 0, err
-	}
-	return dek, pk.DEKVersion, nil
+	cp := pk
+	return &cp, nil
 }
 
-func (m *memorySecretsRepo) UpsertEnvVars(_ context.Context, orgID, projectID uuid.UUID, environment string, inputs []domain.EnvVarInput, km *crypto.KeyManager) ([]domain.EnvVarMetadata, error) {
+func (m *memorySecretsRepo) GetOrCreateProjectKey(_ context.Context, candidate domain.ProjectKey) (*domain.ProjectKey, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	ownerOrg, ok := m.projects[projectID]
-	if !ok || ownerOrg != orgID {
-		return nil, domain.ErrProjectNotFound
+	pk, ok := m.keys[candidate.ProjectID]
+	if !ok {
+		candidate.CreatedAt = time.Now().UTC()
+		candidate.UpdatedAt = candidate.CreatedAt
+		m.keys[candidate.ProjectID] = candidate
+		cp := candidate
+		return &cp, nil
 	}
-	dek, dekVer, err := m.getOrCreateDEKLocked(projectID, km)
-	if err != nil {
-		return nil, err
-	}
+	cp := pk
+	return &cp, nil
+}
+
+func (m *memorySecretsRepo) UpsertEncryptedEnvVars(
+	_ context.Context,
+	projectID uuid.UUID,
+	environment string,
+	vars []domain.ProjectEnvVar,
+) ([]domain.EnvVarMetadata, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	if m.envVars[projectID] == nil {
 		m.envVars[projectID] = make(map[string]map[string]domain.ProjectEnvVar)
 	}
@@ -128,39 +115,19 @@ func (m *memorySecretsRepo) UpsertEnvVars(_ context.Context, orgID, projectID uu
 		m.envVars[projectID][environment] = make(map[string]domain.ProjectEnvVar)
 	}
 
-	now := time.Now().UTC()
-	out := make([]domain.EnvVarMetadata, 0, len(inputs))
-	for _, in := range inputs {
-		ct, nonce, err := crypto.EncryptSecret(dek, projectID, environment, in.Key, in.Value)
-		if err != nil {
-			return nil, err
-		}
-		row, exists := m.envVars[projectID][environment][in.Key]
-		if !exists {
-			row = domain.ProjectEnvVar{
-				ID:          uuid.New(),
-				ProjectID:   projectID,
-				Environment: environment,
-				Key:         in.Key,
-				CreatedAt:   now,
-			}
-		}
-		row.EncryptedValue = ct
-		row.Nonce = nonce
-		row.DEKVersion = dekVer
-		row.UpdatedAt = now
-		m.envVars[projectID][environment][in.Key] = row
-
+	out := make([]domain.EnvVarMetadata, 0, len(vars))
+	for _, v := range vars {
+		m.envVars[projectID][environment][v.Key] = v
 		out = append(out, domain.EnvVarMetadata{
-			ID:          row.ID,
+			ID:          v.ID,
 			ProjectID:   projectID,
 			Environment: environment,
-			Key:         in.Key,
+			Key:         v.Key,
 			MaskedValue: domain.MaskedSecretPlaceholder,
 			HasValue:    true,
-			DEKVersion:  dekVer,
-			CreatedAt:   row.CreatedAt,
-			UpdatedAt:   row.UpdatedAt,
+			DEKVersion:  v.DEKVersion,
+			CreatedAt:   v.CreatedAt,
+			UpdatedAt:   v.UpdatedAt,
 		})
 	}
 	return out, nil
@@ -190,6 +157,16 @@ func (m *memorySecretsRepo) ListEnvVars(_ context.Context, orgID, projectID uuid
 	return out, nil
 }
 
+func (m *memorySecretsRepo) GetEncryptedEnvVars(_ context.Context, projectID uuid.UUID, environment string) ([]domain.ProjectEnvVar, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var out []domain.ProjectEnvVar
+	for _, row := range m.envVars[projectID][environment] {
+		out = append(out, row)
+	}
+	return out, nil
+}
+
 func (m *memorySecretsRepo) DeleteEnvVar(_ context.Context, orgID, projectID uuid.UUID, environment, key string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -203,31 +180,6 @@ func (m *memorySecretsRepo) DeleteEnvVar(_ context.Context, orgID, projectID uui
 	}
 	delete(envMap, key)
 	return nil
-}
-
-func (m *memorySecretsRepo) ResolvePlaintextSecrets(_ context.Context, projectID uuid.UUID, environment string, km *crypto.KeyManager) (map[string]string, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if _, ok := m.projects[projectID]; !ok {
-		return nil, domain.ErrProjectNotFound
-	}
-	pk, ok := m.keys[projectID]
-	if !ok {
-		return map[string]string{}, nil
-	}
-	dek, err := km.UnwrapDEK(projectID, pk.EncryptedDEK, pk.Nonce)
-	if err != nil {
-		return nil, err
-	}
-	out := make(map[string]string)
-	for _, row := range m.envVars[projectID][environment] {
-		plain, err := crypto.DecryptSecret(dek, projectID, environment, row.Key, row.EncryptedValue, row.Nonce)
-		if err != nil {
-			return nil, err
-		}
-		out[row.Key] = plain
-	}
-	return out, nil
 }
 
 func TestSecretsServiceAndHandlers_LifecycleAndAADTampering(t *testing.T) {
@@ -252,9 +204,10 @@ func TestSecretsServiceAndHandlers_LifecycleAndAADTampering(t *testing.T) {
 		t.Fatalf("NewKeyManager: %v", err)
 	}
 
+	cipher := crypto.NewEnvelopeCipher(km)
 	svc := service.NewSecretsService(
 		repo,
-		km,
+		cipher,
 		service.WithAuthorizer(repo),
 		service.WithProjectVerifier(repo),
 	)

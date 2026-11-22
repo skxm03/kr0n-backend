@@ -95,13 +95,14 @@ func TestSecrets_PostgresConcurrencyAndAADTampering(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewKeyManager: %v", err)
 	}
+	cipher := crypto.NewEnvelopeCipher(km)
 
 	repo := repository.NewPostgresSecretsRepository(pool)
 	authorizer := service.NewLocalDBAuthorizer(pool)
 	projectVerifier := service.NewLocalDBProjectVerifier(pool)
 	svc := service.NewSecretsService(
 		repo,
-		km,
+		cipher,
 		service.WithAuthorizer(authorizer),
 		service.WithProjectVerifier(projectVerifier),
 	)
@@ -112,7 +113,7 @@ func TestSecrets_PostgresConcurrencyAndAADTampering(t *testing.T) {
 	memberCaller := &authv1.CallerPrincipal{UserId: memberID.String(), Kind: "session"}
 	outsiderCaller := &authv1.CallerPrincipal{UserId: outsiderID.String(), Kind: "session"}
 
-	// 1. Atomic DEK creation concurrency race test: 10 concurrent goroutines requesting GetOrCreateProjectDEK
+	// 1. Atomic DEK creation concurrency race test: 10 concurrent goroutines racing to create project key
 	const workers = 10
 	deks := make([][]byte, workers)
 	errs := make([]error, workers)
@@ -121,19 +122,29 @@ func TestSecrets_PostgresConcurrencyAndAADTampering(t *testing.T) {
 	for i := 0; i < workers; i++ {
 		go func(idx int) {
 			defer wg.Done()
-			d, ver, gErr := repo.GetOrCreateProjectDEK(ctx, projID, km)
-			if gErr == nil && ver != 1 {
-				gErr = errors.New("expected dek_version 1")
+			candidate, _, gErr := cipher.GenerateProjectKey(projID)
+			if gErr != nil {
+				errs[idx] = gErr
+				return
 			}
-			deks[idx] = d
-			errs[idx] = gErr
+			persisted, pErr := repo.GetOrCreateProjectKey(ctx, *candidate)
+			if pErr != nil {
+				errs[idx] = pErr
+				return
+			}
+			dek, uErr := cipher.UnwrapProjectKey(persisted)
+			if uErr == nil && persisted.DEKVersion != 1 {
+				uErr = errors.New("expected dek_version 1")
+			}
+			deks[idx] = dek
+			errs[idx] = uErr
 		}(i)
 	}
 	wg.Wait()
 
 	for i := 0; i < workers; i++ {
 		if errs[i] != nil {
-			t.Fatalf("worker %d GetOrCreateProjectDEK failed: %v", i, errs[i])
+			t.Fatalf("worker %d GetOrCreateProjectKey failed: %v", i, errs[i])
 		}
 		if len(deks[i]) != 32 || !bytes.Equal(deks[0], deks[i]) {
 			t.Fatalf("worker %d DEK mismatch: concurrent DEK creation race detected", i)

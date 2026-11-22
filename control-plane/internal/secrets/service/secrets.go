@@ -1,7 +1,9 @@
 package service
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/google/uuid"
@@ -32,19 +34,19 @@ func WithProjectVerifier(v ProjectVerifier) Option {
 	}
 }
 
-// SecretsService orchestrates RBAC authorization, validation, and envelope encryption for Project Secrets.
+// SecretsService orchestrates RBAC authorization, validation, cryptographic operations, and persistence for Project Secrets.
 type SecretsService struct {
 	repo            repository.SecretsRepository
-	keyManager      *crypto.KeyManager
+	cipher          crypto.VaultCipher
 	authorizer      Authorizer
 	projectVerifier ProjectVerifier
 }
 
-// NewSecretsService creates a new SecretsService with its isolated Master KEK KeyManager and options.
-func NewSecretsService(repo repository.SecretsRepository, keyManager *crypto.KeyManager, opts ...Option) *SecretsService {
+// NewSecretsService creates a new SecretsService with its isolated VaultCipher and options.
+func NewSecretsService(repo repository.SecretsRepository, cipher crypto.VaultCipher, opts ...Option) *SecretsService {
 	s := &SecretsService{
-		repo:       repo,
-		keyManager: keyManager,
+		repo:   repo,
+		cipher: cipher,
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -89,8 +91,47 @@ func hasPermission(perms []string, permission string) bool {
 	return false
 }
 
+func (s *SecretsService) getOrGenerateDEK(ctx context.Context, projectID uuid.UUID) ([]byte, int, error) {
+	if s.cipher == nil {
+		return nil, 0, domain.ErrMasterKeyNotConfigured
+	}
+
+	existingKey, err := s.repo.GetProjectKey(ctx, projectID)
+	if err == nil && existingKey != nil {
+		dek, err := s.cipher.UnwrapProjectKey(existingKey)
+		if err != nil {
+			return nil, 0, err
+		}
+		return dek, existingKey.DEKVersion, nil
+	}
+	if err != nil && !errors.Is(err, domain.ErrProjectKeyNotFound) {
+		return nil, 0, err
+	}
+
+	candidateKey, rawDEK, err := s.cipher.GenerateProjectKey(projectID)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	persistedKey, err := s.repo.GetOrCreateProjectKey(ctx, *candidateKey)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// If another concurrent request won the insert race, unwrap the winner's key
+	if !bytes.Equal(persistedKey.EncryptedDEK, candidateKey.EncryptedDEK) {
+		dek, err := s.cipher.UnwrapProjectKey(persistedKey)
+		if err != nil {
+			return nil, 0, err
+		}
+		return dek, persistedKey.DEKVersion, nil
+	}
+
+	return rawDEK, persistedKey.DEKVersion, nil
+}
+
 // UpsertEnvVars authorizes caller with `project:update`, validates the environment name and variable batch,
-// verifies project ownership via ProjectVerifier, and atomically encrypts and upserts the batch into `project_env_vars`.
+// verifies project ownership via ProjectVerifier, encrypts secrets via VaultCipher, and upserts them into `project_env_vars`.
 // Returns only masked metadata; raw secret values are never returned.
 func (s *SecretsService) UpsertEnvVars(
 	ctx context.Context,
@@ -102,7 +143,7 @@ func (s *SecretsService) UpsertEnvVars(
 	if err := s.require(ctx, p, orgID, "project:update"); err != nil {
 		return nil, err
 	}
-	if s.keyManager == nil {
+	if s.cipher == nil {
 		return nil, domain.ErrMasterKeyNotConfigured
 	}
 	env, err := domain.NormalizeEnvironment(rawEnvironment)
@@ -122,7 +163,18 @@ func (s *SecretsService) UpsertEnvVars(
 			return nil, domain.ErrProjectNotFound
 		}
 	}
-	return s.repo.UpsertEnvVars(ctx, orgID, projectID, env, cleaned, s.keyManager)
+
+	dek, dekVer, err := s.getOrGenerateDEK(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	encryptedVars, err := s.cipher.EncryptEnvVars(projectID, env, dek, dekVer, cleaned)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.repo.UpsertEncryptedEnvVars(ctx, projectID, env, encryptedVars)
 }
 
 // ListEnvVars authorizes caller with `project:read`, validates the environment name,
@@ -193,7 +245,7 @@ func (s *SecretsService) ResolveProjectSecrets(
 	if projectID == uuid.Nil {
 		return nil, domain.ErrProjectNotFound
 	}
-	if s.keyManager == nil {
+	if s.cipher == nil {
 		return nil, domain.ErrMasterKeyNotConfigured
 	}
 	env, err := domain.NormalizeEnvironment(rawEnvironment)
@@ -209,5 +261,24 @@ func (s *SecretsService) ResolveProjectSecrets(
 			return nil, domain.ErrProjectNotFound
 		}
 	}
-	return s.repo.ResolvePlaintextSecrets(ctx, projectID, env, s.keyManager)
+
+	key, err := s.repo.GetProjectKey(ctx, projectID)
+	if err != nil {
+		if errors.Is(err, domain.ErrProjectKeyNotFound) {
+			return map[string]string{}, nil
+		}
+		return nil, err
+	}
+
+	dek, err := s.cipher.UnwrapProjectKey(key)
+	if err != nil {
+		return nil, err
+	}
+
+	records, err := s.repo.GetEncryptedEnvVars(ctx, projectID, env)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.cipher.DecryptEnvVars(projectID, env, dek, records)
 }

@@ -28,6 +28,7 @@ var (
 	ErrEnvVarBatchLimit       = errors.New("environment variable batch must contain between 1 and 100 items")
 	ErrInvalidEnvironment     = errors.New("invalid environment name")
 	ErrMasterKeyNotConfigured = errors.New("project secret management is not configured: master KEK is missing")
+	ErrProjectKeyNotFound     = errors.New("project key not found")
 )
 
 var (

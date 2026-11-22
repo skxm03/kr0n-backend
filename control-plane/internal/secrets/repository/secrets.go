@@ -10,17 +10,19 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/skxm03/kr0n-backend/control-plane/internal/secrets/crypto"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/secrets/domain"
 )
 
 // SecretsRepository defines persistence queries for the dedicated Secrets microservice.
+// It is a pure persistence seam: all secret data crossing this interface is already encrypted
+// domain entities, ensuring plaintext and cryptographic algorithms never leak into storage.
 type SecretsRepository interface {
-	GetOrCreateProjectDEK(ctx context.Context, projectID uuid.UUID, km *crypto.KeyManager) ([]byte, int, error)
-	UpsertEnvVars(ctx context.Context, orgID, projectID uuid.UUID, environment string, inputs []domain.EnvVarInput, km *crypto.KeyManager) ([]domain.EnvVarMetadata, error)
+	GetProjectKey(ctx context.Context, projectID uuid.UUID) (*domain.ProjectKey, error)
+	GetOrCreateProjectKey(ctx context.Context, candidate domain.ProjectKey) (*domain.ProjectKey, error)
+	UpsertEncryptedEnvVars(ctx context.Context, projectID uuid.UUID, environment string, vars []domain.ProjectEnvVar) ([]domain.EnvVarMetadata, error)
 	ListEnvVars(ctx context.Context, orgID, projectID uuid.UUID, environment string) ([]domain.EnvVarMetadata, error)
+	GetEncryptedEnvVars(ctx context.Context, projectID uuid.UUID, environment string) ([]domain.ProjectEnvVar, error)
 	DeleteEnvVar(ctx context.Context, orgID, projectID uuid.UUID, environment, key string) error
-	ResolvePlaintextSecrets(ctx context.Context, projectID uuid.UUID, environment string, km *crypto.KeyManager) (map[string]string, error)
 }
 
 // PostgresSecretsRepository implements SecretsRepository backed by PostgreSQL.
@@ -33,108 +35,68 @@ func NewPostgresSecretsRepository(pool *pgxpool.Pool) *PostgresSecretsRepository
 	return &PostgresSecretsRepository{pool: pool}
 }
 
-func (r *PostgresSecretsRepository) getOrCreateProjectDEKTx(
-	ctx context.Context,
-	tx pgx.Tx,
-	projectID uuid.UUID,
-	km *crypto.KeyManager,
-) (dek []byte, dekVersion int, err error) {
-	if km == nil {
-		return nil, 0, domain.ErrMasterKeyNotConfigured
-	}
-
-	var (
-		encDEK []byte
-		nonce  []byte
-		dekVer int
-		kekVer int
-	)
-
-	err = tx.QueryRow(ctx, `
-		SELECT encrypted_dek, nonce, dek_version, kek_version
+// GetProjectKey loads the encrypted DEK metadata for projectID from project_keys.
+func (r *PostgresSecretsRepository) GetProjectKey(ctx context.Context, projectID uuid.UUID) (*domain.ProjectKey, error) {
+	var pk domain.ProjectKey
+	err := r.pool.QueryRow(ctx, `
+		SELECT project_id, encrypted_dek, nonce, dek_version, kek_version, created_at, updated_at
 		FROM project_keys
-		WHERE project_id = $1
-		FOR UPDATE;
-	`, projectID).Scan(&encDEK, &nonce, &dekVer, &kekVer)
-
-	if errors.Is(err, pgx.ErrNoRows) {
-		candidateDEK, genErr := crypto.GenerateRandomKey()
-		if genErr != nil {
-			return nil, 0, fmt.Errorf("generate project dek: %w", genErr)
-		}
-		candidateEnc, candidateNonce, wrapErr := km.WrapDEK(projectID, candidateDEK)
-		if wrapErr != nil {
-			return nil, 0, fmt.Errorf("wrap project dek: %w", wrapErr)
-		}
-
-		_, execErr := tx.Exec(ctx, `
-			INSERT INTO project_keys (
-				project_id, encrypted_dek, nonce, dek_version, kek_version, created_at, updated_at
-			) VALUES ($1, $2, $3, 1, $4, now(), now())
-			ON CONFLICT (project_id) DO NOTHING;
-		`, projectID, candidateEnc, candidateNonce, km.KEKVersion())
-		if execErr != nil {
-			return nil, 0, fmt.Errorf("atomic insert project dek: %w", execErr)
-		}
-
-		err = tx.QueryRow(ctx, `
-			SELECT encrypted_dek, nonce, dek_version, kek_version
-			FROM project_keys
-			WHERE project_id = $1
-			FOR UPDATE;
-		`, projectID).Scan(&encDEK, &nonce, &dekVer, &kekVer)
-	}
-
+		WHERE project_id = $1;
+	`, projectID).Scan(
+		&pk.ProjectID,
+		&pk.EncryptedDEK,
+		&pk.Nonce,
+		&pk.DEKVersion,
+		&pk.KEKVersion,
+		&pk.CreatedAt,
+		&pk.UpdatedAt,
+	)
 	if err != nil {
-		return nil, 0, fmt.Errorf("query locked project dek: %w", err)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, domain.ErrProjectKeyNotFound
+		}
+		return nil, fmt.Errorf("query project key: %w", err)
 	}
-
-	if kekVer != km.KEKVersion() {
-		// Future proof: rewrap with newer master KEK if rotated
-	}
-
-	dek, err = km.UnwrapDEK(projectID, encDEK, nonce)
-	if err != nil {
-		return nil, 0, fmt.Errorf("unwrap project dek: %w", err)
-	}
-	return dek, dekVer, nil
+	return &pk, nil
 }
 
-// GetOrCreateProjectDEK returns the decrypted 256-bit AES DEK for projectID, atomically generating and persisting
-// a new encrypted DEK under the master KEK if one does not already exist.
-func (r *PostgresSecretsRepository) GetOrCreateProjectDEK(
+// GetOrCreateProjectKey atomically persists candidate project key or returns the existing row on conflict.
+func (r *PostgresSecretsRepository) GetOrCreateProjectKey(
+	ctx context.Context,
+	candidate domain.ProjectKey,
+) (*domain.ProjectKey, error) {
+	var pk domain.ProjectKey
+	err := r.pool.QueryRow(ctx, `
+		INSERT INTO project_keys (
+			project_id, encrypted_dek, nonce, dek_version, kek_version, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, now(), now())
+		ON CONFLICT (project_id) DO UPDATE
+			SET project_id = EXCLUDED.project_id
+		RETURNING project_id, encrypted_dek, nonce, dek_version, kek_version, created_at, updated_at;
+	`, candidate.ProjectID, candidate.EncryptedDEK, candidate.Nonce, candidate.DEKVersion, candidate.KEKVersion).Scan(
+		&pk.ProjectID,
+		&pk.EncryptedDEK,
+		&pk.Nonce,
+		&pk.DEKVersion,
+		&pk.KEKVersion,
+		&pk.CreatedAt,
+		&pk.UpdatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("get or create project key: %w", err)
+	}
+	return &pk, nil
+}
+
+// UpsertEncryptedEnvVars batch-upserts already-encrypted environment variables into project_env_vars.
+func (r *PostgresSecretsRepository) UpsertEncryptedEnvVars(
 	ctx context.Context,
 	projectID uuid.UUID,
-	km *crypto.KeyManager,
-) ([]byte, int, error) {
-	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
-	if err != nil {
-		return nil, 0, fmt.Errorf("begin tx: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
-	dek, dekVer, err := r.getOrCreateProjectDEKTx(ctx, tx, projectID, km)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return nil, 0, fmt.Errorf("commit get or create project dek: %w", err)
-	}
-	return dek, dekVer, nil
-}
-
-// UpsertEnvVars resolves/creates the project's DEK, encrypts all input variables with AES-256-GCM + AAD
-// (`<project_id>:<environment>:<key>`), upserts them into `project_env_vars`, and returns the masked metadata list.
-func (r *PostgresSecretsRepository) UpsertEnvVars(
-	ctx context.Context,
-	orgID, projectID uuid.UUID,
 	environment string,
-	inputs []domain.EnvVarInput,
-	km *crypto.KeyManager,
+	vars []domain.ProjectEnvVar,
 ) ([]domain.EnvVarMetadata, error) {
-	if km == nil {
-		return nil, domain.ErrMasterKeyNotConfigured
+	if len(vars) == 0 {
+		return []domain.EnvVarMetadata{}, nil
 	}
 
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
@@ -143,20 +105,10 @@ func (r *PostgresSecretsRepository) UpsertEnvVars(
 	}
 	defer tx.Rollback(ctx)
 
-	dek, dekVer, err := r.getOrCreateProjectDEKTx(ctx, tx, projectID, km)
-	if err != nil {
-		return nil, err
-	}
-
+	out := make([]domain.EnvVarMetadata, 0, len(vars))
 	now := time.Now().UTC()
-	out := make([]domain.EnvVarMetadata, 0, len(inputs))
 
-	for _, in := range inputs {
-		ct, nonce, encErr := crypto.EncryptSecret(dek, projectID, environment, in.Key, in.Value)
-		if encErr != nil {
-			return nil, fmt.Errorf("encrypt secret %q: %w", in.Key, encErr)
-		}
-
+	for _, v := range vars {
 		var meta domain.EnvVarMetadata
 		err = tx.QueryRow(ctx, `
 			INSERT INTO project_env_vars (
@@ -169,12 +121,12 @@ func (r *PostgresSecretsRepository) UpsertEnvVars(
 				dek_version     = EXCLUDED.dek_version,
 				updated_at      = EXCLUDED.updated_at
 			RETURNING id, project_id, environment, key, dek_version, created_at, updated_at;
-		`, uuid.New(), projectID, environment, in.Key, ct, nonce, dekVer, now).Scan(
+		`, uuid.New(), projectID, environment, v.Key, v.EncryptedValue, v.Nonce, v.DEKVersion, now).Scan(
 			&meta.ID, &meta.ProjectID, &meta.Environment, &meta.Key,
 			&meta.DEKVersion, &meta.CreatedAt, &meta.UpdatedAt,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("upsert env var %q: %w", in.Key, err)
+			return nil, fmt.Errorf("upsert encrypted env var %q: %w", v.Key, err)
 		}
 		meta.MaskedValue = domain.MaskedSecretPlaceholder
 		meta.HasValue = true
@@ -182,7 +134,7 @@ func (r *PostgresSecretsRepository) UpsertEnvVars(
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("commit upsert env vars: %w", err)
+		return nil, fmt.Errorf("commit upsert encrypted env vars: %w", err)
 	}
 	return out, nil
 }
@@ -217,6 +169,38 @@ func (r *PostgresSecretsRepository) ListEnvVars(
 	return out, rows.Err()
 }
 
+// GetEncryptedEnvVars returns all encrypted environment variables for (projectID, environment).
+func (r *PostgresSecretsRepository) GetEncryptedEnvVars(
+	ctx context.Context,
+	projectID uuid.UUID,
+	environment string,
+) ([]domain.ProjectEnvVar, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, project_id, environment, key, encrypted_value, nonce, dek_version, created_at, updated_at
+		FROM project_env_vars
+		WHERE project_id = $1 AND environment = $2
+		ORDER BY key ASC;
+	`, projectID, environment)
+	if err != nil {
+		return nil, fmt.Errorf("query encrypted env vars: %w", err)
+	}
+	defer rows.Close()
+
+	var out []domain.ProjectEnvVar
+	for rows.Next() {
+		var v domain.ProjectEnvVar
+		if err := rows.Scan(
+			&v.ID, &v.ProjectID, &v.Environment, &v.Key,
+			&v.EncryptedValue, &v.Nonce, &v.DEKVersion,
+			&v.CreatedAt, &v.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("scan encrypted env var: %w", err)
+		}
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
 // DeleteEnvVar deletes a single environment variable by key in (orgID, projectID, environment).
 func (r *PostgresSecretsRepository) DeleteEnvVar(
 	ctx context.Context,
@@ -234,69 +218,4 @@ func (r *PostgresSecretsRepository) DeleteEnvVar(
 		return domain.ErrEnvVarNotFound
 	}
 	return nil
-}
-
-// ResolvePlaintextSecrets is the internal repository method backing resolver.SecretResolver.
-func (r *PostgresSecretsRepository) ResolvePlaintextSecrets(
-	ctx context.Context,
-	projectID uuid.UUID,
-	environment string,
-	km *crypto.KeyManager,
-) (map[string]string, error) {
-	if km == nil {
-		return nil, domain.ErrMasterKeyNotConfigured
-	}
-
-	var (
-		encDEK []byte
-		nonce  []byte
-	)
-	err := r.pool.QueryRow(ctx, `
-		SELECT encrypted_dek, nonce
-		FROM project_keys
-		WHERE project_id = $1;
-	`, projectID).Scan(&encDEK, &nonce)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return map[string]string{}, nil
-		}
-		return nil, fmt.Errorf("query project key: %w", err)
-	}
-
-	dek, err := km.UnwrapDEK(projectID, encDEK, nonce)
-	if err != nil {
-		return nil, fmt.Errorf("unwrap project dek: %w", err)
-	}
-
-	rows, err := r.pool.Query(ctx, `
-		SELECT key, encrypted_value, nonce
-		FROM project_env_vars
-		WHERE project_id = $1 AND environment = $2
-		ORDER BY key ASC;
-	`, projectID, environment)
-	if err != nil {
-		return nil, fmt.Errorf("query encrypted env vars: %w", err)
-	}
-	defer rows.Close()
-
-	secrets := make(map[string]string)
-	for rows.Next() {
-		var (
-			k     string
-			ct    []byte
-			vNonc []byte
-		)
-		if err := rows.Scan(&k, &ct, &vNonc); err != nil {
-			return nil, fmt.Errorf("scan encrypted env var: %w", err)
-		}
-		plain, decErr := crypto.DecryptSecret(dek, projectID, environment, k, ct, vNonc)
-		if decErr != nil {
-			return nil, fmt.Errorf("decrypt env var %q: %w", k, decErr)
-		}
-		secrets[k] = plain
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return secrets, nil
 }
