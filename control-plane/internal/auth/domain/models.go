@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/skxm03/kr0n-backend/control-plane/pkg/authz"
 )
 
 // Status represents the operational state of a user account.
@@ -64,13 +66,7 @@ type Token struct {
 }
 
 // Principal represents an authenticated caller evaluated by the authorization service.
-type Principal struct {
-	UserID           uuid.UUID
-	Kind             string // "session" or "api_token"
-	TokenOrgID       *uuid.UUID
-	TokenPermissions []string
-	SessionID        *uuid.UUID
-}
+type Principal = authz.Principal
 
 // Organization represents a tenant organization domain entity.
 type Organization struct {

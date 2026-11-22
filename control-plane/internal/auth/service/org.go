@@ -12,6 +12,7 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/domain"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
 	emailpkg "github.com/skxm03/kr0n-backend/control-plane/internal/email"
+	"github.com/skxm03/kr0n-backend/control-plane/pkg/authz"
 )
 
 var slugRegex = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
@@ -63,12 +64,7 @@ func (s *OrgService) Can(ctx context.Context, p domain.Principal, orgID uuid.UUI
 }
 
 func hasPermission(perms []string, permission string) bool {
-	for _, perm := range perms {
-		if perm == permission {
-			return true
-		}
-	}
-	return false
+	return authz.HasPermission(perms, permission)
 }
 
 func (s *OrgService) require(ctx context.Context, p domain.Principal, orgID uuid.UUID, permission string) error {

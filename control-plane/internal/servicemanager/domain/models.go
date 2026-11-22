@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/skxm03/kr0n-backend/control-plane/pkg/authz"
 )
 
 var (
@@ -27,13 +29,7 @@ var (
 )
 
 // Principal represents an authenticated caller forwarded by the API Gateway via CallerPrincipal.
-type Principal struct {
-	UserID           uuid.UUID
-	SessionID        *uuid.UUID
-	Kind             string
-	TokenOrgID       *uuid.UUID
-	TokenPermissions []string
-}
+type Principal = authz.Principal
 
 // BuildSettings represents the 1:1 toggleable build settings row in `project_build_settings`.
 // Each field has an explicit boolean override toggle so an empty string ("") with override=true

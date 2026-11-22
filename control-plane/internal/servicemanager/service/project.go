@@ -9,6 +9,7 @@ import (
 
 	"github.com/skxm03/kr0n-backend/control-plane/internal/servicemanager/domain"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/servicemanager/repository"
+	"github.com/skxm03/kr0n-backend/control-plane/pkg/authz"
 )
 
 // CreateProjectParams holds input fields for creating a new project and its build settings.
@@ -74,19 +75,7 @@ func NewProjectService(repo repository.ProjectRepository, opts ...Option) *Proje
 
 // Can checks whether caller principal p holds permission in orgID.
 func (s *ProjectService) Can(ctx context.Context, p domain.Principal, orgID uuid.UUID, permission string) (bool, error) {
-	if p.UserID == uuid.Nil || orgID == uuid.Nil || permission == "" {
-		return false, nil
-	}
-	if p.Kind == "api_token" {
-		if p.TokenOrgID == nil || *p.TokenOrgID != orgID || !hasPermission(p.TokenPermissions, permission) {
-			return false, nil
-		}
-	}
-
-	if s.authorizer != nil {
-		return s.authorizer.CheckPermission(ctx, p, orgID, permission)
-	}
-	return false, nil
+	return authz.Can(ctx, s.authorizer, p, orgID, permission)
 }
 
 func (s *ProjectService) require(ctx context.Context, p domain.Principal, orgID uuid.UUID, permission string) error {
@@ -98,15 +87,6 @@ func (s *ProjectService) require(ctx context.Context, p domain.Principal, orgID 
 		return domain.ErrForbidden
 	}
 	return nil
-}
-
-func hasPermission(perms []string, permission string) bool {
-	for _, perm := range perms {
-		if perm == permission {
-			return true
-		}
-	}
-	return false
 }
 
 // ListPresets returns the supported Railpack application preset catalog.

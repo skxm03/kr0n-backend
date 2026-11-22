@@ -12,6 +12,7 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/secrets/domain"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/secrets/repository"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/secrets/resolver"
+	"github.com/skxm03/kr0n-backend/control-plane/pkg/authz"
 )
 
 // Compile-time check that SecretsService satisfies resolver.SecretResolver.
@@ -56,19 +57,7 @@ func NewSecretsService(repo repository.SecretsRepository, cipher crypto.VaultCip
 
 // Can checks whether caller principal p holds permission in orgID.
 func (s *SecretsService) Can(ctx context.Context, p domain.Principal, orgID uuid.UUID, permission string) (bool, error) {
-	if p.UserID == uuid.Nil || orgID == uuid.Nil || permission == "" {
-		return false, nil
-	}
-	if p.Kind == "api_token" {
-		if p.TokenOrgID == nil || *p.TokenOrgID != orgID || !hasPermission(p.TokenPermissions, permission) {
-			return false, nil
-		}
-	}
-
-	if s.authorizer != nil {
-		return s.authorizer.CheckPermission(ctx, p, orgID, permission)
-	}
-	return false, nil
+	return authz.Can(ctx, s.authorizer, p, orgID, permission)
 }
 
 func (s *SecretsService) require(ctx context.Context, p domain.Principal, orgID uuid.UUID, permission string) error {
@@ -80,15 +69,6 @@ func (s *SecretsService) require(ctx context.Context, p domain.Principal, orgID 
 		return domain.ErrForbidden
 	}
 	return nil
-}
-
-func hasPermission(perms []string, permission string) bool {
-	for _, perm := range perms {
-		if perm == permission {
-			return true
-		}
-	}
-	return false
 }
 
 func (s *SecretsService) getOrGenerateDEK(ctx context.Context, projectID uuid.UUID) ([]byte, int, error) {

@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/skxm03/kr0n-backend/control-plane/pkg/authz"
 )
 
 const (
@@ -50,13 +52,7 @@ var reservedKeyPrefixes = []string{
 }
 
 // Principal represents an authenticated caller forwarded by the API Gateway via CallerPrincipal.
-type Principal struct {
-	UserID           uuid.UUID
-	SessionID        *uuid.UUID
-	Kind             string
-	TokenOrgID       *uuid.UUID
-	TokenPermissions []string
-}
+type Principal = authz.Principal
 
 // ProjectKey represents an encrypted per-project Data Encryption Key (DEK) in `project_keys`.
 type ProjectKey struct {

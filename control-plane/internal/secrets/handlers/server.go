@@ -16,6 +16,7 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/secrets/domain"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/secrets/service"
 	pkgAudit "github.com/skxm03/kr0n-backend/control-plane/pkg/audit"
+	"github.com/skxm03/kr0n-backend/control-plane/pkg/authz"
 	"github.com/skxm03/kr0n-backend/control-plane/pkg/grpcauth"
 )
 
@@ -194,63 +195,10 @@ func (s *Server) ResolveProjectSecrets(
 }
 
 func (s *Server) parseOrgCall(ctx context.Context, c *authv1.CallerPrincipal, rawOrgID string) (domain.Principal, uuid.UUID, error) {
-	if s.serviceAuth.Enabled && !grpcauth.IsTrustedService(ctx) {
-		return domain.Principal{}, uuid.Nil, status.Error(codes.Unauthenticated, "caller principal rejected: untrusted service boundary")
-	}
 	if s.secretsService == nil {
 		return domain.Principal{}, uuid.Nil, status.Error(codes.Unimplemented, "secrets service not configured")
 	}
-
-	var pass grpcauth.Passport
-	var hasMetadataPass bool
-	if grpcauth.IsTrustedService(ctx) {
-		pass, hasMetadataPass = grpcauth.ExtractPassportMetadata(ctx)
-	}
-
-	orgID, err := uuid.Parse(strings.TrimSpace(rawOrgID))
-	if err != nil {
-		if hasMetadataPass && pass.OrgID != nil {
-			orgID = *pass.OrgID
-		} else {
-			return domain.Principal{}, uuid.Nil, status.Error(codes.InvalidArgument, "invalid org_id")
-		}
-	}
-
-	if c != nil && strings.TrimSpace(c.GetUserId()) != "" {
-		uid, err := uuid.Parse(strings.TrimSpace(c.GetUserId()))
-		if err != nil {
-			return domain.Principal{}, uuid.Nil, status.Error(codes.InvalidArgument, "invalid caller user_id")
-		}
-
-		p := domain.Principal{
-			UserID:           uid,
-			Kind:             c.GetKind(),
-			TokenPermissions: c.GetTokenPermissions(),
-		}
-		if rawTokOrg := strings.TrimSpace(c.GetTokenOrgId()); rawTokOrg != "" {
-			if oid, err := uuid.Parse(rawTokOrg); err == nil {
-				p.TokenOrgID = &oid
-			}
-		}
-		if rawSess := strings.TrimSpace(c.GetSessionId()); rawSess != "" {
-			if sid, err := uuid.Parse(rawSess); err == nil {
-				p.SessionID = &sid
-			}
-		}
-		return p, orgID, nil
-	}
-
-	if hasMetadataPass {
-		return domain.Principal{
-			UserID:           pass.UserID,
-			Kind:             pass.Kind,
-			TokenOrgID:       pass.OrgID,
-			SessionID:        pass.SessionID,
-			TokenPermissions: pass.Permissions,
-		}, orgID, nil
-	}
-
-	return domain.Principal{}, uuid.Nil, status.Error(codes.Unauthenticated, "authentication required: missing caller passport")
+	return authz.ParseOrgCall(ctx, s.serviceAuth, c, rawOrgID)
 }
 
 func (s *Server) emitAudit(ctx context.Context, p domain.Principal, orgID, projectID uuid.UUID, action pkgAudit.Action, meta map[string]any) {
