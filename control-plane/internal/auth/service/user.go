@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/domain"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/email"
 )
@@ -123,12 +124,12 @@ func newUUIDv7() uuid.UUID {
 // Register validates parameters, applies password policies, computes password hash,
 // generates a verification token, and persists user, credentials, verification token, and
 // outbox event atomically in a single database transaction.
-func (s *UserService) Register(ctx context.Context, params RegisterParams) (*repository.User, error) {
+func (s *UserService) Register(ctx context.Context, params RegisterParams) (*domain.User, error) {
 	if err := s.hasher.ValidatePolicy(params.Password); err != nil {
 		return nil, err
 	}
 
-	newUser, err := repository.NewUser(params.Email, params.DisplayName)
+	newUser, err := domain.NewUser(params.Email, params.DisplayName)
 	if err != nil {
 		return nil, err
 	}
@@ -138,14 +139,14 @@ func (s *UserService) Register(ctx context.Context, params RegisterParams) (*rep
 		return nil, fmt.Errorf("hash password: %w", err)
 	}
 
-	rawToken, err := repository.GenerateToken()
+	rawToken, err := domain.GenerateToken()
 	if err != nil {
 		return nil, fmt.Errorf("generate verification token: %w", err)
 	}
-	tokenHash := repository.HashToken(rawToken)
+	tokenHash := domain.HashToken(rawToken)
 
 	now := time.Now().UTC()
-	token := &repository.Token{
+	token := &domain.Token{
 		ID:        newUUIDv7(),
 		UserID:    newUser.ID,
 		TokenHash: tokenHash,
@@ -153,9 +154,9 @@ func (s *UserService) Register(ctx context.Context, params RegisterParams) (*rep
 		CreatedAt: now,
 	}
 
-	outboxEv := &repository.OutboxEvent{
+	outboxEv := &domain.OutboxEvent{
 		ID:            newUUIDv7(),
-		EventType:     repository.EventTypeEmailVerification,
+		EventType:     domain.EventTypeEmailVerification,
 		AggregateType: "user",
 		AggregateID:   newUser.ID,
 		Payload: map[string]any{
@@ -168,7 +169,7 @@ func (s *UserService) Register(ctx context.Context, params RegisterParams) (*rep
 			"created_at": now.Format(time.RFC3339),
 		},
 		Headers:     map[string]any{},
-		Status:      repository.OutboxStatusPending,
+		Status:      domain.OutboxStatusPending,
 		CreatedAt:   now,
 		ScheduledAt: now,
 	}
@@ -185,19 +186,19 @@ func (s *UserService) Register(ctx context.Context, params RegisterParams) (*rep
 }
 
 // Authenticate verifies user credentials and returns the active user entity.
-func (s *UserService) Authenticate(ctx context.Context, params AuthenticateParams) (*repository.User, error) {
+func (s *UserService) Authenticate(ctx context.Context, params AuthenticateParams) (*domain.User, error) {
 	const dummyBcryptHash = "$2a$12$e8I7n.oE/1u9jFq7m5yRyeuG.F/5kX5g5g1wE3l0N4t7M6o3A2Z0i"
 
-	canonicalEmail, err := repository.CanonicalizeEmail(params.Email)
+	canonicalEmail, err := domain.CanonicalizeEmail(params.Email)
 	if err != nil {
-		return nil, repository.ErrInvalidCredentials
+		return nil, domain.ErrInvalidCredentials
 	}
 
 	u, hash, err := s.repo.GetByEmailWithPassword(ctx, canonicalEmail)
 	if err != nil {
-		if errors.Is(err, repository.ErrUserNotFound) {
+		if errors.Is(err, domain.ErrUserNotFound) {
 			_ = s.hasher.Compare(dummyBcryptHash, params.Password)
-			return nil, repository.ErrInvalidCredentials
+			return nil, domain.ErrInvalidCredentials
 		}
 		return nil, fmt.Errorf("user lookup: %w", err)
 	}
@@ -205,24 +206,24 @@ func (s *UserService) Authenticate(ctx context.Context, params AuthenticateParam
 	now := time.Now().UTC()
 	if u.LockedUntil != nil && u.LockedUntil.After(now) {
 		_ = s.hasher.Compare(dummyBcryptHash, params.Password)
-		return nil, repository.ErrInvalidCredentials
+		return nil, domain.ErrInvalidCredentials
 	}
 
 	if err := s.hasher.Compare(hash, params.Password); err != nil {
 		_ = s.repo.RecordLoginFailure(ctx, u.ID, s.maxLoginAttempts, s.lockoutDuration, now)
-		return nil, repository.ErrInvalidCredentials
+		return nil, domain.ErrInvalidCredentials
 	}
 
 	if u.FailedLoginAttempts > 0 || u.LockedUntil != nil {
 		_ = s.repo.ResetLoginFailures(ctx, u.ID)
 	}
 
-	if u.Status != repository.StatusActive {
-		return nil, repository.ErrUserNotActive
+	if u.Status != domain.StatusActive {
+		return nil, domain.ErrUserNotActive
 	}
 
 	if s.requireVerifiedEmail && u.EmailVerifiedAt == nil {
-		return nil, repository.ErrEmailNotVerified
+		return nil, domain.ErrEmailNotVerified
 	}
 
 	return u, nil
@@ -231,20 +232,20 @@ func (s *UserService) Authenticate(ctx context.Context, params AuthenticateParam
 // ResendVerification issues a fresh email verification token and sends it if the account exists,
 // is active, and is not yet verified.
 func (s *UserService) ResendVerification(ctx context.Context, rawEmail string) error {
-	canonicalEmail, err := repository.CanonicalizeEmail(rawEmail)
+	canonicalEmail, err := domain.CanonicalizeEmail(rawEmail)
 	if err != nil {
 		return err
 	}
 
 	u, _, err := s.repo.GetByEmailWithPassword(ctx, canonicalEmail)
 	if err != nil {
-		if errors.Is(err, repository.ErrUserNotFound) {
+		if errors.Is(err, domain.ErrUserNotFound) {
 			return nil
 		}
 		return fmt.Errorf("lookup user for resend verification: %w", err)
 	}
 
-	if u.Status != repository.StatusActive || u.EmailVerifiedAt != nil {
+	if u.Status != domain.StatusActive || u.EmailVerifiedAt != nil {
 		return nil
 	}
 
@@ -262,24 +263,24 @@ func (s *UserService) ResendVerification(ctx context.Context, rawEmail string) e
 		maxAllowed = 4
 	}
 	if count >= maxAllowed {
-		return repository.ErrResendLimitExceeded
+		return domain.ErrResendLimitExceeded
 	}
 
-	rawToken, err := repository.GenerateToken()
+	rawToken, err := domain.GenerateToken()
 	if err != nil {
 		return fmt.Errorf("generate verification token: %w", err)
 	}
-	token := &repository.Token{
+	token := &domain.Token{
 		ID:        newUUIDv7(),
 		UserID:    u.ID,
-		TokenHash: repository.HashToken(rawToken),
+		TokenHash: domain.HashToken(rawToken),
 		ExpiresAt: now.Add(s.tokenLifetime),
 		CreatedAt: now,
 	}
 
-	outboxEv := &repository.OutboxEvent{
+	outboxEv := &domain.OutboxEvent{
 		ID:            newUUIDv7(),
-		EventType:     repository.EventTypeEmailVerification,
+		EventType:     domain.EventTypeEmailVerification,
 		AggregateType: "user",
 		AggregateID:   u.ID,
 		Payload: map[string]any{
@@ -292,7 +293,7 @@ func (s *UserService) ResendVerification(ctx context.Context, rawEmail string) e
 			"created_at": now.Format(time.RFC3339),
 		},
 		Headers:     map[string]any{},
-		Status:      repository.OutboxStatusPending,
+		Status:      domain.OutboxStatusPending,
 		CreatedAt:   now,
 		ScheduledAt: now,
 	}
@@ -309,39 +310,39 @@ func (s *UserService) ResendVerification(ctx context.Context, rawEmail string) e
 
 // RequestPasswordReset issues a fresh password reset token and creates an outbox event atomically.
 func (s *UserService) RequestPasswordReset(ctx context.Context, rawEmail string) error {
-	canonicalEmail, err := repository.CanonicalizeEmail(rawEmail)
+	canonicalEmail, err := domain.CanonicalizeEmail(rawEmail)
 	if err != nil {
 		return err
 	}
 
 	u, _, err := s.repo.GetByEmailWithPassword(ctx, canonicalEmail)
 	if err != nil {
-		if errors.Is(err, repository.ErrUserNotFound) {
+		if errors.Is(err, domain.ErrUserNotFound) {
 			return nil
 		}
 		return fmt.Errorf("lookup user for password reset: %w", err)
 	}
 
-	if u.Status != repository.StatusActive {
+	if u.Status != domain.StatusActive {
 		return nil
 	}
 
-	rawToken, err := repository.GenerateToken()
+	rawToken, err := domain.GenerateToken()
 	if err != nil {
 		return fmt.Errorf("generate password reset token: %w", err)
 	}
 	now := time.Now().UTC()
-	token := &repository.Token{
+	token := &domain.Token{
 		ID:        newUUIDv7(),
 		UserID:    u.ID,
-		TokenHash: repository.HashToken(rawToken),
+		TokenHash: domain.HashToken(rawToken),
 		ExpiresAt: now.Add(s.resetTokenLifetime),
 		CreatedAt: now,
 	}
 
-	outboxEv := &repository.OutboxEvent{
+	outboxEv := &domain.OutboxEvent{
 		ID:            newUUIDv7(),
-		EventType:     repository.EventTypePasswordReset,
+		EventType:     domain.EventTypePasswordReset,
 		AggregateType: "user",
 		AggregateID:   u.ID,
 		Payload: map[string]any{
@@ -354,7 +355,7 @@ func (s *UserService) RequestPasswordReset(ctx context.Context, rawEmail string)
 			"created_at": now.Format(time.RFC3339),
 		},
 		Headers:     map[string]any{},
-		Status:      repository.OutboxStatusPending,
+		Status:      domain.OutboxStatusPending,
 		CreatedAt:   now,
 		ScheduledAt: now,
 	}
@@ -373,7 +374,7 @@ func (s *UserService) RequestPasswordReset(ctx context.Context, rawEmail string)
 // the user's password hash, resets login lockout state, and coordinates revoking all active sessions.
 func (s *UserService) ConfirmPasswordReset(ctx context.Context, rawToken, newPassword string) (uuid.UUID, error) {
 	if rawToken == "" {
-		return uuid.Nil, repository.ErrInvalidResetToken
+		return uuid.Nil, domain.ErrInvalidResetToken
 	}
 	if err := s.hasher.ValidatePolicy(newPassword); err != nil {
 		return uuid.Nil, err
@@ -384,7 +385,7 @@ func (s *UserService) ConfirmPasswordReset(ctx context.Context, rawToken, newPas
 		return uuid.Nil, fmt.Errorf("hash password: %w", err)
 	}
 
-	tokenHash := repository.HashToken(rawToken)
+	tokenHash := domain.HashToken(rawToken)
 	now := time.Now().UTC()
 	userID, err := s.repo.ConsumePasswordResetAndUpdatePassword(ctx, tokenHash, newHash, now)
 	if err != nil {
@@ -404,7 +405,7 @@ func (s *UserService) ConfirmPasswordReset(ctx context.Context, rawToken, newPas
 // updates credentials via UserRepository, and coordinates revoking other active sessions via SessionRepository.
 func (s *UserService) ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string, currentSessionID *uuid.UUID) error {
 	if userID == uuid.Nil {
-		return repository.ErrUserNotFound
+		return domain.ErrUserNotFound
 	}
 	if err := s.hasher.ValidatePolicy(newPassword); err != nil {
 		return err
@@ -414,11 +415,11 @@ func (s *UserService) ChangePassword(ctx context.Context, userID uuid.UUID, curr
 	if err != nil {
 		return err
 	}
-	if u.Status != repository.StatusActive {
-		return repository.ErrUserNotActive
+	if u.Status != domain.StatusActive {
+		return domain.ErrUserNotActive
 	}
 	if err := s.hasher.Compare(currentHash, currentPassword); err != nil {
-		return repository.ErrInvalidCredentials
+		return domain.ErrInvalidCredentials
 	}
 
 	newHash, err := s.hasher.Hash(newPassword)
@@ -442,23 +443,23 @@ func (s *UserService) ChangePassword(ctx context.Context, userID uuid.UUID, curr
 }
 
 // GetProfile retrieves a user's profile by ID.
-func (s *UserService) GetProfile(ctx context.Context, userID uuid.UUID) (*repository.User, error) {
+func (s *UserService) GetProfile(ctx context.Context, userID uuid.UUID) (*domain.User, error) {
 	if userID == uuid.Nil {
-		return nil, repository.ErrUserNotFound
+		return nil, domain.ErrUserNotFound
 	}
 	return s.repo.GetByID(ctx, userID)
 }
 
 // ResolveOAuthUser validates an OAuthProfile (requiring a verified email), canonicalizes the email,
 // and resolves/links/creates the user account.
-func (s *UserService) ResolveOAuthUser(ctx context.Context, profile repository.OAuthProfile) (*repository.User, error) {
+func (s *UserService) ResolveOAuthUser(ctx context.Context, profile domain.OAuthProfile) (*domain.User, error) {
 	if !profile.EmailVerified {
-		return nil, repository.ErrOAuthEmailNotVerified
+		return nil, domain.ErrOAuthEmailNotVerified
 	}
 	if profile.Provider == "" || profile.ProviderUserID == "" {
 		return nil, errors.New("oauth provider and provider_user_id are required")
 	}
-	canonicalEmail, err := repository.CanonicalizeEmail(profile.Email)
+	canonicalEmail, err := domain.CanonicalizeEmail(profile.Email)
 	if err != nil {
 		return nil, err
 	}

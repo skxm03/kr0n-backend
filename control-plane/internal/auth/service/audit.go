@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/domain"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
 	pkgAudit "github.com/skxm03/kr0n-backend/control-plane/pkg/audit"
 )
@@ -42,7 +43,7 @@ func NewAuditService(repo repository.AuditRepository, opts ...AuditOption) *Audi
 // Record appends an audit event. Missing ID/CreatedAt/ActorType are populated with safe defaults.
 // If an audit Emitter is configured, the event is published to the audit RabbitMQ broker;
 // otherwise it falls back to inserting directly via the repository.
-func (s *AuditService) Record(ctx context.Context, ev repository.AuditEvent) error {
+func (s *AuditService) Record(ctx context.Context, ev domain.AuditEvent) error {
 	if s == nil || (s.repo == nil && s.emitter == nil) {
 		return nil
 	}
@@ -57,9 +58,9 @@ func (s *AuditService) Record(ctx context.Context, ev repository.AuditEvent) err
 		ev.CreatedAt = time.Now().UTC()
 	}
 	switch ev.ActorType {
-	case repository.ActorTypeUser, repository.ActorTypeAPIToken, repository.ActorTypeSystem:
+	case domain.ActorTypeUser, domain.ActorTypeAPIToken, domain.ActorTypeSystem:
 	default:
-		ev.ActorType = repository.ActorTypeUser
+		ev.ActorType = domain.ActorTypeUser
 	}
 	if ev.Metadata == nil {
 		ev.Metadata = map[string]any{}
@@ -110,7 +111,7 @@ func (s *AuditService) Record(ctx context.Context, ev repository.AuditEvent) err
 }
 
 // ListByOrg returns audit events for an organization ordered newest-first.
-func (s *AuditService) ListByOrg(ctx context.Context, orgID uuid.UUID, action string, limit, offset int) ([]repository.AuditEvent, error) {
+func (s *AuditService) ListByOrg(ctx context.Context, orgID uuid.UUID, action string, limit, offset int) ([]domain.AuditEvent, error) {
 	if limit <= 0 || limit > 200 {
 		limit = 50
 	}

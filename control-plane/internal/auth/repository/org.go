@@ -2,10 +2,6 @@ package repository
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"crypto/subtle"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"time"
@@ -15,39 +11,24 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/domain"
 )
 
 const (
 	// APITokenPrefix is the mandatory prefix for personal/org API tokens.
-	APITokenPrefix = "kr0n_pat_"
+	APITokenPrefix = domain.APITokenPrefix
 
 	// LastUsedWriteInterval bounds how often api_tokens.last_used_at is written per token.
-	LastUsedWriteInterval = 5 * time.Minute
+	LastUsedWriteInterval = domain.LastUsedWriteInterval
 )
 
-// GenerateAPIToken generates a `kr0n_pat_<64 hex>` secret, its display prefix, and its SHA-256 hash.
-func GenerateAPIToken() (rawToken, prefix, tokenHash string, err error) {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		return "", "", "", fmt.Errorf("generate random token: %w", err)
-	}
-	rawToken = APITokenPrefix + hex.EncodeToString(b)
-	prefix = rawToken[:17] // "kr0n_pat_" + 8 hex chars
-	tokenHash = HashAPIToken(rawToken)
-	return rawToken, prefix, tokenHash, nil
-}
-
-// HashAPIToken computes the SHA-256 hex digest of a raw API token.
-func HashAPIToken(rawToken string) string {
-	sum := sha256.Sum256([]byte(rawToken))
-	return hex.EncodeToString(sum[:])
-}
-
-// VerifyAPITokenHash compares a raw API token's SHA-256 digest against storedHash in constant time.
-func VerifyAPITokenHash(rawToken, storedHash string) bool {
-	h := HashAPIToken(rawToken)
-	return subtle.ConstantTimeCompare([]byte(h), []byte(storedHash)) == 1
-}
+// Re-exported API token generators and validators from internal/auth/domain.
+var (
+	GenerateAPIToken   = domain.GenerateAPIToken
+	HashAPIToken       = domain.HashAPIToken
+	VerifyAPITokenHash = domain.VerifyAPITokenHash
+)
 
 // OrgRepository defines persistence operations for organizations, RBAC, invites, and API tokens.
 type OrgRepository interface {

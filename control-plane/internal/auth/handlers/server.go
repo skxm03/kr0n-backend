@@ -16,7 +16,7 @@ import (
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/jwtkeys"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/oauth"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/domain"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/service"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/webhook"
 	pkgAudit "github.com/skxm03/kr0n-backend/control-plane/pkg/audit"
@@ -26,35 +26,35 @@ import (
 type GitHubOAuthProvider interface {
 	Configured() bool
 	Start() (authorizeURL, state, codeVerifier string, err error)
-	ExchangeAndFetchProfile(ctx context.Context, code, codeVerifier string) (*repository.OAuthProfile, error)
+	ExchangeAndFetchProfile(ctx context.Context, code, codeVerifier string) (*domain.OAuthProfile, error)
 }
 
 // GoogleOAuthProvider defines the contract for Google OAuth 2.0 + PKCE operations.
 type GoogleOAuthProvider interface {
 	Configured() bool
 	Start() (authorizeURL, state, codeVerifier string, err error)
-	ExchangeAndFetchProfile(ctx context.Context, code, codeVerifier string) (*repository.OAuthProfile, error)
+	ExchangeAndFetchProfile(ctx context.Context, code, codeVerifier string) (*domain.OAuthProfile, error)
 }
 
 // RegistrationService defines user registration, account lifecycle, profile, and OAuth operations (satisfied by *service.UserService).
 type RegistrationService interface {
-	Register(ctx context.Context, params service.RegisterParams) (*repository.User, error)
+	Register(ctx context.Context, params service.RegisterParams) (*domain.User, error)
 	ResendVerification(ctx context.Context, rawEmail string) error
 	RequestPasswordReset(ctx context.Context, rawEmail string) error
 	ConfirmPasswordReset(ctx context.Context, rawToken, newPassword string) (uuid.UUID, error)
 	ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string, currentSessionID *uuid.UUID) error
-	GetProfile(ctx context.Context, userID uuid.UUID) (*repository.User, error)
-	ResolveOAuthUser(ctx context.Context, profile repository.OAuthProfile) (*repository.User, error)
+	GetProfile(ctx context.Context, userID uuid.UUID) (*domain.User, error)
+	ResolveOAuthUser(ctx context.Context, profile domain.OAuthProfile) (*domain.User, error)
 }
 
 // SessionService defines authentication, token rotation, logout, and session lifecycle operations (satisfied by *service.SessionService).
 type SessionService interface {
 	Login(ctx context.Context, params service.LoginParams) (*service.LoginResult, error)
 	Refresh(ctx context.Context, rawRefreshToken string) (*service.RefreshResult, error)
-	Logout(ctx context.Context, rawRefreshToken string) (*repository.Session, error)
-	ListSessions(ctx context.Context, userID uuid.UUID) ([]repository.Session, error)
+	Logout(ctx context.Context, rawRefreshToken string) (*domain.Session, error)
+	ListSessions(ctx context.Context, userID uuid.UUID) ([]domain.Session, error)
 	RevokeSession(ctx context.Context, userID, sessionID uuid.UUID) error
-	CreateSessionForUser(ctx context.Context, authenticatedUser *repository.User, userAgent *string, clientIP *net.IP) (*service.LoginResult, error)
+	CreateSessionForUser(ctx context.Context, authenticatedUser *domain.User, userAgent *string, clientIP *net.IP) (*service.LoginResult, error)
 }
 
 // VerificationService defines the domain interface required for email verification.
@@ -161,11 +161,11 @@ func (s *Server) Register(ctx context.Context, req *authv1.RegisterRequest) (*au
 	})
 	if err != nil {
 		switch {
-		case errors.Is(err, repository.ErrEmailAlreadyExists):
+		case errors.Is(err, domain.ErrEmailAlreadyExists):
 			return nil, status.Error(codes.AlreadyExists, "email already registered")
-		case errors.Is(err, repository.ErrInvalidEmail),
-			errors.Is(err, repository.ErrInvalidPassword),
-			errors.Is(err, repository.ErrInvalidDisplayName):
+		case errors.Is(err, domain.ErrInvalidEmail),
+			errors.Is(err, domain.ErrInvalidPassword),
+			errors.Is(err, domain.ErrInvalidDisplayName):
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		case errors.Is(err, context.DeadlineExceeded):
 			return nil, status.Error(codes.DeadlineExceeded, "deadline exceeded")
@@ -186,11 +186,11 @@ func (s *Server) Register(ctx context.Context, req *authv1.RegisterRequest) (*au
 	}, s.auditAfterRegister(ctx, u)
 }
 
-func (s *Server) auditAfterRegister(ctx context.Context, u *repository.User) error {
+func (s *Server) auditAfterRegister(ctx context.Context, u *domain.User) error {
 	uid := u.ID
-	s.recordAudit(ctx, repository.AuditEvent{
+	s.recordAudit(ctx, domain.AuditEvent{
 		ActorUserID:  &uid,
-		ActorType:    repository.ActorTypeUser,
+		ActorType:    domain.ActorTypeUser,
 		Action:       pkgAudit.ActionUserRegistered.String(),
 		ResourceType: pkgAudit.TargetTypeUser,
 		ResourceID:   uid.String(),
@@ -219,8 +219,8 @@ func (s *Server) Login(ctx context.Context, req *authv1.LoginRequest) (*authv1.L
 		ClientIP:  clientIP,
 	})
 	if err != nil {
-		s.recordAudit(ctx, repository.AuditEvent{
-			ActorType:    repository.ActorTypeUser,
+		s.recordAudit(ctx, domain.AuditEvent{
+			ActorType:    domain.ActorTypeUser,
 			Action:       pkgAudit.ActionUserLoginFailed.String(),
 			Status:       pkgAudit.StatusFailure,
 			ResourceType: pkgAudit.TargetTypeUser,
@@ -229,11 +229,11 @@ func (s *Server) Login(ctx context.Context, req *authv1.LoginRequest) (*authv1.L
 			Metadata:     map[string]any{"email": strings.ToLower(strings.TrimSpace(req.GetEmail()))},
 		})
 		switch {
-		case errors.Is(err, repository.ErrInvalidCredentials):
+		case errors.Is(err, domain.ErrInvalidCredentials):
 			return nil, status.Error(codes.Unauthenticated, "invalid email or password")
-		case errors.Is(err, repository.ErrUserNotActive):
+		case errors.Is(err, domain.ErrUserNotActive):
 			return nil, status.Error(codes.PermissionDenied, "user account is not active")
-		case errors.Is(err, repository.ErrEmailNotVerified):
+		case errors.Is(err, domain.ErrEmailNotVerified):
 			return nil, status.Error(codes.PermissionDenied, "email address is not verified")
 		case errors.Is(err, context.DeadlineExceeded):
 			return nil, status.Error(codes.DeadlineExceeded, "deadline exceeded")
@@ -246,9 +246,9 @@ func (s *Server) Login(ctx context.Context, req *authv1.LoginRequest) (*authv1.L
 	}
 
 	uid := res.User.ID
-	s.recordAudit(ctx, repository.AuditEvent{
+	s.recordAudit(ctx, domain.AuditEvent{
 		ActorUserID:  &uid,
-		ActorType:    repository.ActorTypeUser,
+		ActorType:    domain.ActorTypeUser,
 		Action:       pkgAudit.ActionUserLogin.String(),
 		ResourceType: "session",
 		ResourceID:   uid.String(),
@@ -289,12 +289,12 @@ func (s *Server) Refresh(ctx context.Context, req *authv1.RefreshRequest) (*auth
 	res, err := s.sessionService.Refresh(ctx, refreshToken)
 	if err != nil {
 		switch {
-		case errors.Is(err, repository.ErrInvalidRefreshToken),
-			errors.Is(err, repository.ErrSessionNotFound),
-			errors.Is(err, repository.ErrSessionRevoked),
-			errors.Is(err, repository.ErrSessionExpired):
+		case errors.Is(err, domain.ErrInvalidRefreshToken),
+			errors.Is(err, domain.ErrSessionNotFound),
+			errors.Is(err, domain.ErrSessionRevoked),
+			errors.Is(err, domain.ErrSessionExpired):
 			return nil, status.Error(codes.Unauthenticated, "invalid refresh token")
-		case errors.Is(err, repository.ErrUserNotActive):
+		case errors.Is(err, domain.ErrUserNotActive):
 			return nil, status.Error(codes.PermissionDenied, "user account is not active")
 		case errors.Is(err, context.DeadlineExceeded):
 			return nil, status.Error(codes.DeadlineExceeded, "deadline exceeded")
@@ -353,9 +353,9 @@ func (s *Server) Logout(ctx context.Context, req *authv1.LogoutRequest) (*authv1
 		resourceID = sess.ID.String()
 	}
 
-	s.recordAudit(ctx, repository.AuditEvent{
+	s.recordAudit(ctx, domain.AuditEvent{
 		ActorUserID:  actorID,
-		ActorType:    repository.ActorTypeUser,
+		ActorType:    domain.ActorTypeUser,
 		Action:       pkgAudit.ActionUserLogout.String(),
 		ResourceType: "session",
 		ResourceID:   resourceID,
@@ -381,11 +381,11 @@ func (s *Server) VerifyEmail(ctx context.Context, req *authv1.VerifyEmailRequest
 	err := s.verificationService.VerifyEmail(ctx, token)
 	if err != nil {
 		switch {
-		case errors.Is(err, repository.ErrInvalidToken):
+		case errors.Is(err, domain.ErrInvalidToken):
 			return nil, status.Error(codes.InvalidArgument, "invalid or expired verification token")
-		case errors.Is(err, repository.ErrUserNotFound):
+		case errors.Is(err, domain.ErrUserNotFound):
 			return nil, status.Error(codes.InvalidArgument, "invalid or expired verification token")
-		case errors.Is(err, repository.ErrUserNotActive):
+		case errors.Is(err, domain.ErrUserNotActive):
 			return nil, status.Error(codes.PermissionDenied, "user account is not active")
 		case errors.Is(err, context.DeadlineExceeded):
 			return nil, status.Error(codes.DeadlineExceeded, "deadline exceeded")
@@ -429,9 +429,9 @@ func (s *Server) ResendVerification(ctx context.Context, req *authv1.ResendVerif
 	}
 	if err := s.regService.ResendVerification(ctx, req.GetEmail()); err != nil {
 		switch {
-		case errors.Is(err, repository.ErrInvalidEmail):
+		case errors.Is(err, domain.ErrInvalidEmail):
 			return nil, status.Error(codes.InvalidArgument, err.Error())
-		case errors.Is(err, repository.ErrResendLimitExceeded):
+		case errors.Is(err, domain.ErrResendLimitExceeded):
 			return nil, status.Error(codes.ResourceExhausted, "resend verification limit reached (maximum 3 requests per day)")
 		default:
 			log.Printf("internal resend verification error: %v", err)
@@ -450,7 +450,7 @@ func (s *Server) RequestPasswordReset(ctx context.Context, req *authv1.RequestPa
 		return nil, status.Error(codes.Unimplemented, "registration service not configured")
 	}
 	if err := s.regService.RequestPasswordReset(ctx, req.GetEmail()); err != nil {
-		if errors.Is(err, repository.ErrInvalidEmail) {
+		if errors.Is(err, domain.ErrInvalidEmail) {
 			return nil, status.Error(codes.InvalidArgument, err.Error())
 		}
 		log.Printf("internal request password reset error: %v", err)
@@ -474,20 +474,20 @@ func (s *Server) ConfirmPasswordReset(ctx context.Context, req *authv1.ConfirmPa
 	userID, err := s.regService.ConfirmPasswordReset(ctx, token, req.GetNewPassword())
 	if err != nil {
 		switch {
-		case errors.Is(err, repository.ErrInvalidResetToken):
+		case errors.Is(err, domain.ErrInvalidResetToken):
 			return nil, status.Error(codes.InvalidArgument, "invalid or expired password reset token")
-		case errors.Is(err, repository.ErrInvalidPassword):
+		case errors.Is(err, domain.ErrInvalidPassword):
 			return nil, status.Error(codes.InvalidArgument, err.Error())
-		case errors.Is(err, repository.ErrUserNotActive):
+		case errors.Is(err, domain.ErrUserNotActive):
 			return nil, status.Error(codes.PermissionDenied, "user account is not active")
 		default:
 			log.Printf("internal confirm password reset error: %v", err)
 			return nil, status.Error(codes.Internal, "internal server error")
 		}
 	}
-	s.recordAudit(ctx, repository.AuditEvent{
+	s.recordAudit(ctx, domain.AuditEvent{
 		ActorUserID:  &userID,
-		ActorType:    repository.ActorTypeUser,
+		ActorType:    domain.ActorTypeUser,
 		Action:       pkgAudit.ActionUserPasswordResetConfirmed.String(),
 		ResourceType: pkgAudit.TargetTypeUser,
 		ResourceID:   userID.String(),
@@ -517,20 +517,20 @@ func (s *Server) ChangePassword(ctx context.Context, req *authv1.ChangePasswordR
 	}
 	if err := s.regService.ChangePassword(ctx, p.UserID, req.GetCurrentPassword(), req.GetNewPassword(), currentSessID); err != nil {
 		switch {
-		case errors.Is(err, repository.ErrInvalidCredentials):
+		case errors.Is(err, domain.ErrInvalidCredentials):
 			return nil, status.Error(codes.Unauthenticated, "invalid current password")
-		case errors.Is(err, repository.ErrInvalidPassword):
+		case errors.Is(err, domain.ErrInvalidPassword):
 			return nil, status.Error(codes.InvalidArgument, err.Error())
-		case errors.Is(err, repository.ErrUserNotFound):
+		case errors.Is(err, domain.ErrUserNotFound):
 			return nil, status.Error(codes.NotFound, "user not found")
-		case errors.Is(err, repository.ErrUserNotActive):
+		case errors.Is(err, domain.ErrUserNotActive):
 			return nil, status.Error(codes.PermissionDenied, "user account is not active")
 		default:
 			log.Printf("internal change password error: %v", err)
 			return nil, status.Error(codes.Internal, "internal server error")
 		}
 	}
-	s.recordAudit(ctx, repository.AuditEvent{
+	s.recordAudit(ctx, domain.AuditEvent{
 		ActorUserID:  &p.UserID,
 		ActorType:    actorTypeFromPrincipal(p),
 		Action:       pkgAudit.ActionUserPasswordChanged.String(),
@@ -557,7 +557,7 @@ func (s *Server) GetMe(ctx context.Context, req *authv1.GetMeRequest) (*authv1.G
 	}
 	u, err := s.regService.GetProfile(ctx, p.UserID)
 	if err != nil {
-		if errors.Is(err, repository.ErrUserNotFound) {
+		if errors.Is(err, domain.ErrUserNotFound) {
 			return nil, status.Error(codes.NotFound, "user not found")
 		}
 		log.Printf("internal get profile error: %v", err)
@@ -649,7 +649,7 @@ func (s *Server) RevokeSession(ctx context.Context, req *authv1.RevokeSessionReq
 		return nil, status.Error(codes.Unimplemented, "session service not configured")
 	}
 	if err := s.sessionService.RevokeSession(ctx, p.UserID, sessionID); err != nil {
-		if errors.Is(err, repository.ErrSessionNotFound) {
+		if errors.Is(err, domain.ErrSessionNotFound) {
 			return nil, status.Error(codes.NotFound, "session not found")
 		}
 		log.Printf("internal revoke session error: %v", err)
@@ -717,7 +717,7 @@ func (s *Server) CompleteGitHubOAuth(ctx context.Context, req *authv1.CompleteGi
 		switch {
 		case errors.Is(err, oauth.ErrNotConfigured):
 			return nil, status.Error(codes.FailedPrecondition, "github oauth is not configured")
-		case errors.Is(err, repository.ErrOAuthEmailNotVerified):
+		case errors.Is(err, domain.ErrOAuthEmailNotVerified):
 			return nil, status.Error(codes.PermissionDenied, "github email address is not verified")
 		case errors.Is(err, oauth.ErrExchangeFailed):
 			return nil, status.Error(codes.Unauthenticated, "github oauth authentication failed")
@@ -730,11 +730,11 @@ func (s *Server) CompleteGitHubOAuth(ctx context.Context, req *authv1.CompleteGi
 	u, err := s.regService.ResolveOAuthUser(ctx, *profile)
 	if err != nil {
 		switch {
-		case errors.Is(err, repository.ErrOAuthEmailNotVerified):
+		case errors.Is(err, domain.ErrOAuthEmailNotVerified):
 			return nil, status.Error(codes.PermissionDenied, "github email address is not verified")
-		case errors.Is(err, repository.ErrUserNotActive):
+		case errors.Is(err, domain.ErrUserNotActive):
 			return nil, status.Error(codes.PermissionDenied, "user account is not active")
-		case errors.Is(err, repository.ErrOAuthAccountConflict):
+		case errors.Is(err, domain.ErrOAuthAccountConflict):
 			return nil, status.Error(codes.AlreadyExists, err.Error())
 		default:
 			log.Printf("internal github oauth resolve user error: %v", err)
@@ -770,9 +770,9 @@ func (s *Server) CompleteGitHubOAuth(ctx context.Context, req *authv1.CompleteGi
 	}
 
 	uid := res.User.ID
-	s.recordAudit(ctx, repository.AuditEvent{
+	s.recordAudit(ctx, domain.AuditEvent{
 		ActorUserID:  &uid,
-		ActorType:    repository.ActorTypeUser,
+		ActorType:    domain.ActorTypeUser,
 		Action:       pkgAudit.ActionUserOAuthLinked.String(),
 		ResourceType: pkgAudit.TargetTypeUser,
 		ResourceID:   uid.String(),
@@ -851,7 +851,7 @@ func (s *Server) CompleteGoogleOAuth(ctx context.Context, req *authv1.CompleteGo
 		switch {
 		case errors.Is(err, oauth.ErrGoogleNotConfigured):
 			return nil, status.Error(codes.FailedPrecondition, "google oauth is not configured")
-		case errors.Is(err, repository.ErrOAuthEmailNotVerified):
+		case errors.Is(err, domain.ErrOAuthEmailNotVerified):
 			return nil, status.Error(codes.PermissionDenied, "google email address is not verified")
 		case errors.Is(err, oauth.ErrGoogleExchangeFailed):
 			return nil, status.Error(codes.Unauthenticated, "google oauth authentication failed")
@@ -864,11 +864,11 @@ func (s *Server) CompleteGoogleOAuth(ctx context.Context, req *authv1.CompleteGo
 	u, err := s.regService.ResolveOAuthUser(ctx, *profile)
 	if err != nil {
 		switch {
-		case errors.Is(err, repository.ErrOAuthEmailNotVerified):
+		case errors.Is(err, domain.ErrOAuthEmailNotVerified):
 			return nil, status.Error(codes.PermissionDenied, "google email address is not verified")
-		case errors.Is(err, repository.ErrUserNotActive):
+		case errors.Is(err, domain.ErrUserNotActive):
 			return nil, status.Error(codes.PermissionDenied, "user account is not active")
-		case errors.Is(err, repository.ErrOAuthAccountConflict):
+		case errors.Is(err, domain.ErrOAuthAccountConflict):
 			return nil, status.Error(codes.AlreadyExists, err.Error())
 		default:
 			log.Printf("internal google oauth resolve user error: %v", err)
@@ -904,9 +904,9 @@ func (s *Server) CompleteGoogleOAuth(ctx context.Context, req *authv1.CompleteGo
 	}
 
 	uid := res.User.ID
-	s.recordAudit(ctx, repository.AuditEvent{
+	s.recordAudit(ctx, domain.AuditEvent{
 		ActorUserID:  &uid,
-		ActorType:    repository.ActorTypeUser,
+		ActorType:    domain.ActorTypeUser,
 		Action:       pkgAudit.ActionUserOAuthLinked.String(),
 		ResourceType: pkgAudit.TargetTypeUser,
 		ResourceID:   uid.String(),

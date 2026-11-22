@@ -15,40 +15,40 @@ import (
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/oauth"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/domain"
 	pkgAudit "github.com/skxm03/kr0n-backend/control-plane/pkg/audit"
 )
 
 func mapOrgError(err error) error {
 	switch {
-	case errors.Is(err, repository.ErrForbidden):
+	case errors.Is(err, domain.ErrForbidden):
 		return status.Error(codes.PermissionDenied, err.Error())
-	case errors.Is(err, repository.ErrOrgNotFound),
-		errors.Is(err, repository.ErrMemberNotFound),
-		errors.Is(err, repository.ErrInviteNotFound),
-		errors.Is(err, repository.ErrTokenNotFound),
-		errors.Is(err, repository.ErrUserNotFound),
-		errors.Is(err, repository.ErrInstallationNotFound),
+	case errors.Is(err, domain.ErrOrgNotFound),
+		errors.Is(err, domain.ErrMemberNotFound),
+		errors.Is(err, domain.ErrInviteNotFound),
+		errors.Is(err, domain.ErrTokenNotFound),
+		errors.Is(err, domain.ErrUserNotFound),
+		errors.Is(err, domain.ErrInstallationNotFound),
 		errors.Is(err, oauth.ErrInstallationNotFound):
 		return status.Error(codes.NotFound, err.Error())
-	case errors.Is(err, repository.ErrSlugAlreadyExists),
-		errors.Is(err, repository.ErrMemberAlreadyExists),
-		errors.Is(err, repository.ErrInstallationAlreadyLinked):
+	case errors.Is(err, domain.ErrSlugAlreadyExists),
+		errors.Is(err, domain.ErrMemberAlreadyExists),
+		errors.Is(err, domain.ErrInstallationAlreadyLinked):
 		return status.Error(codes.AlreadyExists, err.Error())
-	case errors.Is(err, repository.ErrLastOwner),
-		errors.Is(err, repository.ErrSoleOrg),
+	case errors.Is(err, domain.ErrLastOwner),
+		errors.Is(err, domain.ErrSoleOrg),
 		errors.Is(err, oauth.ErrGitHubAppNotConfigured):
 		return status.Error(codes.FailedPrecondition, err.Error())
-	case errors.Is(err, repository.ErrInvalidOrg),
-		errors.Is(err, repository.ErrInvalidRole),
-		errors.Is(err, repository.ErrInvalidInviteToken),
-		errors.Is(err, repository.ErrInvalidAPIToken),
-		errors.Is(err, repository.ErrInvalidEmail),
+	case errors.Is(err, domain.ErrInvalidOrg),
+		errors.Is(err, domain.ErrInvalidRole),
+		errors.Is(err, domain.ErrInvalidInviteToken),
+		errors.Is(err, domain.ErrInvalidAPIToken),
+		errors.Is(err, domain.ErrInvalidEmail),
 		errors.Is(err, oauth.ErrInvalidInstallationState):
 		return status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, oauth.ErrGitHubAppAPI):
 		return status.Error(codes.Unavailable, err.Error())
-	case errors.Is(err, repository.ErrUserNotActive):
+	case errors.Is(err, domain.ErrUserNotActive):
 		return status.Error(codes.PermissionDenied, err.Error())
 	default:
 		log.Printf("internal org service error: %v", err)
@@ -56,7 +56,7 @@ func mapOrgError(err error) error {
 	}
 }
 
-func toOrgProto(o *repository.Organization) *authv1.OrganizationResponse {
+func toOrgProto(o *domain.Organization) *authv1.OrganizationResponse {
 	return &authv1.OrganizationResponse{
 		Id:        o.ID.String(),
 		Name:      o.Name,
@@ -67,7 +67,7 @@ func toOrgProto(o *repository.Organization) *authv1.OrganizationResponse {
 	}
 }
 
-func toAPITokenProto(t *repository.APIToken) *authv1.APITokenInfo {
+func toAPITokenProto(t *domain.APIToken) *authv1.APITokenInfo {
 	info := &authv1.APITokenInfo{
 		Id:              t.ID.String(),
 		OrgId:           t.OrganizationID.String(),
@@ -147,7 +147,7 @@ func (s *Server) CreateOrganization(ctx context.Context, req *authv1.CreateOrgan
 		return nil, mapOrgError(err)
 	}
 	oid := o.ID
-	s.recordAudit(ctx, repository.AuditEvent{
+	s.recordAudit(ctx, domain.AuditEvent{
 		OrganizationID: &oid,
 		ActorUserID:    &p.UserID,
 		ActorType:      actorTypeFromPrincipal(p),
@@ -234,7 +234,7 @@ func (s *Server) UpdateOrganization(ctx context.Context, req *authv1.UpdateOrgan
 		return nil, mapOrgError(err)
 	}
 	actorID := p.UserID
-	s.recordAudit(ctx, repository.AuditEvent{
+	s.recordAudit(ctx, domain.AuditEvent{
 		OrganizationID: &orgID,
 		ActorUserID:    &actorID,
 		ActorType:      actorTypeFromPrincipal(p),
@@ -270,7 +270,7 @@ func (s *Server) DeleteOrganization(ctx context.Context, req *authv1.DeleteOrgan
 		return nil, mapOrgError(err)
 	}
 	actorID := p.UserID
-	s.recordAudit(ctx, repository.AuditEvent{
+	s.recordAudit(ctx, domain.AuditEvent{
 		ActorUserID:  &actorID,
 		ActorType:    actorTypeFromPrincipal(p),
 		Action:       pkgAudit.ActionOrgDeleted.String(),
@@ -329,7 +329,7 @@ func (s *Server) AddMember(ctx context.Context, req *authv1.AddMemberRequest) (*
 		return nil, mapOrgError(err)
 	}
 	actorID := p.UserID
-	s.recordAudit(ctx, repository.AuditEvent{
+	s.recordAudit(ctx, domain.AuditEvent{
 		OrganizationID: &orgID,
 		ActorUserID:    &actorID,
 		ActorType:      actorTypeFromPrincipal(p),
@@ -368,7 +368,7 @@ func (s *Server) UpdateMemberRole(ctx context.Context, req *authv1.UpdateMemberR
 		return nil, mapOrgError(err)
 	}
 	actorID := p.UserID
-	s.recordAudit(ctx, repository.AuditEvent{
+	s.recordAudit(ctx, domain.AuditEvent{
 		OrganizationID: &orgID,
 		ActorUserID:    &actorID,
 		ActorType:      actorTypeFromPrincipal(p),
@@ -401,7 +401,7 @@ func (s *Server) RemoveMember(ctx context.Context, req *authv1.RemoveMemberReque
 		return nil, mapOrgError(err)
 	}
 	actorID := p.UserID
-	s.recordAudit(ctx, repository.AuditEvent{
+	s.recordAudit(ctx, domain.AuditEvent{
 		OrganizationID: &orgID,
 		ActorUserID:    &actorID,
 		ActorType:      actorTypeFromPrincipal(p),
@@ -430,7 +430,7 @@ func (s *Server) CreateInvite(ctx context.Context, req *authv1.CreateInviteReque
 		return nil, mapOrgError(err)
 	}
 	actorID := p.UserID
-	s.recordAudit(ctx, repository.AuditEvent{
+	s.recordAudit(ctx, domain.AuditEvent{
 		OrganizationID: &orgID,
 		ActorUserID:    &actorID,
 		ActorType:      actorTypeFromPrincipal(p),
@@ -467,7 +467,7 @@ func (s *Server) AcceptInvite(ctx context.Context, req *authv1.AcceptInviteReque
 		return nil, mapOrgError(err)
 	}
 	oid := o.ID
-	s.recordAudit(ctx, repository.AuditEvent{
+	s.recordAudit(ctx, domain.AuditEvent{
 		OrganizationID: &oid,
 		ActorUserID:    &p.UserID,
 		ActorType:      actorTypeFromPrincipal(p),
@@ -507,7 +507,7 @@ func (s *Server) RevokeInvite(ctx context.Context, req *authv1.RevokeInviteReque
 		return nil, mapOrgError(err)
 	}
 	actorID := p.UserID
-	s.recordAudit(ctx, repository.AuditEvent{
+	s.recordAudit(ctx, domain.AuditEvent{
 		OrganizationID: &orgID,
 		ActorUserID:    &actorID,
 		ActorType:      actorTypeFromPrincipal(p),
@@ -536,7 +536,7 @@ func (s *Server) CreateAPIToken(ctx context.Context, req *authv1.CreateAPITokenR
 		return nil, mapOrgError(err)
 	}
 	actorID := p.UserID
-	s.recordAudit(ctx, repository.AuditEvent{
+	s.recordAudit(ctx, domain.AuditEvent{
 		OrganizationID: &orgID,
 		ActorUserID:    &actorID,
 		ActorType:      actorTypeFromPrincipal(p),
@@ -596,7 +596,7 @@ func (s *Server) RevokeAPIToken(ctx context.Context, req *authv1.RevokeAPITokenR
 		return nil, mapOrgError(err)
 	}
 	actorID := p.UserID
-	s.recordAudit(ctx, repository.AuditEvent{
+	s.recordAudit(ctx, domain.AuditEvent{
 		OrganizationID: &orgID,
 		ActorUserID:    &actorID,
 		ActorType:      actorTypeFromPrincipal(p),
@@ -617,7 +617,7 @@ func (s *Server) ValidateAPIToken(ctx context.Context, req *authv1.ValidateAPITo
 	}
 	tok, err := s.orgService.ValidateAPIToken(ctx, req.GetToken())
 	if err != nil {
-		if errors.Is(err, repository.ErrInvalidAPIToken) {
+		if errors.Is(err, domain.ErrInvalidAPIToken) {
 			return nil, status.Error(codes.Unauthenticated, "invalid api token")
 		}
 		return nil, mapOrgError(err)
@@ -687,7 +687,7 @@ func (s *Server) ListAuditEvents(ctx context.Context, req *authv1.ListAuditEvent
 	return &authv1.ListAuditEventsResponse{Events: out}, nil
 }
 
-func toGitHubInstallationProto(inst *repository.GitHubInstallation) *authv1.GitHubInstallationInfo {
+func toGitHubInstallationProto(inst *domain.GitHubInstallation) *authv1.GitHubInstallationInfo {
 	return &authv1.GitHubInstallationInfo{
 		Id:                  inst.ID.String(),
 		OrgId:               inst.OrganizationID.String(),
@@ -702,17 +702,17 @@ func toGitHubInstallationProto(inst *repository.GitHubInstallation) *authv1.GitH
 	}
 }
 
-func (s *Server) parseOrgCall(ctx context.Context, c *authv1.CallerPrincipal, rawOrgID string) (repository.Principal, uuid.UUID, error) {
+func (s *Server) parseOrgCall(ctx context.Context, c *authv1.CallerPrincipal, rawOrgID string) (domain.Principal, uuid.UUID, error) {
 	p, err := s.ParseCallerPrincipal(ctx, c)
 	if err != nil {
-		return repository.Principal{}, uuid.Nil, err
+		return domain.Principal{}, uuid.Nil, err
 	}
 	if s.orgService == nil {
-		return repository.Principal{}, uuid.Nil, status.Error(codes.Unimplemented, "org service not configured")
+		return domain.Principal{}, uuid.Nil, status.Error(codes.Unimplemented, "org service not configured")
 	}
 	orgID, err := uuid.Parse(strings.TrimSpace(rawOrgID))
 	if err != nil {
-		return repository.Principal{}, uuid.Nil, status.Error(codes.InvalidArgument, "invalid org_id")
+		return domain.Principal{}, uuid.Nil, status.Error(codes.InvalidArgument, "invalid org_id")
 	}
 	return p, orgID, nil
 }
@@ -744,7 +744,7 @@ func (s *Server) CompleteGitHubInstallation(ctx context.Context, req *authv1.Com
 		return nil, mapOrgError(err)
 	}
 	actorID := p.UserID
-	s.recordAudit(ctx, repository.AuditEvent{
+	s.recordAudit(ctx, domain.AuditEvent{
 		OrganizationID: &orgID,
 		ActorUserID:    &actorID,
 		ActorType:      actorTypeFromPrincipal(p),
@@ -789,7 +789,7 @@ func (s *Server) DisconnectGitHubInstallation(ctx context.Context, req *authv1.D
 		return nil, mapOrgError(err)
 	}
 	actorID := p.UserID
-	s.recordAudit(ctx, repository.AuditEvent{
+	s.recordAudit(ctx, domain.AuditEvent{
 		OrganizationID: &orgID,
 		ActorUserID:    &actorID,
 		ActorType:      actorTypeFromPrincipal(p),

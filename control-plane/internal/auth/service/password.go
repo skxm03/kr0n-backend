@@ -6,7 +6,7 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/domain"
 )
 
 // PasswordHasher defines operations for hashing and validating passwords.
@@ -34,10 +34,10 @@ func NewBcryptHasher(cost int) *BcryptHasher {
 // 2. Maximum 72 UTF-8 bytes (bcrypt truncation boundary)
 func (b *BcryptHasher) ValidatePolicy(password string) error {
 	if utf8.RuneCountInString(password) < 8 {
-		return fmt.Errorf("%w: password must be at least 8 characters", repository.ErrInvalidPassword)
+		return fmt.Errorf("%w: password must be at least 8 characters", domain.ErrInvalidPassword)
 	}
 	if len([]byte(password)) > 72 {
-		return fmt.Errorf("%w: password must not exceed 72 bytes", repository.ErrInvalidPassword)
+		return fmt.Errorf("%w: password must not exceed 72 bytes", domain.ErrInvalidPassword)
 	}
 	return nil
 }

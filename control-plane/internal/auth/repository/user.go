@@ -516,6 +516,15 @@ func (r *PostgresUserRepository) ConsumePasswordResetAndUpdatePassword(ctx conte
 		return uuid.Nil, fmt.Errorf("reset lockout state: %w", err)
 	}
 
+	const revokeSessionsSQL = `
+		UPDATE sessions
+		SET revoked_at = $1
+		WHERE user_id = $2 AND revoked_at IS NULL;
+	`
+	if _, err := tx.Exec(ctx, revokeSessionsSQL, now, userID); err != nil {
+		return uuid.Nil, fmt.Errorf("revoke active user sessions: %w", err)
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return uuid.Nil, fmt.Errorf("commit transaction: %w", err)
 	}

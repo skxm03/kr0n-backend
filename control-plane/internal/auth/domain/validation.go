@@ -113,3 +113,33 @@ func VerifyToken(candidate, storedHash string) bool {
 	candidateHash := HashToken(candidate)
 	return subtle.ConstantTimeCompare([]byte(candidateHash), []byte(storedHash)) == 1
 }
+
+// APITokenPrefix is the mandatory prefix for personal/org API tokens.
+const APITokenPrefix = "kr0n_pat_"
+
+// LastUsedWriteInterval bounds how often api_tokens.last_used_at is written per token.
+const LastUsedWriteInterval = 5 * time.Minute
+
+// GenerateAPIToken generates a `kr0n_pat_<64 hex>` secret, its display prefix, and its SHA-256 hash.
+func GenerateAPIToken() (rawToken, prefix, tokenHash string, err error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", "", "", fmt.Errorf("generate api token entropy: %w", err)
+	}
+	rawToken = APITokenPrefix + hex.EncodeToString(b)
+	prefix = rawToken[:len(APITokenPrefix)+8]
+	tokenHash = HashAPIToken(rawToken)
+	return rawToken, prefix, tokenHash, nil
+}
+
+// HashAPIToken computes the SHA-256 hex digest of a raw API token.
+func HashAPIToken(rawToken string) string {
+	h := sha256.Sum256([]byte(rawToken))
+	return hex.EncodeToString(h[:])
+}
+
+// VerifyAPITokenHash compares a raw API token's SHA-256 digest against storedHash in constant time.
+func VerifyAPITokenHash(rawToken, storedHash string) bool {
+	h := HashAPIToken(rawToken)
+	return subtle.ConstantTimeCompare([]byte(h), []byte(storedHash)) == 1
+}

@@ -517,10 +517,35 @@ func TestUserPostgresRepository_TokenReplacementInvalidatesPriorTokens(t *testin
 	if err := repo.CreatePasswordResetToken(ctx, r2); err != nil {
 		t.Fatalf("CreatePasswordResetToken r2: %v", err)
 	}
+
+	// Create an active session to verify atomic revocation in the same transaction
+	sessionRepo := repository.NewPostgresSessionRepository(pool)
+	rawRefresh, _ := repository.GenerateRefreshToken()
+	sess := &repository.Session{
+		ID:         uuid.New(),
+		UserID:     u.ID,
+		TokenHash:  repository.HashRefreshToken(rawRefresh),
+		ExpiresAt:  now.Add(24 * time.Hour),
+		CreatedAt:  now,
+		LastSeenAt: now,
+	}
+	if err := sessionRepo.Create(ctx, sess); err != nil {
+		t.Fatalf("create session for user: %v", err)
+	}
+
 	if _, err := repo.ConsumePasswordResetAndUpdatePassword(ctx, r1.TokenHash, "newhash", now.Add(2*time.Second)); !errors.Is(err, repository.ErrInvalidResetToken) {
 		t.Fatalf("superseded reset token r1 must be rejected, got %v", err)
 	}
 	if _, err := repo.ConsumePasswordResetAndUpdatePassword(ctx, r2.TokenHash, "newhash", now.Add(2*time.Second)); err != nil {
 		t.Fatalf("latest reset token r2 must succeed: %v", err)
+	}
+
+	// Verify all active sessions were revoked inside the transaction
+	activeSessions, err := sessionRepo.ListActiveByUserID(ctx, u.ID, now.Add(3*time.Second))
+	if err != nil {
+		t.Fatalf("ListActiveByUserID: %v", err)
+	}
+	if len(activeSessions) != 0 {
+		t.Fatalf("expected 0 active sessions after atomic password reset, got %d", len(activeSessions))
 	}
 }

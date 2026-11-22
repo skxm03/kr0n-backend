@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/domain"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/oauth"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
 	emailpkg "github.com/skxm03/kr0n-backend/control-plane/internal/email"
@@ -59,7 +60,7 @@ func NewOrgService(repo repository.OrgRepository, opts ...OrgOption) *OrgService
 }
 
 // Can evaluates whether principal holds permission in orgID.
-func (s *OrgService) Can(ctx context.Context, p repository.Principal, orgID uuid.UUID, permission string) (bool, error) {
+func (s *OrgService) Can(ctx context.Context, p domain.Principal, orgID uuid.UUID, permission string) (bool, error) {
 	if p.UserID == uuid.Nil || orgID == uuid.Nil || permission == "" {
 		return false, nil
 	}
@@ -71,7 +72,7 @@ func (s *OrgService) Can(ctx context.Context, p repository.Principal, orgID uuid
 
 	_, perms, err := s.repo.RolePermissions(ctx, p.UserID, orgID)
 	if err != nil {
-		if errors.Is(err, repository.ErrMemberNotFound) {
+		if errors.Is(err, domain.ErrMemberNotFound) {
 			return false, nil
 		}
 		return false, err
@@ -88,13 +89,13 @@ func hasPermission(perms []string, permission string) bool {
 	return false
 }
 
-func (s *OrgService) require(ctx context.Context, p repository.Principal, orgID uuid.UUID, permission string) error {
+func (s *OrgService) require(ctx context.Context, p domain.Principal, orgID uuid.UUID, permission string) error {
 	allowed, err := s.Can(ctx, p, orgID, permission)
 	if err != nil {
 		return err
 	}
 	if !allowed {
-		return repository.ErrForbidden
+		return domain.ErrForbidden
 	}
 	return nil
 }
@@ -104,14 +105,14 @@ func validateRoleID(roleID string) bool {
 }
 
 // CreateOrg validates name and slug, then creates the organization with creatorUserID as owner.
-func (s *OrgService) CreateOrg(ctx context.Context, creatorUserID uuid.UUID, name, slug string) (*repository.Organization, error) {
+func (s *OrgService) CreateOrg(ctx context.Context, creatorUserID uuid.UUID, name, slug string) (*domain.Organization, error) {
 	name = strings.TrimSpace(name)
 	slug = strings.ToLower(strings.TrimSpace(slug))
 	if len(name) < 1 || len(name) > 100 || len(slug) < 2 || len(slug) > 63 || !slugRegex.MatchString(slug) {
-		return nil, repository.ErrInvalidOrg
+		return nil, domain.ErrInvalidOrg
 	}
 	now := time.Now().UTC()
-	o := &repository.Organization{
+	o := &domain.Organization{
 		ID:        uuid.New(),
 		Name:      name,
 		Slug:      slug,
@@ -126,12 +127,12 @@ func (s *OrgService) CreateOrg(ctx context.Context, creatorUserID uuid.UUID, nam
 }
 
 // ListUserOrgs returns all organizations the user belongs to.
-func (s *OrgService) ListUserOrgs(ctx context.Context, userID uuid.UUID) ([]repository.Organization, error) {
+func (s *OrgService) ListUserOrgs(ctx context.Context, userID uuid.UUID) ([]domain.Organization, error) {
 	return s.repo.ListUserOrgs(ctx, userID)
 }
 
 // GetOrg returns an organization if the principal has org:read.
-func (s *OrgService) GetOrg(ctx context.Context, p repository.Principal, orgID uuid.UUID) (*repository.Organization, error) {
+func (s *OrgService) GetOrg(ctx context.Context, p domain.Principal, orgID uuid.UUID) (*domain.Organization, error) {
 	if err := s.require(ctx, p, orgID, "org:read"); err != nil {
 		return nil, err
 	}
@@ -139,19 +140,19 @@ func (s *OrgService) GetOrg(ctx context.Context, p repository.Principal, orgID u
 }
 
 // UpdateOrg updates an organization's display name if the principal has org:update.
-func (s *OrgService) UpdateOrg(ctx context.Context, p repository.Principal, orgID uuid.UUID, name string) (*repository.Organization, error) {
+func (s *OrgService) UpdateOrg(ctx context.Context, p domain.Principal, orgID uuid.UUID, name string) (*domain.Organization, error) {
 	if err := s.require(ctx, p, orgID, "org:update"); err != nil {
 		return nil, err
 	}
 	name = strings.TrimSpace(name)
 	if len(name) < 1 || len(name) > 100 {
-		return nil, repository.ErrInvalidOrg
+		return nil, domain.ErrInvalidOrg
 	}
 	return s.repo.UpdateOrg(ctx, orgID, name, time.Now().UTC())
 }
 
 // DeleteOrg deletes an organization if the principal has org:delete.
-func (s *OrgService) DeleteOrg(ctx context.Context, p repository.Principal, orgID uuid.UUID) error {
+func (s *OrgService) DeleteOrg(ctx context.Context, p domain.Principal, orgID uuid.UUID) error {
 	if err := s.require(ctx, p, orgID, "org:delete"); err != nil {
 		return err
 	}
@@ -159,12 +160,12 @@ func (s *OrgService) DeleteOrg(ctx context.Context, p repository.Principal, orgI
 }
 
 // ListRoles returns all seeded RBAC roles and their permissions.
-func (s *OrgService) ListRoles(ctx context.Context) ([]repository.Role, error) {
+func (s *OrgService) ListRoles(ctx context.Context) ([]domain.Role, error) {
 	return s.repo.ListRoles(ctx)
 }
 
 // ListMembers lists organization members if the principal has member:read.
-func (s *OrgService) ListMembers(ctx context.Context, p repository.Principal, orgID uuid.UUID) ([]repository.Member, error) {
+func (s *OrgService) ListMembers(ctx context.Context, p domain.Principal, orgID uuid.UUID) ([]domain.Member, error) {
 	if err := s.require(ctx, p, orgID, "member:read"); err != nil {
 		return nil, err
 	}
@@ -172,15 +173,15 @@ func (s *OrgService) ListMembers(ctx context.Context, p repository.Principal, or
 }
 
 // AddMember adds an existing user by email to the organization if the principal has member:create.
-func (s *OrgService) AddMember(ctx context.Context, p repository.Principal, orgID uuid.UUID, rawEmail, roleID string) (*repository.Member, error) {
+func (s *OrgService) AddMember(ctx context.Context, p domain.Principal, orgID uuid.UUID, rawEmail, roleID string) (*domain.Member, error) {
 	if err := s.require(ctx, p, orgID, "member:create"); err != nil {
 		return nil, err
 	}
 	roleID = strings.ToLower(strings.TrimSpace(roleID))
 	if !validateRoleID(roleID) {
-		return nil, repository.ErrInvalidRole
+		return nil, domain.ErrInvalidRole
 	}
-	email, err := repository.CanonicalizeEmail(rawEmail)
+	email, err := domain.CanonicalizeEmail(rawEmail)
 	if err != nil {
 		return nil, err
 	}
@@ -188,19 +189,19 @@ func (s *OrgService) AddMember(ctx context.Context, p repository.Principal, orgI
 }
 
 // UpdateMemberRole updates a member's role if the principal has member:update, enforcing the last-owner guard.
-func (s *OrgService) UpdateMemberRole(ctx context.Context, p repository.Principal, orgID, targetUserID uuid.UUID, roleID string) error {
+func (s *OrgService) UpdateMemberRole(ctx context.Context, p domain.Principal, orgID, targetUserID uuid.UUID, roleID string) error {
 	if err := s.require(ctx, p, orgID, "member:update"); err != nil {
 		return err
 	}
 	roleID = strings.ToLower(strings.TrimSpace(roleID))
 	if !validateRoleID(roleID) {
-		return repository.ErrInvalidRole
+		return domain.ErrInvalidRole
 	}
 	return s.repo.UpdateMemberRole(ctx, orgID, targetUserID, roleID, time.Now().UTC())
 }
 
 // RemoveMember removes a member from an organization if the principal has member:delete, enforcing the last-owner guard.
-func (s *OrgService) RemoveMember(ctx context.Context, p repository.Principal, orgID, targetUserID uuid.UUID) error {
+func (s *OrgService) RemoveMember(ctx context.Context, p domain.Principal, orgID, targetUserID uuid.UUID) error {
 	if err := s.require(ctx, p, orgID, "member:delete"); err != nil {
 		return err
 	}
@@ -208,30 +209,30 @@ func (s *OrgService) RemoveMember(ctx context.Context, p repository.Principal, o
 }
 
 // CreateInvite creates an organization invite token if the principal has member:create.
-func (s *OrgService) CreateInvite(ctx context.Context, p repository.Principal, orgID uuid.UUID, rawEmail, roleID string) (*repository.Invite, string, error) {
+func (s *OrgService) CreateInvite(ctx context.Context, p domain.Principal, orgID uuid.UUID, rawEmail, roleID string) (*domain.Invite, string, error) {
 	if err := s.require(ctx, p, orgID, "member:create"); err != nil {
 		return nil, "", err
 	}
 	roleID = strings.ToLower(strings.TrimSpace(roleID))
 	if !validateRoleID(roleID) {
-		return nil, "", repository.ErrInvalidRole
+		return nil, "", domain.ErrInvalidRole
 	}
-	email, err := repository.CanonicalizeEmail(rawEmail)
+	email, err := domain.CanonicalizeEmail(rawEmail)
 	if err != nil {
 		return nil, "", err
 	}
-	rawToken, err := repository.GenerateToken()
+	rawToken, err := domain.GenerateToken()
 	if err != nil {
 		return nil, "", err
 	}
 	now := time.Now().UTC()
-	inv := &repository.Invite{
+	inv := &domain.Invite{
 		ID:              uuid.New(),
 		OrganizationID:  orgID,
 		Email:           email,
 		RoleID:          roleID,
 		InvitedByUserID: p.UserID,
-		TokenHash:       repository.HashToken(rawToken),
+		TokenHash:       domain.HashToken(rawToken),
 		ExpiresAt:       now.Add(7 * 24 * time.Hour),
 		CreatedAt:       now,
 	}
@@ -241,9 +242,9 @@ func (s *OrgService) CreateInvite(ctx context.Context, p repository.Principal, o
 		orgName = o.Name
 	}
 
-	outboxEv := &repository.OutboxEvent{
+	outboxEv := &domain.OutboxEvent{
 		ID:            newUUIDv7(),
-		EventType:     repository.EventTypeOrgInvite,
+		EventType:     domain.EventTypeOrgInvite,
 		AggregateType: "organization",
 		AggregateID:   orgID,
 		Payload: map[string]any{
@@ -258,7 +259,7 @@ func (s *OrgService) CreateInvite(ctx context.Context, p repository.Principal, o
 			"created_at": now.Format(time.RFC3339),
 		},
 		Headers:     map[string]any{},
-		Status:      repository.OutboxStatusPending,
+		Status:      domain.OutboxStatusPending,
 		CreatedAt:   now,
 		ScheduledAt: now,
 	}
@@ -275,16 +276,16 @@ func (s *OrgService) CreateInvite(ctx context.Context, p repository.Principal, o
 }
 
 // AcceptInvite consumes an invite token and adds userID to the organization.
-func (s *OrgService) AcceptInvite(ctx context.Context, userID uuid.UUID, rawToken string) (*repository.Organization, error) {
+func (s *OrgService) AcceptInvite(ctx context.Context, userID uuid.UUID, rawToken string) (*domain.Organization, error) {
 	rawToken = strings.TrimSpace(rawToken)
 	if userID == uuid.Nil || rawToken == "" {
-		return nil, repository.ErrInvalidInviteToken
+		return nil, domain.ErrInvalidInviteToken
 	}
-	return s.repo.AcceptInvite(ctx, userID, repository.HashToken(rawToken), time.Now().UTC())
+	return s.repo.AcceptInvite(ctx, userID, domain.HashToken(rawToken), time.Now().UTC())
 }
 
 // RevokeInvite revokes a pending organization invite if the principal has member:delete.
-func (s *OrgService) RevokeInvite(ctx context.Context, p repository.Principal, orgID, inviteID uuid.UUID) error {
+func (s *OrgService) RevokeInvite(ctx context.Context, p domain.Principal, orgID, inviteID uuid.UUID) error {
 	if err := s.require(ctx, p, orgID, "member:delete"); err != nil {
 		return err
 	}
@@ -293,16 +294,16 @@ func (s *OrgService) RevokeInvite(ctx context.Context, p repository.Principal, o
 
 // CreateAPIToken issues an org-scoped API token (`kr0n_pat_...`) whose permissions must be a subset
 // of the caller's effective permissions in the organization.
-func (s *OrgService) CreateAPIToken(ctx context.Context, p repository.Principal, orgID uuid.UUID, name string, requestedPerms []string, expiresInSeconds int64) (*repository.APIToken, string, error) {
+func (s *OrgService) CreateAPIToken(ctx context.Context, p domain.Principal, orgID uuid.UUID, name string, requestedPerms []string, expiresInSeconds int64) (*domain.APIToken, string, error) {
 	if p.Kind == "api_token" {
-		return nil, "", repository.ErrForbidden
+		return nil, "", domain.ErrForbidden
 	}
 	if err := s.require(ctx, p, orgID, "apitoken:create"); err != nil {
 		return nil, "", err
 	}
 	name = strings.TrimSpace(name)
 	if len(name) < 1 || len(name) > 100 || len(requestedPerms) == 0 {
-		return nil, "", repository.ErrInvalidAPIToken
+		return nil, "", domain.ErrInvalidAPIToken
 	}
 
 	for _, perm := range requestedPerms {
@@ -311,11 +312,11 @@ func (s *OrgService) CreateAPIToken(ctx context.Context, p repository.Principal,
 			return nil, "", err
 		}
 		if !ok {
-			return nil, "", repository.ErrForbidden
+			return nil, "", domain.ErrForbidden
 		}
 	}
 
-	rawToken, prefix, tokenHash, err := repository.GenerateAPIToken()
+	rawToken, prefix, tokenHash, err := domain.GenerateAPIToken()
 	if err != nil {
 		return nil, "", err
 	}
@@ -326,7 +327,7 @@ func (s *OrgService) CreateAPIToken(ctx context.Context, p repository.Principal,
 		expiresAt = &exp
 	}
 
-	tok := &repository.APIToken{
+	tok := &domain.APIToken{
 		ID:              uuid.New(),
 		OrganizationID:  orgID,
 		CreatedByUserID: p.UserID,
@@ -344,7 +345,7 @@ func (s *OrgService) CreateAPIToken(ctx context.Context, p repository.Principal,
 }
 
 // ListAPITokens lists non-revoked API tokens for an organization if the principal has apitoken:read.
-func (s *OrgService) ListAPITokens(ctx context.Context, p repository.Principal, orgID uuid.UUID) ([]repository.APIToken, error) {
+func (s *OrgService) ListAPITokens(ctx context.Context, p domain.Principal, orgID uuid.UUID) ([]domain.APIToken, error) {
 	if err := s.require(ctx, p, orgID, "apitoken:read"); err != nil {
 		return nil, err
 	}
@@ -352,7 +353,7 @@ func (s *OrgService) ListAPITokens(ctx context.Context, p repository.Principal, 
 }
 
 // RevokeAPIToken revokes an API token if the principal has apitoken:delete.
-func (s *OrgService) RevokeAPIToken(ctx context.Context, p repository.Principal, orgID, tokenID uuid.UUID) error {
+func (s *OrgService) RevokeAPIToken(ctx context.Context, p domain.Principal, orgID, tokenID uuid.UUID) error {
 	if err := s.require(ctx, p, orgID, "apitoken:delete"); err != nil {
 		return err
 	}
@@ -362,34 +363,34 @@ func (s *OrgService) RevokeAPIToken(ctx context.Context, p repository.Principal,
 // ValidateAPIToken validates a raw `kr0n_pat_...` token, verifies its hash in constant time,
 // checks revocation, expiry, creator user status and creator's CURRENT org membership, and returns
 // the token with permissions narrowed to what the creator's current role still grants.
-func (s *OrgService) ValidateAPIToken(ctx context.Context, rawToken string) (*repository.APIToken, error) {
+func (s *OrgService) ValidateAPIToken(ctx context.Context, rawToken string) (*domain.APIToken, error) {
 	rawToken = strings.TrimSpace(rawToken)
-	if !strings.HasPrefix(rawToken, repository.APITokenPrefix) || len(rawToken) <= len(repository.APITokenPrefix) {
-		return nil, repository.ErrInvalidAPIToken
+	if !strings.HasPrefix(rawToken, domain.APITokenPrefix) || len(rawToken) <= len(domain.APITokenPrefix) {
+		return nil, domain.ErrInvalidAPIToken
 	}
-	tokenHash := repository.HashAPIToken(rawToken)
+	tokenHash := domain.HashAPIToken(rawToken)
 	tok, userStatus, err := s.repo.GetAPITokenByHash(ctx, tokenHash)
 	if err != nil {
-		if errors.Is(err, repository.ErrTokenNotFound) {
-			return nil, repository.ErrInvalidAPIToken
+		if errors.Is(err, domain.ErrTokenNotFound) {
+			return nil, domain.ErrInvalidAPIToken
 		}
 		return nil, err
 	}
-	if !repository.VerifyAPITokenHash(rawToken, tok.TokenHash) {
-		return nil, repository.ErrInvalidAPIToken
+	if !domain.VerifyAPITokenHash(rawToken, tok.TokenHash) {
+		return nil, domain.ErrInvalidAPIToken
 	}
 	now := time.Now().UTC()
 	if tok.RevokedAt != nil || (tok.ExpiresAt != nil && !tok.ExpiresAt.After(now)) {
-		return nil, repository.ErrInvalidAPIToken
+		return nil, domain.ErrInvalidAPIToken
 	}
-	if userStatus != repository.StatusActive {
-		return nil, repository.ErrUserNotActive
+	if userStatus != domain.StatusActive {
+		return nil, domain.ErrUserNotActive
 	}
 
 	_, rolePerms, err := s.repo.RolePermissions(ctx, tok.CreatedByUserID, tok.OrganizationID)
 	if err != nil {
-		if errors.Is(err, repository.ErrMemberNotFound) {
-			return nil, repository.ErrInvalidAPIToken
+		if errors.Is(err, domain.ErrMemberNotFound) {
+			return nil, domain.ErrInvalidAPIToken
 		}
 		return nil, err
 	}
@@ -401,7 +402,7 @@ func (s *OrgService) ValidateAPIToken(ctx context.Context, rawToken string) (*re
 	}
 	tok.Permissions = effective
 
-	if tok.LastUsedAt == nil || now.Sub(*tok.LastUsedAt) >= repository.LastUsedWriteInterval {
+	if tok.LastUsedAt == nil || now.Sub(*tok.LastUsedAt) >= domain.LastUsedWriteInterval {
 		_ = s.repo.TouchAPITokenLastUsed(ctx, tok.ID, now)
 	}
 
@@ -409,7 +410,7 @@ func (s *OrgService) ValidateAPIToken(ctx context.Context, rawToken string) (*re
 }
 
 // StartGitHubInstallation generates a signed installation state token and GitHub App installation URL if the principal holds org:update.
-func (s *OrgService) StartGitHubInstallation(ctx context.Context, p repository.Principal, orgID uuid.UUID) (installURL, state string, err error) {
+func (s *OrgService) StartGitHubInstallation(ctx context.Context, p domain.Principal, orgID uuid.UUID) (installURL, state string, err error) {
 	if err := s.require(ctx, p, orgID, "org:update"); err != nil {
 		return "", "", err
 	}
@@ -420,7 +421,7 @@ func (s *OrgService) StartGitHubInstallation(ctx context.Context, p repository.P
 }
 
 // CompleteGitHubInstallation verifies the state token, fetches installation metadata from GitHub, and links it to the organization.
-func (s *OrgService) CompleteGitHubInstallation(ctx context.Context, p repository.Principal, orgID uuid.UUID, installationID int64, state string) (*repository.GitHubInstallation, error) {
+func (s *OrgService) CompleteGitHubInstallation(ctx context.Context, p domain.Principal, orgID uuid.UUID, installationID int64, state string) (*domain.GitHubInstallation, error) {
 	if err := s.require(ctx, p, orgID, "org:update"); err != nil {
 		return nil, err
 	}
@@ -438,7 +439,7 @@ func (s *OrgService) CompleteGitHubInstallation(ctx context.Context, p repositor
 		return nil, err
 	}
 	now := time.Now().UTC()
-	inst := &repository.GitHubInstallation{
+	inst := &domain.GitHubInstallation{
 		ID:                  uuid.New(),
 		OrganizationID:      orgID,
 		InstallationID:      meta.InstallationID,
@@ -454,7 +455,7 @@ func (s *OrgService) CompleteGitHubInstallation(ctx context.Context, p repositor
 }
 
 // ListGitHubInstallations lists GitHub App installations linked to the organization if the principal holds service:read or org:read.
-func (s *OrgService) ListGitHubInstallations(ctx context.Context, p repository.Principal, orgID uuid.UUID) ([]repository.GitHubInstallation, error) {
+func (s *OrgService) ListGitHubInstallations(ctx context.Context, p domain.Principal, orgID uuid.UUID) ([]domain.GitHubInstallation, error) {
 	if err := s.require(ctx, p, orgID, "service:read"); err != nil {
 		if err2 := s.require(ctx, p, orgID, "org:read"); err2 != nil {
 			return nil, err
@@ -464,7 +465,7 @@ func (s *OrgService) ListGitHubInstallations(ctx context.Context, p repository.P
 }
 
 // DisconnectGitHubInstallation unlinks a GitHub App installation from the organization if the principal holds org:update.
-func (s *OrgService) DisconnectGitHubInstallation(ctx context.Context, p repository.Principal, orgID uuid.UUID, installationID int64) error {
+func (s *OrgService) DisconnectGitHubInstallation(ctx context.Context, p domain.Principal, orgID uuid.UUID, installationID int64) error {
 	if err := s.require(ctx, p, orgID, "org:update"); err != nil {
 		return err
 	}
@@ -478,9 +479,9 @@ func (s *OrgService) DisconnectGitHubInstallation(ctx context.Context, p reposit
 // UpdateGitHubInstallationStatus updates the lifecycle status ('active', 'suspended', 'deleted') of an installation
 // in response to a verified GitHub webhook event, evicts any cached installation token when non-active,
 // and returns the installation record (if linked to an organization).
-func (s *OrgService) UpdateGitHubInstallationStatus(ctx context.Context, installationID int64, status string) (*repository.GitHubInstallation, error) {
+func (s *OrgService) UpdateGitHubInstallationStatus(ctx context.Context, installationID int64, status string) (*domain.GitHubInstallation, error) {
 	if installationID <= 0 {
-		return nil, repository.ErrInstallationNotFound
+		return nil, domain.ErrInstallationNotFound
 	}
 	status = strings.ToLower(strings.TrimSpace(status))
 	if status != "active" {
@@ -498,9 +499,9 @@ func (s *OrgService) UpdateGitHubInstallationStatus(ctx context.Context, install
 }
 
 // GetGitHubInstallationByInstallationID looks up a linked installation by its GitHub installation_id.
-func (s *OrgService) GetGitHubInstallationByInstallationID(ctx context.Context, installationID int64) (*repository.GitHubInstallation, error) {
+func (s *OrgService) GetGitHubInstallationByInstallationID(ctx context.Context, installationID int64) (*domain.GitHubInstallation, error) {
 	if installationID <= 0 {
-		return nil, repository.ErrInstallationNotFound
+		return nil, domain.ErrInstallationNotFound
 	}
 	return s.repo.GetGitHubInstallationByInstallationID(ctx, installationID)
 }
@@ -513,25 +514,25 @@ func (s *OrgService) InvalidateGitHubInstallationToken(installationID int64) {
 }
 
 // GetInstallationToken authorizes caller with service:read, resolves the installation, and mints an ephemeral GitHub App token.
-func (s *OrgService) GetInstallationToken(ctx context.Context, p repository.Principal, orgID uuid.UUID, installationID int64) (string, int64, time.Time, error) {
+func (s *OrgService) GetInstallationToken(ctx context.Context, p domain.Principal, orgID uuid.UUID, installationID int64) (string, int64, time.Time, error) {
 	instID, err := s.resolveOrgGitHubInstallation(ctx, p, orgID, installationID)
 	if err != nil {
 		return "", 0, time.Time{}, err
 	}
 	tok, exp, err := s.githubApp.GetInstallationToken(ctx, instID)
 	if err != nil {
-		if errors.Is(err, repository.ErrInstallationNotFound) || errors.Is(err, oauth.ErrInstallationNotFound) {
+		if errors.Is(err, domain.ErrInstallationNotFound) || errors.Is(err, oauth.ErrInstallationNotFound) {
 			// Auto-heal: If uninstalled on GitHub, evict stale DB record so org returns to disconnected/reconnect state
 			_ = s.repo.DeleteGitHubInstallation(ctx, orgID, instID)
 			s.InvalidateGitHubInstallationToken(instID)
-			return "", 0, time.Time{}, repository.ErrInstallationNotFound
+			return "", 0, time.Time{}, domain.ErrInstallationNotFound
 		}
 		return "", 0, time.Time{}, err
 	}
 	return tok, instID, exp, nil
 }
 
-func (s *OrgService) resolveOrgGitHubInstallation(ctx context.Context, p repository.Principal, orgID uuid.UUID, installationID int64) (int64, error) {
+func (s *OrgService) resolveOrgGitHubInstallation(ctx context.Context, p domain.Principal, orgID uuid.UUID, installationID int64) (int64, error) {
 	if err := s.require(ctx, p, orgID, "service:read"); err != nil {
 		return 0, err
 	}
@@ -548,12 +549,12 @@ func (s *OrgService) resolveOrgGitHubInstallation(ctx context.Context, p reposit
 				return inst.InstallationID, nil
 			}
 		}
-		return 0, repository.ErrInstallationNotFound
+		return 0, domain.ErrInstallationNotFound
 	}
 	for _, inst := range installations {
 		if inst.InstallationID == installationID && (inst.Status == "" || inst.Status == "active") {
 			return inst.InstallationID, nil
 		}
 	}
-	return 0, repository.ErrInstallationNotFound
+	return 0, domain.ErrInstallationNotFound
 }

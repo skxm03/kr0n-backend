@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/domain"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
 )
 
@@ -40,18 +41,18 @@ func (i *DefaultTokenIssuer) Issue(userID uuid.UUID, sessionID uuid.UUID, now ti
 		return "", "", "", 0, fmt.Errorf("sign access token: %w", err)
 	}
 
-	rawRefreshToken, err := repository.GenerateRefreshToken()
+	rawRefreshToken, err := domain.GenerateRefreshToken()
 	if err != nil {
 		return "", "", "", 0, fmt.Errorf("generate refresh token: %w", err)
 	}
 
-	tokenHash := repository.HashRefreshToken(rawRefreshToken)
+	tokenHash := domain.HashRefreshToken(rawRefreshToken)
 	return accessToken, rawRefreshToken, tokenHash, expiresIn, nil
 }
 
 // Authenticator defines the contract for validating user credentials.
 type Authenticator interface {
-	Authenticate(ctx context.Context, params AuthenticateParams) (*repository.User, error)
+	Authenticate(ctx context.Context, params AuthenticateParams) (*domain.User, error)
 }
 
 // SessionService orchestrates login authentication and session creation.
@@ -89,7 +90,7 @@ type LoginResult struct {
 	RefreshToken string
 	TokenType    string
 	ExpiresIn    time.Duration
-	User         *repository.User
+	User         *domain.User
 	SessionID    uuid.UUID
 }
 
@@ -107,12 +108,12 @@ func (s *SessionService) Login(ctx context.Context, params LoginParams) (*LoginR
 }
 
 // CreateSessionForUser issues an access token and refresh token and persists the session for an already-authenticated user.
-func (s *SessionService) CreateSessionForUser(ctx context.Context, authenticatedUser *repository.User, userAgent *string, clientIP *net.IP) (*LoginResult, error) {
+func (s *SessionService) CreateSessionForUser(ctx context.Context, authenticatedUser *domain.User, userAgent *string, clientIP *net.IP) (*LoginResult, error) {
 	if authenticatedUser == nil {
-		return nil, repository.ErrUserNotFound
+		return nil, domain.ErrUserNotFound
 	}
-	if authenticatedUser.Status != repository.StatusActive {
-		return nil, repository.ErrUserNotActive
+	if authenticatedUser.Status != domain.StatusActive {
+		return nil, domain.ErrUserNotActive
 	}
 
 	sessionID, err := uuid.NewV7()
@@ -127,7 +128,7 @@ func (s *SessionService) CreateSessionForUser(ctx context.Context, authenticated
 		return nil, fmt.Errorf("issue tokens: %w", err)
 	}
 
-	sessionRecord := &repository.Session{
+	sessionRecord := &domain.Session{
 		ID:         sessionID,
 		UserID:     authenticatedUser.ID,
 		TokenHash:  tokenHash,
@@ -164,10 +165,10 @@ type RefreshResult struct {
 // Refresh validates the supplied raw refresh token, atomically rotates it, and returns new tokens.
 func (s *SessionService) Refresh(ctx context.Context, rawRefreshToken string) (*RefreshResult, error) {
 	if strings.TrimSpace(rawRefreshToken) == "" {
-		return nil, repository.ErrInvalidRefreshToken
+		return nil, domain.ErrInvalidRefreshToken
 	}
 
-	oldTokenHash := repository.HashRefreshToken(rawRefreshToken)
+	oldTokenHash := domain.HashRefreshToken(rawRefreshToken)
 	now := time.Now().UTC()
 	newExpiresAt := now.Add(s.sessionLifetime)
 
@@ -177,15 +178,15 @@ func (s *SessionService) Refresh(ctx context.Context, rawRefreshToken string) (*
 		expiresIn      time.Duration
 	)
 
-	_, err := s.sessionRepo.Rotate(ctx, oldTokenHash, now, func(sess *repository.Session, userStatus repository.Status) (string, time.Time, error) {
+	_, err := s.sessionRepo.Rotate(ctx, oldTokenHash, now, func(sess *domain.Session, userStatus domain.Status) (string, time.Time, error) {
 		if sess.RevokedAt != nil {
-			return "", time.Time{}, repository.ErrSessionRevoked
+			return "", time.Time{}, domain.ErrSessionRevoked
 		}
 		if !sess.ExpiresAt.After(now) {
-			return "", time.Time{}, repository.ErrSessionExpired
+			return "", time.Time{}, domain.ErrSessionExpired
 		}
-		if userStatus != repository.StatusActive {
-			return "", time.Time{}, repository.ErrUserNotActive
+		if userStatus != domain.StatusActive {
+			return "", time.Time{}, domain.ErrUserNotActive
 		}
 
 		accToken, rawRefresh, tokHash, exp, err := s.tokenIssuer.Issue(sess.UserID, sess.ID, now)
@@ -200,8 +201,8 @@ func (s *SessionService) Refresh(ctx context.Context, rawRefreshToken string) (*
 		return tokHash, newExpiresAt, nil
 	})
 	if err != nil {
-		if errors.Is(err, repository.ErrSessionNotFound) {
-			return nil, repository.ErrInvalidRefreshToken
+		if errors.Is(err, domain.ErrSessionNotFound) {
+			return nil, domain.ErrInvalidRefreshToken
 		}
 		return nil, err
 	}
@@ -215,12 +216,12 @@ func (s *SessionService) Refresh(ctx context.Context, rawRefreshToken string) (*
 }
 
 // Logout revokes the session associated with the supplied refresh token.
-func (s *SessionService) Logout(ctx context.Context, rawRefreshToken string) (*repository.Session, error) {
+func (s *SessionService) Logout(ctx context.Context, rawRefreshToken string) (*domain.Session, error) {
 	if strings.TrimSpace(rawRefreshToken) == "" {
 		return nil, nil
 	}
 
-	tokenHash := repository.HashRefreshToken(rawRefreshToken)
+	tokenHash := domain.HashRefreshToken(rawRefreshToken)
 	now := time.Now().UTC()
 
 	sess, _ := s.sessionRepo.GetByTokenHash(ctx, tokenHash)
@@ -232,9 +233,9 @@ func (s *SessionService) Logout(ctx context.Context, rawRefreshToken string) (*r
 }
 
 // ListSessions returns all active (non-revoked, non-expired) sessions for a user.
-func (s *SessionService) ListSessions(ctx context.Context, userID uuid.UUID) ([]repository.Session, error) {
+func (s *SessionService) ListSessions(ctx context.Context, userID uuid.UUID) ([]domain.Session, error) {
 	if userID == uuid.Nil {
-		return nil, repository.ErrSessionNotFound
+		return nil, domain.ErrSessionNotFound
 	}
 	return s.sessionRepo.ListActiveByUserID(ctx, userID, time.Now().UTC())
 }
@@ -242,7 +243,7 @@ func (s *SessionService) ListSessions(ctx context.Context, userID uuid.UUID) ([]
 // RevokeSession revokes a single session owned by userID.
 func (s *SessionService) RevokeSession(ctx context.Context, userID, sessionID uuid.UUID) error {
 	if userID == uuid.Nil || sessionID == uuid.Nil {
-		return repository.ErrSessionNotFound
+		return domain.ErrSessionNotFound
 	}
 	return s.sessionRepo.RevokeByID(ctx, userID, sessionID, time.Now().UTC())
 }

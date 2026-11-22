@@ -12,7 +12,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/domain"
 )
 
 // getMetadata retrieves incoming or outgoing metadata from ctx.
@@ -65,21 +65,21 @@ func extractUserAgent(ctx context.Context, fallback string) *string {
 
 // ParseCallerPrincipal resolves the authenticated caller principal strictly from the request's CallerPrincipal passport.
 // Caller identity must never be extracted from insecure gRPC transport metadata headers.
-func (s *Server) ParseCallerPrincipal(ctx context.Context, c *authv1.CallerPrincipal) (repository.Principal, error) {
+func (s *Server) ParseCallerPrincipal(ctx context.Context, c *authv1.CallerPrincipal) (domain.Principal, error) {
 	if s.serviceAuth.Enabled && !IsTrustedService(ctx) {
-		return repository.Principal{}, status.Error(codes.Unauthenticated, "caller principal rejected: untrusted service boundary")
+		return domain.Principal{}, status.Error(codes.Unauthenticated, "caller principal rejected: untrusted service boundary")
 	}
 
 	if c == nil || strings.TrimSpace(c.GetUserId()) == "" {
-		return repository.Principal{}, status.Error(codes.Unauthenticated, "authentication required: missing caller passport")
+		return domain.Principal{}, status.Error(codes.Unauthenticated, "authentication required: missing caller passport")
 	}
 
 	uid, err := uuid.Parse(strings.TrimSpace(c.GetUserId()))
 	if err != nil {
-		return repository.Principal{}, status.Error(codes.InvalidArgument, "invalid caller user_id")
+		return domain.Principal{}, status.Error(codes.InvalidArgument, "invalid caller user_id")
 	}
 
-	p := repository.Principal{
+	p := domain.Principal{
 		UserID:           uid,
 		Kind:             c.GetKind(),
 		TokenPermissions: c.GetTokenPermissions(),
@@ -98,19 +98,19 @@ func (s *Server) ParseCallerPrincipal(ctx context.Context, c *authv1.CallerPrinc
 	return p, nil
 }
 
-func (s *Server) parseCallerPrincipal(ctx context.Context, c *authv1.CallerPrincipal) (repository.Principal, error) {
+func (s *Server) parseCallerPrincipal(ctx context.Context, c *authv1.CallerPrincipal) (domain.Principal, error) {
 	return s.ParseCallerPrincipal(ctx, c)
 }
 
-func actorTypeFromPrincipal(p repository.Principal) string {
-	if p.Kind == repository.ActorTypeAPIToken {
-		return repository.ActorTypeAPIToken
+func actorTypeFromPrincipal(p domain.Principal) string {
+	if p.Kind == domain.ActorTypeAPIToken {
+		return domain.ActorTypeAPIToken
 	}
-	return repository.ActorTypeUser
+	return domain.ActorTypeUser
 }
 
 // recordAudit logs an audit event if auditService is configured.
-func (s *Server) recordAudit(ctx context.Context, ev repository.AuditEvent) {
+func (s *Server) recordAudit(ctx context.Context, ev domain.AuditEvent) {
 	if s.auditService == nil {
 		return
 	}

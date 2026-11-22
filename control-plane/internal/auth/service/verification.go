@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/domain"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
 )
 
@@ -26,10 +27,10 @@ func NewVerificationService(repo repository.VerificationRepository) *Verificatio
 func (s *VerificationService) VerifyEmail(ctx context.Context, rawToken string) error {
 	trimmed := strings.TrimSpace(rawToken)
 	if trimmed == "" {
-		return repository.ErrInvalidToken
+		return domain.ErrInvalidToken
 	}
 
-	tokenHash := repository.HashToken(trimmed)
+	tokenHash := domain.HashToken(trimmed)
 	now := time.Now().UTC()
 
 	_, err := s.repo.VerifyAndConsume(ctx, tokenHash, now)
