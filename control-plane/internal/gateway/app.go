@@ -163,7 +163,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 		Registry:           dynamicregistry.DefaultRegistry(),
 		MiddlewareRegistry: mwReg,
 		Dialer: func(svc dynamicconfig.ServiceConfig) (*grpc.ClientConn, error) {
-			insecure := isDev && svc.TLS.CAFile == "" && svc.TLS.CertFile == ""
+			insecure := isDev && svc.TLS.CAFile == ""
 			return DialUpstream(svc.Address, DialUpstreamTLSConfig{
 				Insecure:   insecure,
 				CertFile:   svc.TLS.CertFile,

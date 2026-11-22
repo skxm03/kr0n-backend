@@ -140,8 +140,8 @@ services:
     default_profile: authenticated_api
     tls:
       ca_file: "${SERVICEMANAGER_GRPC_TLS_CA_FILE:-}"
-      cert_file: "${GATEWAY_GRPC_TLS_CERT_FILE:-}"
-      key_file: "${GATEWAY_GRPC_TLS_KEY_FILE:-}"
+      cert_file: "${SERVICEMANAGER_GRPC_CLIENT_CERT_FILE:-}"
+      key_file: "${SERVICEMANAGER_GRPC_CLIENT_KEY_FILE:-}"
       server_name: "${SERVICEMANAGER_GRPC_SERVER_NAME:-servicemanager.internal}"
 
     middleware:
@@ -163,8 +163,8 @@ services:
     default_profile: authenticated_api
     tls:
       ca_file: "${SECRETS_GRPC_TLS_CA_FILE:-}"
-      cert_file: "${GATEWAY_GRPC_TLS_CERT_FILE:-}"
-      key_file: "${GATEWAY_GRPC_TLS_KEY_FILE:-}"
+      cert_file: "${SECRETS_GRPC_CLIENT_CERT_FILE:-}"
+      key_file: "${SECRETS_GRPC_CLIENT_KEY_FILE:-}"
       server_name: "${SECRETS_GRPC_SERVER_NAME:-secrets.internal}"
 
     middleware:

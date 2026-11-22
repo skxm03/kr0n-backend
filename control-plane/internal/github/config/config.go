@@ -5,11 +5,14 @@ import (
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 // Config encapsulates configuration for the GitHub microservice.
 type Config struct {
 	DatabaseURL      string
+	GRPCAddr         string
 	GRPCPort         string
 	AuthGRPCAddr     string
 	GitHubAPIURL     string
@@ -41,8 +44,11 @@ type Config struct {
 
 // Load reads configuration from environment variables with production defaults.
 func Load() (*Config, error) {
+	_ = godotenv.Load()
+
 	cfg := &Config{
 		DatabaseURL:             getEnv("DATABASE_URL", ""),
+		GRPCAddr:                getEnv("GITHUB_GRPC_ADDR", "127.0.0.1:50052"),
 		GRPCPort:                getEnv("GITHUB_GRPC_PORT", "50052"),
 		AuthGRPCAddr:            getEnv("AUTH_GRPC_ADDR", "127.0.0.1:50051"),
 		GitHubAPIURL:            getEnv("GITHUB_API_URL", "https://api.github.com"),

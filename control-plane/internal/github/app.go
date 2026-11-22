@@ -240,7 +240,10 @@ func (a *App) Run(ctx context.Context) error {
 		defer a.auditEmitter.Close()
 	}
 
-	addr := ":" + a.cfg.GRPCPort
+	addr := a.cfg.GRPCAddr
+	if addr == "" {
+		addr = ":" + a.cfg.GRPCPort
+	}
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
 		return fmt.Errorf("listen on %s: %w", addr, err)
