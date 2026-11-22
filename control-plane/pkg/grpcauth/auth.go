@@ -4,9 +4,11 @@ import (
 	"context"
 	"strings"
 
+	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 )
@@ -120,4 +122,67 @@ type wrappedServerStream struct {
 
 func (w *wrappedServerStream) Context() context.Context {
 	return w.ctx
+}
+
+// Passport holds identity propagated via X-Passport-* transport headers or proto payloads.
+type Passport struct {
+	UserID      uuid.UUID
+	Kind        string
+	OrgID       *uuid.UUID
+	SessionID   *uuid.UUID
+	Permissions []string
+}
+
+// ExtractPassportMetadata extracts and parses X-Passport-* headers from incoming gRPC metadata.
+// It returns (Passport, true) if a valid user ID was found, or (Passport, false) if absent or invalid.
+func ExtractPassportMetadata(ctx context.Context) (Passport, bool) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return Passport{}, false
+	}
+	get := func(key string) string {
+		vals := md.Get(key)
+		if len(vals) > 0 {
+			return strings.TrimSpace(vals[0])
+		}
+		return ""
+	}
+	rawUID := get("x-passport-user-id")
+	if rawUID == "" {
+		return Passport{}, false
+	}
+	uid, err := uuid.Parse(rawUID)
+	if err != nil {
+		return Passport{}, false
+	}
+	p := Passport{
+		UserID: uid,
+		Kind:   get("x-passport-kind"),
+	}
+	if p.Kind == "" {
+		p.Kind = "session"
+	}
+	if rawOrg := get("x-passport-org-id"); rawOrg != "" {
+		if oid, err := uuid.Parse(rawOrg); err == nil {
+			p.OrgID = &oid
+		}
+	}
+	if rawSess := get("x-passport-session-id"); rawSess != "" {
+		if sid, err := uuid.Parse(rawSess); err == nil {
+			p.SessionID = &sid
+		}
+	}
+	roles := get("x-passport-roles")
+	if roles == "" {
+		roles = get("x-passport-permissions")
+	}
+	if roles != "" {
+		parts := strings.Split(roles, ",")
+		for _, part := range parts {
+			if s := strings.TrimSpace(part); s != "" {
+				p.Permissions = append(p.Permissions, s)
+			}
+		}
+	}
+	return p, true
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
@@ -105,5 +106,24 @@ func TestServiceManager_ServiceAuthentication_Enforcement(t *testing.T) {
 	}
 	if res.GetProject().GetName() != "Test Project" {
 		t.Fatalf("expected project name 'Test Project', got %q", res.GetProject().GetName())
+	}
+
+	// 4. Caller without proto CallerPrincipal but with trusted X-Passport-* metadata headers -> SUCCEEDS
+	passportMD := metadata.Pairs(
+		"x-passport-user-id", ownerID.String(),
+		"x-passport-kind", "session",
+		"x-passport-org-id", orgID.String(),
+	)
+	metaCtx := metadata.NewIncomingContext(trustedCtx, passportMD)
+	metaRes, err := srv.GetProject(metaCtx, &servicemanagerv1.GetProjectRequest{
+		Caller:    nil, // No proto CallerPrincipal
+		OrgId:     orgID.String(),
+		ProjectId: uuid.New().String(),
+	})
+	if err != nil {
+		t.Fatalf("expected metadata passport call to succeed, got %v", err)
+	}
+	if metaRes.GetProject().GetName() != "Test Project" {
+		t.Fatalf("expected project name 'Test Project', got %q", metaRes.GetProject().GetName())
 	}
 }

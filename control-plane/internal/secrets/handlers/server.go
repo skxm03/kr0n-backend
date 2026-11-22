@@ -200,34 +200,57 @@ func (s *Server) parseOrgCall(ctx context.Context, c *authv1.CallerPrincipal, ra
 	if s.secretsService == nil {
 		return domain.Principal{}, uuid.Nil, status.Error(codes.Unimplemented, "secrets service not configured")
 	}
-	if c == nil || strings.TrimSpace(c.GetUserId()) == "" {
-		return domain.Principal{}, uuid.Nil, status.Error(codes.Unauthenticated, "authentication required: missing caller passport")
-	}
-	uid, err := uuid.Parse(strings.TrimSpace(c.GetUserId()))
-	if err != nil {
-		return domain.Principal{}, uuid.Nil, status.Error(codes.InvalidArgument, "invalid caller user_id")
-	}
-	orgID, err := uuid.Parse(strings.TrimSpace(rawOrgID))
-	if err != nil {
-		return domain.Principal{}, uuid.Nil, status.Error(codes.InvalidArgument, "invalid org_id")
+
+	var pass grpcauth.Passport
+	var hasMetadataPass bool
+	if grpcauth.IsTrustedService(ctx) {
+		pass, hasMetadataPass = grpcauth.ExtractPassportMetadata(ctx)
 	}
 
-	p := domain.Principal{
-		UserID:           uid,
-		Kind:             c.GetKind(),
-		TokenPermissions: c.GetTokenPermissions(),
-	}
-	if rawTokOrg := strings.TrimSpace(c.GetTokenOrgId()); rawTokOrg != "" {
-		if oid, err := uuid.Parse(rawTokOrg); err == nil {
-			p.TokenOrgID = &oid
+	orgID, err := uuid.Parse(strings.TrimSpace(rawOrgID))
+	if err != nil {
+		if hasMetadataPass && pass.OrgID != nil {
+			orgID = *pass.OrgID
+		} else {
+			return domain.Principal{}, uuid.Nil, status.Error(codes.InvalidArgument, "invalid org_id")
 		}
 	}
-	if rawSess := strings.TrimSpace(c.GetSessionId()); rawSess != "" {
-		if sid, err := uuid.Parse(rawSess); err == nil {
-			p.SessionID = &sid
+
+	if c != nil && strings.TrimSpace(c.GetUserId()) != "" {
+		uid, err := uuid.Parse(strings.TrimSpace(c.GetUserId()))
+		if err != nil {
+			return domain.Principal{}, uuid.Nil, status.Error(codes.InvalidArgument, "invalid caller user_id")
 		}
+
+		p := domain.Principal{
+			UserID:           uid,
+			Kind:             c.GetKind(),
+			TokenPermissions: c.GetTokenPermissions(),
+		}
+		if rawTokOrg := strings.TrimSpace(c.GetTokenOrgId()); rawTokOrg != "" {
+			if oid, err := uuid.Parse(rawTokOrg); err == nil {
+				p.TokenOrgID = &oid
+			}
+		}
+		if rawSess := strings.TrimSpace(c.GetSessionId()); rawSess != "" {
+			if sid, err := uuid.Parse(rawSess); err == nil {
+				p.SessionID = &sid
+			}
+		}
+		return p, orgID, nil
 	}
-	return p, orgID, nil
+
+	if hasMetadataPass {
+		return domain.Principal{
+			UserID:           pass.UserID,
+			Kind:             pass.Kind,
+			TokenOrgID:       pass.OrgID,
+			SessionID:        pass.SessionID,
+			TokenPermissions: pass.Permissions,
+		}, orgID, nil
+	}
+
+	return domain.Principal{}, uuid.Nil, status.Error(codes.Unauthenticated, "authentication required: missing caller passport")
 }
 
 func (s *Server) emitAudit(ctx context.Context, p domain.Principal, orgID, projectID uuid.UUID, action pkgAudit.Action, meta map[string]any) {

@@ -13,6 +13,7 @@ import (
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/domain"
+	"github.com/skxm03/kr0n-backend/control-plane/pkg/grpcauth"
 )
 
 // getMetadata retrieves incoming or outgoing metadata from ctx.
@@ -63,39 +64,51 @@ func extractUserAgent(ctx context.Context, fallback string) *string {
 	return &ua
 }
 
-// ParseCallerPrincipal resolves the authenticated caller principal strictly from the request's CallerPrincipal passport.
-// Caller identity must never be extracted from insecure gRPC transport metadata headers.
+// ParseCallerPrincipal resolves the authenticated caller principal from either the request's
+// CallerPrincipal passport or verified X-Passport-* gRPC transport metadata from a trusted service.
 func (s *Server) ParseCallerPrincipal(ctx context.Context, c *authv1.CallerPrincipal) (domain.Principal, error) {
 	if s.serviceAuth.Enabled && !IsTrustedService(ctx) {
 		return domain.Principal{}, status.Error(codes.Unauthenticated, "caller principal rejected: untrusted service boundary")
 	}
 
-	if c == nil || strings.TrimSpace(c.GetUserId()) == "" {
-		return domain.Principal{}, status.Error(codes.Unauthenticated, "authentication required: missing caller passport")
+	if c != nil && strings.TrimSpace(c.GetUserId()) != "" {
+		uid, err := uuid.Parse(strings.TrimSpace(c.GetUserId()))
+		if err != nil {
+			return domain.Principal{}, status.Error(codes.InvalidArgument, "invalid caller user_id")
+		}
+
+		p := domain.Principal{
+			UserID:           uid,
+			Kind:             c.GetKind(),
+			TokenPermissions: c.GetTokenPermissions(),
+		}
+		if rawOrg := strings.TrimSpace(c.GetTokenOrgId()); rawOrg != "" {
+			if oid, err := uuid.Parse(rawOrg); err == nil {
+				p.TokenOrgID = &oid
+			}
+		}
+		if rawSess := strings.TrimSpace(c.GetSessionId()); rawSess != "" {
+			if sid, err := uuid.Parse(rawSess); err == nil {
+				p.SessionID = &sid
+			}
+		}
+
+		return p, nil
 	}
 
-	uid, err := uuid.Parse(strings.TrimSpace(c.GetUserId()))
-	if err != nil {
-		return domain.Principal{}, status.Error(codes.InvalidArgument, "invalid caller user_id")
-	}
-
-	p := domain.Principal{
-		UserID:           uid,
-		Kind:             c.GetKind(),
-		TokenPermissions: c.GetTokenPermissions(),
-	}
-	if rawOrg := strings.TrimSpace(c.GetTokenOrgId()); rawOrg != "" {
-		if oid, err := uuid.Parse(rawOrg); err == nil {
-			p.TokenOrgID = &oid
+	if IsTrustedService(ctx) {
+		if pass, ok := grpcauth.ExtractPassportMetadata(ctx); ok {
+			return domain.Principal{
+				UserID:           pass.UserID,
+				Kind:             pass.Kind,
+				TokenOrgID:       pass.OrgID,
+				SessionID:        pass.SessionID,
+				TokenPermissions: pass.Permissions,
+			}, nil
 		}
 	}
-	if rawSess := strings.TrimSpace(c.GetSessionId()); rawSess != "" {
-		if sid, err := uuid.Parse(rawSess); err == nil {
-			p.SessionID = &sid
-		}
-	}
 
-	return p, nil
+	return domain.Principal{}, status.Error(codes.Unauthenticated, "authentication required: missing caller passport")
 }
 
 func (s *Server) parseCallerPrincipal(ctx context.Context, c *authv1.CallerPrincipal) (domain.Principal, error) {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
@@ -103,5 +104,25 @@ func TestSecrets_ServiceAuthentication_Enforcement(t *testing.T) {
 	}
 	if res.GetSecrets()["API_KEY"] != "secret-123" {
 		t.Fatalf("expected API_KEY=secret-123, got %q", res.GetSecrets()["API_KEY"])
+	}
+
+	// 5. Caller without CallerPrincipal in request proto but with X-Passport-* metadata headers from trusted service -> SUCCEEDS
+	passportMD := metadata.Pairs(
+		"x-passport-user-id", ownerID.String(),
+		"x-passport-kind", "session",
+		"x-passport-org-id", orgID.String(),
+	)
+	metaCtx := metadata.NewIncomingContext(trustedCtx, passportMD)
+	_, err = srv.UpsertProjectEnvVars(metaCtx, &secretsv1.UpsertProjectEnvVarsRequest{
+		Caller:      nil, // No proto CallerPrincipal
+		OrgId:       orgID.String(),
+		ProjectId:   projID.String(),
+		Environment: "production",
+		Variables: []*secretsv1.EnvVarInput{
+			{Key: "METADATA_KEY", Value: "from-metadata-passport"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("expected metadata passport call to succeed, got %v", err)
 	}
 }

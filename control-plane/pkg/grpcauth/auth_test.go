@@ -7,9 +7,11 @@ import (
 	"crypto/x509/pkix"
 	"testing"
 
+	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
@@ -162,5 +164,51 @@ func TestServiceAuthInterceptor(t *testing.T) {
 	})
 	if err != nil || resp != "ok" {
 		t.Fatalf("expected protected method with valid cert to succeed, got resp=%v err=%v", resp, err)
+	}
+}
+
+func TestExtractPassportMetadata(t *testing.T) {
+	// 1. Missing metadata -> false
+	if _, ok := grpcauth.ExtractPassportMetadata(context.Background()); ok {
+		t.Fatal("expected false for missing metadata")
+	}
+
+	// 2. Missing user id -> false
+	md := metadata.Pairs("x-passport-kind", "session")
+	ctx := metadata.NewIncomingContext(context.Background(), md)
+	if _, ok := grpcauth.ExtractPassportMetadata(ctx); ok {
+		t.Fatal("expected false for missing user id")
+	}
+
+	// 3. Valid full passport metadata -> true and correctly parsed
+	uid := uuid.New()
+	oid := uuid.New()
+	sid := uuid.New()
+	md = metadata.Pairs(
+		"x-passport-user-id", uid.String(),
+		"x-passport-kind", "api_token",
+		"x-passport-org-id", oid.String(),
+		"x-passport-session-id", sid.String(),
+		"x-passport-roles", "project:read, project:write",
+	)
+	ctx = metadata.NewIncomingContext(context.Background(), md)
+	pass, ok := grpcauth.ExtractPassportMetadata(ctx)
+	if !ok {
+		t.Fatal("expected true for valid passport metadata")
+	}
+	if pass.UserID != uid {
+		t.Fatalf("expected UserID %v, got %v", uid, pass.UserID)
+	}
+	if pass.Kind != "api_token" {
+		t.Fatalf("expected Kind api_token, got %q", pass.Kind)
+	}
+	if pass.OrgID == nil || *pass.OrgID != oid {
+		t.Fatalf("expected OrgID %v, got %v", oid, pass.OrgID)
+	}
+	if pass.SessionID == nil || *pass.SessionID != sid {
+		t.Fatalf("expected SessionID %v, got %v", sid, pass.SessionID)
+	}
+	if len(pass.Permissions) != 2 || pass.Permissions[0] != "project:read" || pass.Permissions[1] != "project:write" {
+		t.Fatalf("expected permissions [project:read, project:write], got %v", pass.Permissions)
 	}
 }

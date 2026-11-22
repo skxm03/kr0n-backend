@@ -210,18 +210,23 @@ kr0n strictly enforces zero-trust inter-service communication:
    * Internal services enforce Subject Alternative Names (SANs) such as `auth.internal` and `github.internal`.
 2. **Identity Passport Pattern**:
    * Downstream services do **not** re-parse raw client JWTs.
-   * The API Gateway parses and validates the client JWT, converts claims into a verified passport, and attaches the headers:
-     * `X-Passport-User-ID`: UUID of authenticated user
-     * `X-Passport-Org-ID`: UUID of active tenant organization
-     * `X-Passport-Roles`: Comma-separated list of assigned roles
-   * Microservices read these claims directly from gRPC metadata.
+   * The API Gateway parses and validates the client JWT, converts claims into a verified passport, and propagates identity through a dual-channel mechanism:
+     * **gRPC Metadata Headers**:
+       * `X-Passport-User-ID`: UUID of authenticated user
+       * `X-Passport-Org-ID`: UUID of active tenant organization
+       * `X-Passport-Roles` / `X-Passport-Permissions`: Comma-separated list of assigned permissions
+       * `X-Passport-Kind`: Principal type (`session` or `api_token`)
+       * `X-Passport-Session-ID`: UUID of authenticated session
+     * **Protobuf Message Payload**: When a request message includes a `caller` field, the gateway's `PassportUnaryClientInterceptor` injects a typed `auth.v1.CallerPrincipal`.
+   * Downstream microservices evaluate `CallerPrincipal` or fallback to verified `X-Passport-*` metadata from authenticated internal mTLS callers.
 
 ---
 
 ## 6. PostgreSQL Schema & Migrations
 
-Database schema migrations are applied via `control-plane/cmd/migrate` using sequential migration files:
+Database schema migrations are applied modularly per microservice via `control-plane/cmd/migrate -service=<auth|servicemanager|secrets|all>`:
 
+### Auth Service (`internal/auth/migrations`)
 | Migration File | Key Tables / Objects Created | Purpose |
 |---|---|---|
 | `000001_initial_auth.up.sql` | `users`, `sessions`, `email_verification_tokens`, `password_reset_tokens` | Core user identity, argon2id credentials, and session state |
@@ -229,8 +234,17 @@ Database schema migrations are applied via `control-plane/cmd/migrate` using seq
 | `000003_github_installations.up.sql` | `github_installations` | GitHub App account links, installation IDs, and org bindings |
 | `000004_github_webhook_status.up.sql` | `github_webhook_events` | Webhook delivery log and idempotency tracking |
 | `000005_default_user_organizations.up.sql` | Default org auto-creation triggers | Automatically provisions personal organization upon user signup |
-| `000006_create_projects.up.sql` | `projects` | Organization projects linked to Git repositories |
-| `000007_create_project_build_settings.up.sql` | `project_build_settings` | Railpack presets, root directory overrides, and build flags |
+
+### Service Manager (`internal/servicemanager/migrations`)
+| Migration File | Key Tables / Objects Created | Purpose |
+|---|---|---|
+| `000001_create_projects.up.sql` | `projects` | Organization projects linked to Git repositories |
+| `000002_create_project_build_settings.up.sql` | `project_build_settings` | Railpack presets, root directory overrides, and build flags |
+
+### Secrets Service (`internal/secrets/migrations`)
+| Migration File | Key Tables / Objects Created | Purpose |
+|---|---|---|
+| `000001_create_project_secrets.up.sql` | `project_keys`, `project_env_vars` | Envelope encryption DEKs and AES-256-GCM encrypted env vars |
 
 ---
 

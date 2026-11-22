@@ -2,20 +2,39 @@ package middleware
 
 import (
 	"context"
+	"strings"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 // PassportUnaryClientInterceptor propagates the authenticated caller principal from the HTTP
-// request context into the outgoing protobuf request's `caller` field.
+// request context into the outgoing protobuf request's `caller` field and outbound gRPC metadata.
 // Untrusted caller inputs from external HTTP JSON bodies are strictly sanitized or cleared.
 func PassportUnaryClientInterceptor() grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		p, _ := PrincipalFromContext(ctx)
 		if msg, ok := req.(proto.Message); ok {
-			p, _ := PrincipalFromContext(ctx)
 			InjectPassport(msg, p)
+		}
+		if p != nil {
+			pairs := []string{
+				"x-passport-user-id", p.UserID,
+				"x-passport-kind", p.Kind,
+			}
+			if p.OrgID != "" {
+				pairs = append(pairs, "x-passport-org-id", p.OrgID)
+			}
+			if p.SessionID != "" {
+				pairs = append(pairs, "x-passport-session-id", p.SessionID)
+			}
+			if len(p.Permissions) > 0 {
+				roles := strings.Join(p.Permissions, ",")
+				pairs = append(pairs, "x-passport-roles", roles, "x-passport-permissions", roles)
+			}
+			ctx = metadata.AppendToOutgoingContext(ctx, pairs...)
 		}
 		return invoker(ctx, method, req, reply, cc, opts...)
 	}

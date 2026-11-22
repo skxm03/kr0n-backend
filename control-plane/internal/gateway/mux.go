@@ -217,7 +217,7 @@ func isCreationResponse(name string) bool {
 }
 
 // GatewayMetadataAnnotator converts HTTP context, client IP, and request tracing into outgoing gRPC metadata.
-// Caller identity is propagated exclusively via typed protobuf passports (CallerPrincipal) in gRPC payload.
+// GatewayMetadataAnnotator injects trace headers, client context, and X-Passport-* identity metadata.
 func GatewayMetadataAnnotator(trustedProxies []*net.IPNet) func(ctx context.Context, r *http.Request) metadata.MD {
 	return func(ctx context.Context, r *http.Request) metadata.MD {
 		md := metadata.MD{}
@@ -242,6 +242,26 @@ func GatewayMetadataAnnotator(trustedProxies []*net.IPNet) func(ctx context.Cont
 		}
 		if c, err := r.Cookie("google_oauth_verifier"); err == nil && strings.TrimSpace(c.Value) != "" {
 			md.Set("x-code-verifier", strings.TrimSpace(c.Value))
+		}
+
+		if p, ok := middleware.PrincipalFromContext(r.Context()); ok && p != nil {
+			if p.UserID != "" {
+				md.Set("x-passport-user-id", p.UserID)
+			}
+			if p.Kind != "" {
+				md.Set("x-passport-kind", p.Kind)
+			}
+			if p.OrgID != "" {
+				md.Set("x-passport-org-id", p.OrgID)
+			}
+			if p.SessionID != "" {
+				md.Set("x-passport-session-id", p.SessionID)
+			}
+			if len(p.Permissions) > 0 {
+				roles := strings.Join(p.Permissions, ",")
+				md.Set("x-passport-roles", roles)
+				md.Set("x-passport-permissions", roles)
+			}
 		}
 
 		return md

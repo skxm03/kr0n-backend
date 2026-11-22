@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/middleware"
@@ -125,6 +126,13 @@ func TestPassportUnaryClientInterceptor(t *testing.T) {
 		}
 		if r.GetCaller() == nil || r.GetCaller().GetUserId() != "user-999" {
 			t.Fatalf("expected caller passport to be injected before invoker, got: %+v", r.GetCaller())
+		}
+		md, ok := metadata.FromOutgoingContext(ctx)
+		if !ok {
+			t.Fatal("expected outgoing metadata to be present")
+		}
+		if len(md.Get("x-passport-user-id")) == 0 || md.Get("x-passport-user-id")[0] != "user-999" {
+			t.Fatalf("expected x-passport-user-id metadata to be user-999, got: %v", md.Get("x-passport-user-id"))
 		}
 		return nil
 	}
