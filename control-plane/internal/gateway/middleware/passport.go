@@ -4,11 +4,25 @@ import (
 	"context"
 	"strings"
 
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
+
+// IncomingHeaderMatcher blocks external HTTP clients from spoofing internal identity headers
+// (such as "X-Passport-*", "Grpc-Metadata-X-Passport-*"), while allowing standard grpc-gateway headers.
+func IncomingHeaderMatcher(header string) (string, bool) {
+	k, ok := runtime.DefaultHeaderMatcher(header)
+	if !ok {
+		return "", false
+	}
+	if strings.HasPrefix(strings.ToLower(k), "x-passport-") {
+		return "", false
+	}
+	return k, true
+}
 
 // PassportUnaryClientInterceptor propagates the authenticated caller principal from the HTTP
 // request context into the outgoing protobuf request's `caller` field and outbound gRPC metadata.

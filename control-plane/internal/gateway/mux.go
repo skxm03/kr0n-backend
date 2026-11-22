@@ -87,6 +87,7 @@ func NewGatewayServeMux(trustedProxies []*net.IPNet) *runtime.ServeMux {
 				DiscardUnknown: true,
 			},
 		}),
+		runtime.WithIncomingHeaderMatcher(middleware.IncomingHeaderMatcher),
 		runtime.WithMetadata(GatewayMetadataAnnotator(trustedProxies)),
 		runtime.WithErrorHandler(GatewayErrorHandler),
 		runtime.WithForwardResponseOption(GatewayResponseModifier),

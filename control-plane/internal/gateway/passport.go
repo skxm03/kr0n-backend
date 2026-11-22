@@ -9,5 +9,8 @@ import (
 // Untrusted caller inputs from external HTTP JSON bodies are strictly sanitized or cleared.
 var PassportUnaryClientInterceptor = middleware.PassportUnaryClientInterceptor
 
+// IncomingHeaderMatcher blocks external HTTP clients from spoofing internal identity headers.
+var IncomingHeaderMatcher = middleware.IncomingHeaderMatcher
+
 // InjectPassport populates or clears the `caller` field on a protobuf message based on principal.
 var InjectPassport = middleware.InjectPassport

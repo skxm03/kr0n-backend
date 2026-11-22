@@ -99,7 +99,9 @@ func BuildSnapshot(
 	}
 	if opts.MuxFactory == nil {
 		opts.MuxFactory = func() *runtime.ServeMux {
-			return runtime.NewServeMux()
+			return runtime.NewServeMux(
+				runtime.WithIncomingHeaderMatcher(middleware.IncomingHeaderMatcher),
+			)
 		}
 	}
 	if opts.Dialer == nil {

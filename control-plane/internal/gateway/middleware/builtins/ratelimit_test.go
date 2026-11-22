@@ -2,6 +2,7 @@ package builtins_test
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -204,5 +205,225 @@ func TestRateLimitFactory_FailOpenConfig(t *testing.T) {
 	failOpenMw(dummyHandler).ServeHTTP(rec2, req2)
 	if rec2.Code != http.StatusOK {
 		t.Fatalf("expected 200 on fail open, got %d", rec2.Code)
+	}
+}
+
+func TestRateLimit_BlastRadiusIsolation_NoUserMetadata(t *testing.T) {
+	mr := miniredis.RunT(t)
+	mr.SetTime(time.Unix(1_700_000_000, 0))
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = rdb.Close() })
+
+	deps := builtins.SharedDeps{RedisClient: rdb}
+	factory := builtins.NewRateLimitFactory(deps)
+
+	// Route A: Public Docs/Search (zone: "public", capacity: 2)
+	routeAMw, err := factory(map[string]any{
+		"requests": 2,
+		"window":   "1m",
+		"zone":     "public-docs",
+		"key":      "ip",
+	})
+	if err != nil {
+		t.Fatalf("create route A mw: %v", err)
+	}
+
+	// Route B: Login / Register (zone: "public-auth", capacity: 5)
+	routeBMw, err := factory(map[string]any{
+		"requests": 5,
+		"window":   "1m",
+		"zone":     "public-auth",
+		"key":      "ip",
+	})
+	if err != nil {
+		t.Fatalf("create route B mw: %v", err)
+	}
+
+	dummyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
+
+	handlerA := routeAMw(dummyHandler)
+	handlerB := routeBMw(dummyHandler)
+
+	clientIP := "203.0.113.50:4321"
+
+	// 1. Exhaust Route A with 2 requests from clientIP (NO user metadata)
+	for i := 0; i < 2; i++ {
+		req := httptest.NewRequest("GET", "/api/v1/docs", nil)
+		req.RemoteAddr = clientIP
+		rec := httptest.NewRecorder()
+		handlerA.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("route A req %d expected 200, got %d", i, rec.Code)
+		}
+	}
+
+	// 3rd request to Route A must be 429 Too Many Requests
+	reqA3 := httptest.NewRequest("GET", "/api/v1/docs", nil)
+	reqA3.RemoteAddr = clientIP
+	recA3 := httptest.NewRecorder()
+	handlerA.ServeHTTP(recA3, reqA3)
+	if recA3.Code != http.StatusTooManyRequests {
+		t.Fatalf("route A 3rd request expected 429, got %d", recA3.Code)
+	}
+
+	// 2. Blast-Radius Check: The EXACT SAME IP with NO user metadata hits Route B (/api/v1/auth/login)
+	// It MUST succeed with 200 OK because Route B uses an isolated zone ("public-auth") in Redis!
+	for i := 0; i < 5; i++ {
+		reqB := httptest.NewRequest("POST", "/api/v1/auth/login", nil)
+		reqB.RemoteAddr = clientIP
+		recB := httptest.NewRecorder()
+		handlerB.ServeHTTP(recB, reqB)
+		if recB.Code != http.StatusOK {
+			t.Fatalf("route B req %d from exhausted IP expected 200, got %d", i, recB.Code)
+		}
+	}
+
+	// 6th request to Route B is now 429
+	reqB6 := httptest.NewRequest("POST", "/api/v1/auth/login", nil)
+	reqB6.RemoteAddr = clientIP
+	recB6 := httptest.NewRecorder()
+	handlerB.ServeHTTP(recB6, reqB6)
+	if recB6.Code != http.StatusTooManyRequests {
+		t.Fatalf("route B 6th request expected 429, got %d", recB6.Code)
+	}
+}
+
+func TestRateLimit_SpoofedXForwardedForIgnored_UnlessTrusted(t *testing.T) {
+	mr := miniredis.RunT(t)
+	mr.SetTime(time.Unix(1_700_000_000, 0))
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = rdb.Close() })
+
+	_, trustedCIDR, _ := net.ParseCIDR("10.0.0.0/8")
+	deps := builtins.SharedDeps{
+		RedisClient:    rdb,
+		TrustedProxies: []*net.IPNet{trustedCIDR},
+	}
+	factory := builtins.NewRateLimitFactory(deps)
+
+	mw, err := factory(map[string]any{
+		"requests": 1,
+		"window":   "1m",
+		"zone":     "ip-spoof-test",
+		"key":      "ip",
+	})
+	if err != nil {
+		t.Fatalf("create mw: %v", err)
+	}
+
+	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// Case 1: Untrusted attacker at 198.51.100.7 sends spoofed "X-Forwarded-For: 8.8.8.8"
+	req1 := httptest.NewRequest("GET", "/test", nil)
+	req1.RemoteAddr = "198.51.100.7:1234"
+	req1.Header.Set("X-Forwarded-For", "8.8.8.8")
+	rec1 := httptest.NewRecorder()
+	handler.ServeHTTP(rec1, req1)
+	if rec1.Code != http.StatusOK {
+		t.Fatalf("req 1 expected 200, got %d", rec1.Code)
+	}
+
+	// Attacker changes spoofed header to "X-Forwarded-For: 9.9.9.9" from same real IP 198.51.100.7
+	// Must be REJECTED with 429 because untrusted X-Forwarded-For is ignored!
+	req2 := httptest.NewRequest("GET", "/test", nil)
+	req2.RemoteAddr = "198.51.100.7:1234"
+	req2.Header.Set("X-Forwarded-For", "9.9.9.9")
+	rec2 := httptest.NewRecorder()
+	handler.ServeHTTP(rec2, req2)
+	if rec2.Code != http.StatusTooManyRequests {
+		t.Fatalf("attacker bypassed rate limiter via spoofed X-Forwarded-For! got %d, want 429", rec2.Code)
+	}
+
+	// Case 2: Trusted Proxy (10.0.0.1) forwarding legitimate client IP (203.0.113.195)
+	reqTrusted1 := httptest.NewRequest("GET", "/test", nil)
+	reqTrusted1.RemoteAddr = "10.0.0.1:5555"
+	reqTrusted1.Header.Set("X-Forwarded-For", "203.0.113.195")
+	recTrusted1 := httptest.NewRecorder()
+	handler.ServeHTTP(recTrusted1, reqTrusted1)
+	if recTrusted1.Code != http.StatusOK {
+		t.Fatalf("trusted proxy req 1 expected 200, got %d", recTrusted1.Code)
+	}
+
+	// Second request from same legitimate client 203.0.113.195 through trusted proxy -> 429
+	reqTrusted2 := httptest.NewRequest("GET", "/test", nil)
+	reqTrusted2.RemoteAddr = "10.0.0.1:5555"
+	reqTrusted2.Header.Set("X-Forwarded-For", "203.0.113.195")
+	recTrusted2 := httptest.NewRecorder()
+	handler.ServeHTTP(recTrusted2, reqTrusted2)
+	if recTrusted2.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected 429 for second request from 203.0.113.195, got %d", recTrusted2.Code)
+	}
+}
+
+func TestRateLimit_LeakyBucketDrainsAndRecovers(t *testing.T) {
+	mr := miniredis.RunT(t)
+	mr.SetTime(time.Unix(1_700_000_000, 0))
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = rdb.Close() })
+
+	deps := builtins.SharedDeps{RedisClient: rdb}
+	factory := builtins.NewRateLimitFactory(deps)
+
+	// Capacity: 2, drains at 1 request per second
+	mw, err := factory(map[string]any{
+		"capacity":     2,
+		"rate_per_sec": 1.0,
+		"zone":         "drain-test",
+		"key":          "ip",
+	})
+	if err != nil {
+		t.Fatalf("create mw: %v", err)
+	}
+
+	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	clientIP := "192.168.1.100:1234"
+
+	// 1. Consume 2 tokens
+	for i := 0; i < 2; i++ {
+		req := httptest.NewRequest("GET", "/test", nil)
+		req.RemoteAddr = clientIP
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("req %d expected 200, got %d", i, rec.Code)
+		}
+	}
+
+	// 2. 3rd request is blocked (429)
+	req3 := httptest.NewRequest("GET", "/test", nil)
+	req3.RemoteAddr = clientIP
+	rec3 := httptest.NewRecorder()
+	handler.ServeHTTP(rec3, req3)
+	if rec3.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected 429 when bucket full, got %d", rec3.Code)
+	}
+
+	// 3. Fast-forward time by 1.1 seconds in Redis (leaks 1 slot)
+	mr.SetTime(time.Unix(1_700_000_001, 100_000_000))
+
+	// Now 1 request must be permitted!
+	req4 := httptest.NewRequest("GET", "/test", nil)
+	req4.RemoteAddr = clientIP
+	rec4 := httptest.NewRecorder()
+	handler.ServeHTTP(rec4, req4)
+	if rec4.Code != http.StatusOK {
+		t.Fatalf("expected 200 after 1s bucket drain, got %d", rec4.Code)
+	}
+
+	// But immediate next request fills the drained slot and is 429
+	req5 := httptest.NewRequest("GET", "/test", nil)
+	req5.RemoteAddr = clientIP
+	rec5 := httptest.NewRecorder()
+	handler.ServeHTTP(rec5, req5)
+	if rec5.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected 429 after refilling slot, got %d", rec5.Code)
 	}
 }
