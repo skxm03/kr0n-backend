@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"time"
 
@@ -40,14 +39,37 @@ type UpdateProjectParams struct {
 	ExpectedRevision  int64
 }
 
+// Option configures a ProjectService instance.
+type Option func(*ProjectService)
+
+// WithAuthorizer configures an external Authorizer for RBAC evaluations.
+func WithAuthorizer(a Authorizer) Option {
+	return func(s *ProjectService) {
+		s.authorizer = a
+	}
+}
+
+// WithInstallationVerifier configures an external InstallationVerifier for GitHub installations.
+func WithInstallationVerifier(v InstallationVerifier) Option {
+	return func(s *ProjectService) {
+		s.installationVerifier = v
+	}
+}
+
 // ProjectService orchestrates RBAC authorization, validation, and persistence for Projects & BuildSettings.
 type ProjectService struct {
-	repo repository.ProjectRepository
+	repo                 repository.ProjectRepository
+	authorizer           Authorizer
+	installationVerifier InstallationVerifier
 }
 
 // NewProjectService creates a new ProjectService.
-func NewProjectService(repo repository.ProjectRepository) *ProjectService {
-	return &ProjectService{repo: repo}
+func NewProjectService(repo repository.ProjectRepository, opts ...Option) *ProjectService {
+	s := &ProjectService{repo: repo}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
 // Can checks whether caller principal p holds permission in orgID.
@@ -61,14 +83,10 @@ func (s *ProjectService) Can(ctx context.Context, p domain.Principal, orgID uuid
 		}
 	}
 
-	_, perms, err := s.repo.RolePermissions(ctx, p.UserID, orgID)
-	if err != nil {
-		if errors.Is(err, domain.ErrForbidden) {
-			return false, nil
-		}
-		return false, err
+	if s.authorizer != nil {
+		return s.authorizer.CheckPermission(ctx, p, orgID, permission)
 	}
-	return hasPermission(perms, permission), nil
+	return false, nil
 }
 
 func (s *ProjectService) require(ctx context.Context, p domain.Principal, orgID uuid.UUID, permission string) error {
@@ -130,12 +148,14 @@ func (s *ProjectService) CreateProject(ctx context.Context, p domain.Principal, 
 	if params.GitHubInstallationID <= 0 {
 		return nil, domain.ErrInstallationNotLinked
 	}
-	active, err := s.repo.VerifyActiveOrgInstallation(ctx, params.OrganizationID, params.GitHubInstallationID)
-	if err != nil {
-		return nil, err
-	}
-	if !active {
-		return nil, domain.ErrInstallationNotLinked
+	if s.installationVerifier != nil {
+		active, err := s.installationVerifier.VerifyActiveOrgInstallation(ctx, params.OrganizationID, params.GitHubInstallationID)
+		if err != nil {
+			return nil, err
+		}
+		if !active {
+			return nil, domain.ErrInstallationNotLinked
+		}
 	}
 
 	branch := strings.TrimSpace(params.ProductionBranch)

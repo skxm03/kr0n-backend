@@ -19,6 +19,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net"
 	"net/url"
 	"os"
@@ -39,6 +40,8 @@ import (
 
 	authmigrations "github.com/skxm03/kr0n-backend/control-plane/internal/auth/migrations"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
+	secretsmigrations "github.com/skxm03/kr0n-backend/control-plane/internal/secrets/migrations"
+	smmigrations "github.com/skxm03/kr0n-backend/control-plane/internal/servicemanager/migrations"
 )
 
 const (
@@ -310,41 +313,58 @@ func requireReachable(t testing.TB, raw string) {
 	conn.Close(ctx)
 }
 
-// EnsureLatest migrates dbURL to the latest embedded version and verifies the result. It refuses
-// dirty databases and databases whose version is newer than this code. Callers must have
-// validated dbURL with Validate/URL first.
+// EnsureLatest migrates dbURL to the latest embedded version for all services (auth, servicemanager, secrets)
+// and verifies the result. It refuses dirty databases and databases whose version is newer than this code.
 func EnsureLatest(dbURL string) error {
-	latest, err := database.LatestMigrationVersion(authmigrations.FS)
-	if err != nil {
-		return err
-	}
-	m, closeFn, err := database.NewMigrator(dbURL, authmigrations.FS)
-	if err != nil {
-		return err
-	}
-	defer closeFn()
-
-	version, dirty, err := m.Version()
-	switch {
-	case errors.Is(err, migrate.ErrNilVersion):
-		// fresh database
-	case err != nil:
-		return fmt.Errorf("read migration version: %w", err)
-	case dirty:
-		return fmt.Errorf("test database is at dirty migration version %d; drop and recreate it (e.g. DROP DATABASE kr0n_test; CREATE DATABASE kr0n_test)", version)
-	case version > latest:
-		return fmt.Errorf("test database is at version %d, newer than the latest embedded migration %d; recreate it", version, latest)
+	targets := []struct {
+		name  string
+		fs    fs.FS
+		table string
+	}{
+		{"auth", authmigrations.FS, "schema_migrations_auth"},
+		{"servicemanager", smmigrations.FS, "schema_migrations_servicemanager"},
+		{"secrets", secretsmigrations.FS, "schema_migrations_secrets"},
 	}
 
-	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		return fmt.Errorf("apply migrations: %w", err)
-	}
-	got, dirty, err := m.Version()
-	if err != nil {
-		return fmt.Errorf("verify migration version: %w", err)
-	}
-	if dirty || got != latest {
-		return fmt.Errorf("after migration the version is %d (dirty=%t), want %d", got, dirty, latest)
+	for _, t := range targets {
+		latest, err := database.LatestMigrationVersion(t.fs)
+		if err != nil {
+			return fmt.Errorf("%s latest migration: %w", t.name, err)
+		}
+		m, closeFn, err := database.NewMigratorWithTable(dbURL, t.fs, t.table)
+		if err != nil {
+			return fmt.Errorf("%s migrator: %w", t.name, err)
+		}
+
+		version, dirty, err := m.Version()
+		switch {
+		case errors.Is(err, migrate.ErrNilVersion):
+			// fresh database
+		case err != nil:
+			closeFn()
+			return fmt.Errorf("%s read migration version: %w", t.name, err)
+		case dirty:
+			closeFn()
+			return fmt.Errorf("test database is at dirty %s migration version %d; drop and recreate it", t.name, version)
+		case version > latest:
+			closeFn()
+			return fmt.Errorf("test database is at %s version %d, newer than the latest embedded migration %d; recreate it", t.name, version, latest)
+		}
+
+		if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+			closeFn()
+			return fmt.Errorf("apply %s migrations: %w", t.name, err)
+		}
+		got, dirty, err := m.Version()
+		if err != nil {
+			closeFn()
+			return fmt.Errorf("verify %s migration version: %w", t.name, err)
+		}
+		if dirty || got != latest {
+			closeFn()
+			return fmt.Errorf("after %s migration the version is %d (dirty=%t), want %d", t.name, got, dirty, latest)
+		}
+		closeFn()
 	}
 	return nil
 }

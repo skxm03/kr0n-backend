@@ -15,15 +15,25 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-// NewMigrator builds a golang-migrate instance over the provided migration filesystem.
+// NewMigrator builds a golang-migrate instance over the provided migration filesystem using the default migrations table.
 // The returned func releases the source and database handles.
 func NewMigrator(databaseURL string, migrationsFS fs.FS) (*migrate.Migrate, func(), error) {
+	return NewMigratorWithTable(databaseURL, migrationsFS, "")
+}
+
+// NewMigratorWithTable builds a golang-migrate instance over the provided migration filesystem using a specified migrations table.
+func NewMigratorWithTable(databaseURL string, migrationsFS fs.FS, migrationsTable string) (*migrate.Migrate, func(), error) {
 	db, err := sql.Open("pgx/v5", databaseURL)
 	if err != nil {
 		return nil, nil, fmt.Errorf("open database: %w", err)
 	}
 
-	driver, err := pgxmigrate.WithInstance(db, &pgxmigrate.Config{})
+	cfg := &pgxmigrate.Config{}
+	if migrationsTable != "" {
+		cfg.MigrationsTable = migrationsTable
+	}
+
+	driver, err := pgxmigrate.WithInstance(db, cfg)
 	if err != nil {
 		db.Close()
 		return nil, nil, fmt.Errorf("create pgx migration driver: %w", err)
@@ -84,13 +94,18 @@ func LatestMigrationVersion(migrationsFS fs.FS) (uint, error) {
 }
 
 // RunMigrationCLI executes a migration command ("up", "down", "version", or "force <ver>")
-// against databaseURL using migrationsFS.
+// against databaseURL using migrationsFS and default migrations table.
 func RunMigrationCLI(databaseURL string, migrationsFS fs.FS, args []string) error {
+	return RunMigrationCLIWithTable(databaseURL, migrationsFS, "", args)
+}
+
+// RunMigrationCLIWithTable executes a migration command against databaseURL using migrationsFS and a custom migrations table.
+func RunMigrationCLIWithTable(databaseURL string, migrationsFS fs.FS, migrationsTable string, args []string) error {
 	if len(args) < 1 {
 		return fmt.Errorf("missing migration command (expected: up, down, version, force <ver>)")
 	}
 
-	m, closeFn, err := NewMigrator(databaseURL, migrationsFS)
+	m, closeFn, err := NewMigratorWithTable(databaseURL, migrationsFS, migrationsTable)
 	if err != nil {
 		return fmt.Errorf("initialize migrator: %w", err)
 	}

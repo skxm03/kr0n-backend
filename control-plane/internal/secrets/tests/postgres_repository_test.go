@@ -97,7 +97,14 @@ func TestSecrets_PostgresConcurrencyAndAADTampering(t *testing.T) {
 	}
 
 	repo := repository.NewPostgresSecretsRepository(pool)
-	svc := service.NewSecretsService(repo, km)
+	authorizer := service.NewLocalDBAuthorizer(pool)
+	projectVerifier := service.NewLocalDBProjectVerifier(pool)
+	svc := service.NewSecretsService(
+		repo,
+		km,
+		service.WithAuthorizer(authorizer),
+		service.WithProjectVerifier(projectVerifier),
+	)
 	auditEmitter := pkgAudit.NewMemoryEmitter("secrets")
 	srv := handlers.NewServer(svc, handlers.WithAuditEmitter(auditEmitter))
 

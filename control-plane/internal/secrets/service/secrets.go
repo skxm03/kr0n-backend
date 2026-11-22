@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"strings"
 
 	"github.com/google/uuid"
@@ -16,18 +15,41 @@ import (
 // Compile-time check that SecretsService satisfies resolver.SecretResolver.
 var _ resolver.SecretResolver = (*SecretsService)(nil)
 
-// SecretsService orchestrates RBAC authorization, validation, and envelope encryption for Project Secrets.
-type SecretsService struct {
-	repo       repository.SecretsRepository
-	keyManager *crypto.KeyManager
+// Option configures a SecretsService instance.
+type Option func(*SecretsService)
+
+// WithAuthorizer configures an external Authorizer for RBAC evaluations.
+func WithAuthorizer(a Authorizer) Option {
+	return func(s *SecretsService) {
+		s.authorizer = a
+	}
 }
 
-// NewSecretsService creates a new SecretsService with its isolated Master KEK KeyManager.
-func NewSecretsService(repo repository.SecretsRepository, keyManager *crypto.KeyManager) *SecretsService {
-	return &SecretsService{
+// WithProjectVerifier configures an external ProjectVerifier for project checks.
+func WithProjectVerifier(v ProjectVerifier) Option {
+	return func(s *SecretsService) {
+		s.projectVerifier = v
+	}
+}
+
+// SecretsService orchestrates RBAC authorization, validation, and envelope encryption for Project Secrets.
+type SecretsService struct {
+	repo            repository.SecretsRepository
+	keyManager      *crypto.KeyManager
+	authorizer      Authorizer
+	projectVerifier ProjectVerifier
+}
+
+// NewSecretsService creates a new SecretsService with its isolated Master KEK KeyManager and options.
+func NewSecretsService(repo repository.SecretsRepository, keyManager *crypto.KeyManager, opts ...Option) *SecretsService {
+	s := &SecretsService{
 		repo:       repo,
 		keyManager: keyManager,
 	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
 // Can checks whether caller principal p holds permission in orgID.
@@ -41,14 +63,10 @@ func (s *SecretsService) Can(ctx context.Context, p domain.Principal, orgID uuid
 		}
 	}
 
-	_, perms, err := s.repo.RolePermissions(ctx, p.UserID, orgID)
-	if err != nil {
-		if errors.Is(err, domain.ErrForbidden) {
-			return false, nil
-		}
-		return false, err
+	if s.authorizer != nil {
+		return s.authorizer.CheckPermission(ctx, p, orgID, permission)
 	}
-	return hasPermission(perms, permission), nil
+	return false, nil
 }
 
 func (s *SecretsService) require(ctx context.Context, p domain.Principal, orgID uuid.UUID, permission string) error {
@@ -72,7 +90,7 @@ func hasPermission(perms []string, permission string) bool {
 }
 
 // UpsertEnvVars authorizes caller with `project:update`, validates the environment name and variable batch,
-// and atomically encrypts and upserts the batch into `project_env_vars`.
+// verifies project ownership via ProjectVerifier, and atomically encrypts and upserts the batch into `project_env_vars`.
 // Returns only masked metadata; raw secret values are never returned.
 func (s *SecretsService) UpsertEnvVars(
 	ctx context.Context,
@@ -95,11 +113,21 @@ func (s *SecretsService) UpsertEnvVars(
 	if err != nil {
 		return nil, err
 	}
+	if s.projectVerifier != nil {
+		ok, err := s.projectVerifier.VerifyProject(ctx, orgID, projectID)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, domain.ErrProjectNotFound
+		}
+	}
 	return s.repo.UpsertEnvVars(ctx, orgID, projectID, env, cleaned, s.keyManager)
 }
 
 // ListEnvVars authorizes caller with `project:read`, validates the environment name,
-// and returns masked metadata (`••••••••`) for all stored environment variables without decrypting ciphertext.
+// verifies project ownership via ProjectVerifier, and returns masked metadata (`••••••••`) for all stored
+// environment variables without decrypting ciphertext.
 func (s *SecretsService) ListEnvVars(
 	ctx context.Context,
 	p domain.Principal,
@@ -113,11 +141,20 @@ func (s *SecretsService) ListEnvVars(
 	if err != nil {
 		return nil, err
 	}
+	if s.projectVerifier != nil {
+		ok, err := s.projectVerifier.VerifyProject(ctx, orgID, projectID)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, domain.ErrProjectNotFound
+		}
+	}
 	return s.repo.ListEnvVars(ctx, orgID, projectID, env)
 }
 
 // DeleteEnvVar authorizes caller with `project:update`, validates the environment name and variable key,
-// and permanently deletes the variable from `project_env_vars`.
+// verifies project ownership via ProjectVerifier, and permanently deletes the variable from `project_env_vars`.
 func (s *SecretsService) DeleteEnvVar(
 	ctx context.Context,
 	p domain.Principal,
@@ -134,6 +171,15 @@ func (s *SecretsService) DeleteEnvVar(
 	key := strings.TrimSpace(rawKey)
 	if key == "" {
 		return domain.ErrInvalidEnvVarKey
+	}
+	if s.projectVerifier != nil {
+		ok, err := s.projectVerifier.VerifyProject(ctx, orgID, projectID)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return domain.ErrProjectNotFound
+		}
 	}
 	return s.repo.DeleteEnvVar(ctx, orgID, projectID, env, key)
 }
@@ -153,6 +199,15 @@ func (s *SecretsService) ResolveProjectSecrets(
 	env, err := domain.NormalizeEnvironment(rawEnvironment)
 	if err != nil {
 		return nil, err
+	}
+	if s.projectVerifier != nil {
+		ok, err := s.projectVerifier.ProjectExists(ctx, projectID)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, domain.ErrProjectNotFound
+		}
 	}
 	return s.repo.ResolvePlaintextSecrets(ctx, projectID, env, s.keyManager)
 }

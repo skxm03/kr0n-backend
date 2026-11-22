@@ -69,7 +69,14 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 	}
 
 	secretsRepo := repository.NewPostgresSecretsRepository(dbPool)
-	secretsSvc := service.NewSecretsService(secretsRepo, keyManager)
+	authorizer := service.NewLocalDBAuthorizer(dbPool)
+	projectVerifier := service.NewLocalDBProjectVerifier(dbPool)
+	secretsSvc := service.NewSecretsService(
+		secretsRepo,
+		keyManager,
+		service.WithAuthorizer(authorizer),
+		service.WithProjectVerifier(projectVerifier),
+	)
 	grpcHandler := handlers.NewServer(secretsSvc, handlers.WithAuditEmitter(auditEmitter))
 
 	isDev := cfg.Env == "dev" || cfg.Env == "development"

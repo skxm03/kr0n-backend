@@ -1,2 +1,0 @@
-DROP TABLE IF EXISTS project_env_vars CASCADE;
-DROP TABLE IF EXISTS project_keys CASCADE;

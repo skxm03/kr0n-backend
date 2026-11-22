@@ -14,6 +14,8 @@ import (
 
 	authmigrations "github.com/skxm03/kr0n-backend/control-plane/internal/auth/migrations"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
+	secretsmigrations "github.com/skxm03/kr0n-backend/control-plane/internal/secrets/migrations"
+	smmigrations "github.com/skxm03/kr0n-backend/control-plane/internal/servicemanager/migrations"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/testdb"
 )
 
@@ -315,4 +317,31 @@ func TestMigrationsLifecycle(t *testing.T) {
 
 func contains(s, substr string) bool {
 	return strings.Contains(s, substr)
+}
+
+func TestModularMigrationVersions(t *testing.T) {
+	// Verify that each microservice's embedded migrations filesystem parses and reports its expected latest version.
+	authVer, err := database.LatestMigrationVersion(authmigrations.FS)
+	if err != nil {
+		t.Fatalf("authmigrations: %v", err)
+	}
+	if authVer != 5 {
+		t.Errorf("expected auth latest migration version 5, got %d", authVer)
+	}
+
+	smVer, err := database.LatestMigrationVersion(smmigrations.FS)
+	if err != nil {
+		t.Fatalf("smmigrations: %v", err)
+	}
+	if smVer != 2 {
+		t.Errorf("expected servicemanager latest migration version 2, got %d", smVer)
+	}
+
+	secVer, err := database.LatestMigrationVersion(secretsmigrations.FS)
+	if err != nil {
+		t.Fatalf("secretsmigrations: %v", err)
+	}
+	if secVer != 1 {
+		t.Errorf("expected secrets latest migration version 1, got %d", secVer)
+	}
 }

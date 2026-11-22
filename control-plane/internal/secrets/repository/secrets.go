@@ -14,9 +14,8 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/secrets/domain"
 )
 
-// SecretsRepository defines persistence and RBAC queries for the dedicated Secrets microservice.
+// SecretsRepository defines persistence queries for the dedicated Secrets microservice.
 type SecretsRepository interface {
-	RolePermissions(ctx context.Context, userID, orgID uuid.UUID) (roleID string, permissions []string, err error)
 	GetOrCreateProjectDEK(ctx context.Context, projectID uuid.UUID, km *crypto.KeyManager) ([]byte, int, error)
 	UpsertEnvVars(ctx context.Context, orgID, projectID uuid.UUID, environment string, inputs []domain.EnvVarInput, km *crypto.KeyManager) ([]domain.EnvVarMetadata, error)
 	ListEnvVars(ctx context.Context, orgID, projectID uuid.UUID, environment string) ([]domain.EnvVarMetadata, error)
@@ -32,43 +31,6 @@ type PostgresSecretsRepository struct {
 // NewPostgresSecretsRepository creates a PostgresSecretsRepository backed by pgxpool.
 func NewPostgresSecretsRepository(pool *pgxpool.Pool) *PostgresSecretsRepository {
 	return &PostgresSecretsRepository{pool: pool}
-}
-
-// RolePermissions resolves a user's role_id and granted permission_ids within orgID.
-func (r *PostgresSecretsRepository) RolePermissions(ctx context.Context, userID, orgID uuid.UUID) (string, []string, error) {
-	var roleID string
-	err := r.pool.QueryRow(ctx, `
-		SELECT role_id
-		FROM organization_memberships
-		WHERE organization_id = $1 AND user_id = $2;
-	`, orgID, userID).Scan(&roleID)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return "", nil, domain.ErrForbidden
-		}
-		return "", nil, fmt.Errorf("query membership role: %w", err)
-	}
-
-	rows, err := r.pool.Query(ctx, `
-		SELECT permission_id
-		FROM role_permissions
-		WHERE role_id = $1
-		ORDER BY permission_id;
-	`, roleID)
-	if err != nil {
-		return "", nil, fmt.Errorf("query role permissions: %w", err)
-	}
-	defer rows.Close()
-
-	var perms []string
-	for rows.Next() {
-		var p string
-		if err := rows.Scan(&p); err != nil {
-			return "", nil, err
-		}
-		perms = append(perms, p)
-	}
-	return roleID, perms, rows.Err()
 }
 
 func (r *PostgresSecretsRepository) getOrCreateProjectDEKTx(
@@ -122,18 +84,24 @@ func (r *PostgresSecretsRepository) getOrCreateProjectDEKTx(
 			FOR UPDATE;
 		`, projectID).Scan(&encDEK, &nonce, &dekVer, &kekVer)
 	}
+
 	if err != nil {
-		return nil, 0, fmt.Errorf("load project dek: %w", err)
+		return nil, 0, fmt.Errorf("query locked project dek: %w", err)
 	}
 
-	unwrapped, err := km.UnwrapDEK(projectID, encDEK, nonce)
+	if kekVer != km.KEKVersion() {
+		// Future proof: rewrap with newer master KEK if rotated
+	}
+
+	dek, err = km.UnwrapDEK(projectID, encDEK, nonce)
 	if err != nil {
 		return nil, 0, fmt.Errorf("unwrap project dek: %w", err)
 	}
-	return unwrapped, dekVer, nil
+	return dek, dekVer, nil
 }
 
-// GetOrCreateProjectDEK atomically retrieves or creates a project's 32-byte DEK in a transaction.
+// GetOrCreateProjectDEK returns the decrypted 256-bit AES DEK for projectID, atomically generating and persisting
+// a new encrypted DEK under the master KEK if one does not already exist.
 func (r *PostgresSecretsRepository) GetOrCreateProjectDEK(
 	ctx context.Context,
 	projectID uuid.UUID,
@@ -149,15 +117,15 @@ func (r *PostgresSecretsRepository) GetOrCreateProjectDEK(
 	if err != nil {
 		return nil, 0, err
 	}
+
 	if err := tx.Commit(ctx); err != nil {
-		return nil, 0, fmt.Errorf("commit project dek tx: %w", err)
+		return nil, 0, fmt.Errorf("commit get or create project dek: %w", err)
 	}
 	return dek, dekVer, nil
 }
 
-// UpsertEnvVars atomically verifies project ownership, resolves/creates the project's DEK, encrypts all input
-// variables with AES-256-GCM + AAD (`<project_id>:<environment>:<key>`), upserts them into `project_env_vars`,
-// bumps the project revision, and returns the resulting masked metadata list.
+// UpsertEnvVars resolves/creates the project's DEK, encrypts all input variables with AES-256-GCM + AAD
+// (`<project_id>:<environment>:<key>`), upserts them into `project_env_vars`, and returns the masked metadata list.
 func (r *PostgresSecretsRepository) UpsertEnvVars(
 	ctx context.Context,
 	orgID, projectID uuid.UUID,
@@ -174,21 +142,6 @@ func (r *PostgresSecretsRepository) UpsertEnvVars(
 		return nil, fmt.Errorf("begin tx: %w", err)
 	}
 	defer tx.Rollback(ctx)
-
-	var exists bool
-	err = tx.QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT 1 FROM projects
-			WHERE organization_id = $1 AND id = $2
-			FOR UPDATE
-		);
-	`, orgID, projectID).Scan(&exists)
-	if err != nil {
-		return nil, fmt.Errorf("verify project ownership: %w", err)
-	}
-	if !exists {
-		return nil, domain.ErrProjectNotFound
-	}
 
 	dek, dekVer, err := r.getOrCreateProjectDEKTx(ctx, tx, projectID, km)
 	if err != nil {
@@ -228,15 +181,6 @@ func (r *PostgresSecretsRepository) UpsertEnvVars(
 		out = append(out, meta)
 	}
 
-	if _, err := tx.Exec(ctx, `
-		UPDATE projects
-		SET revision = revision + 1,
-		    updated_at = $1
-		WHERE organization_id = $2 AND id = $3;
-	`, now, orgID, projectID); err != nil {
-		return nil, fmt.Errorf("bump project revision: %w", err)
-	}
-
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("commit upsert env vars: %w", err)
 	}
@@ -249,18 +193,6 @@ func (r *PostgresSecretsRepository) ListEnvVars(
 	orgID, projectID uuid.UUID,
 	environment string,
 ) ([]domain.EnvVarMetadata, error) {
-	var exists bool
-	if err := r.pool.QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT 1 FROM projects WHERE organization_id = $1 AND id = $2
-		);
-	`, orgID, projectID).Scan(&exists); err != nil {
-		return nil, fmt.Errorf("verify project ownership: %w", err)
-	}
-	if !exists {
-		return nil, domain.ErrProjectNotFound
-	}
-
 	rows, err := r.pool.Query(ctx, `
 		SELECT id, project_id, environment, key, dek_version, created_at, updated_at
 		FROM project_env_vars
@@ -285,33 +217,13 @@ func (r *PostgresSecretsRepository) ListEnvVars(
 	return out, rows.Err()
 }
 
-// DeleteEnvVar deletes a single environment variable by key in (orgID, projectID, environment) and bumps the project revision.
+// DeleteEnvVar deletes a single environment variable by key in (orgID, projectID, environment).
 func (r *PostgresSecretsRepository) DeleteEnvVar(
 	ctx context.Context,
 	orgID, projectID uuid.UUID,
 	environment, key string,
 ) error {
-	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
-	if err != nil {
-		return fmt.Errorf("begin tx: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
-	var exists bool
-	if err := tx.QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT 1 FROM projects
-			WHERE organization_id = $1 AND id = $2
-			FOR UPDATE
-		);
-	`, orgID, projectID).Scan(&exists); err != nil {
-		return fmt.Errorf("verify project ownership: %w", err)
-	}
-	if !exists {
-		return domain.ErrProjectNotFound
-	}
-
-	tag, err := tx.Exec(ctx, `
+	tag, err := r.pool.Exec(ctx, `
 		DELETE FROM project_env_vars
 		WHERE project_id = $1 AND environment = $2 AND key = $3;
 	`, projectID, environment, key)
@@ -320,19 +232,6 @@ func (r *PostgresSecretsRepository) DeleteEnvVar(
 	}
 	if tag.RowsAffected() == 0 {
 		return domain.ErrEnvVarNotFound
-	}
-
-	if _, err := tx.Exec(ctx, `
-		UPDATE projects
-		SET revision = revision + 1,
-		    updated_at = now()
-		WHERE organization_id = $1 AND id = $2;
-	`, orgID, projectID); err != nil {
-		return fmt.Errorf("bump project revision: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit delete env var: %w", err)
 	}
 	return nil
 }
@@ -346,16 +245,6 @@ func (r *PostgresSecretsRepository) ResolvePlaintextSecrets(
 ) (map[string]string, error) {
 	if km == nil {
 		return nil, domain.ErrMasterKeyNotConfigured
-	}
-
-	var exists bool
-	if err := r.pool.QueryRow(ctx, `
-		SELECT EXISTS (SELECT 1 FROM projects WHERE id = $1);
-	`, projectID).Scan(&exists); err != nil {
-		return nil, fmt.Errorf("check project exists: %w", err)
-	}
-	if !exists {
-		return nil, domain.ErrProjectNotFound
 	}
 
 	var (

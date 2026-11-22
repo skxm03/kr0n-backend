@@ -92,7 +92,13 @@ func TestServiceManager_EndToEndWithPostgresAndAudit(t *testing.T) {
 	}
 
 	repo := repository.NewPostgresProjectRepository(pool)
-	svc := service.NewProjectService(repo)
+	authorizer := service.NewLocalDBAuthorizer(pool)
+	instVerifier := service.NewLocalDBInstallationVerifier(pool)
+	svc := service.NewProjectService(
+		repo,
+		service.WithAuthorizer(authorizer),
+		service.WithInstallationVerifier(instVerifier),
+	)
 	auditEmitter := pkgAudit.NewMemoryEmitter("servicemanager")
 	srv := handlers.NewServer(svc, handlers.WithAuditEmitter(auditEmitter))
 

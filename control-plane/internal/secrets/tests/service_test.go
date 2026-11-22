@@ -43,14 +43,33 @@ func newMemorySecretsRepo() *memorySecretsRepo {
 	}
 }
 
-func (m *memorySecretsRepo) RolePermissions(_ context.Context, userID, _ uuid.UUID) (string, []string, error) {
+func (m *memorySecretsRepo) CheckPermission(_ context.Context, p domain.Principal, _ uuid.UUID, permission string) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	role, ok := m.roles[userID]
+	role, ok := m.roles[p.UserID]
 	if !ok {
-		return "", nil, domain.ErrForbidden
+		return false, nil
 	}
-	return role, m.perms[role], nil
+	for _, perm := range m.perms[role] {
+		if perm == permission {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (m *memorySecretsRepo) VerifyProject(_ context.Context, orgID, projectID uuid.UUID) (bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	ownerOrg, ok := m.projects[projectID]
+	return ok && ownerOrg == orgID, nil
+}
+
+func (m *memorySecretsRepo) ProjectExists(_ context.Context, projectID uuid.UUID) (bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	_, ok := m.projects[projectID]
+	return ok, nil
 }
 
 func (m *memorySecretsRepo) GetOrCreateProjectDEK(_ context.Context, projectID uuid.UUID, km *crypto.KeyManager) ([]byte, int, error) {
@@ -233,7 +252,12 @@ func TestSecretsServiceAndHandlers_LifecycleAndAADTampering(t *testing.T) {
 		t.Fatalf("NewKeyManager: %v", err)
 	}
 
-	svc := service.NewSecretsService(repo, km)
+	svc := service.NewSecretsService(
+		repo,
+		km,
+		service.WithAuthorizer(repo),
+		service.WithProjectVerifier(repo),
+	)
 	auditEmitter := pkgAudit.NewMemoryEmitter("secrets")
 	srv := handlers.NewServer(svc, handlers.WithAuditEmitter(auditEmitter))
 

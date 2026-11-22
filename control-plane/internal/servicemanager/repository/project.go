@@ -28,11 +28,8 @@ type UpdateProjectMutation struct {
 	UpdatedAt         time.Time
 }
 
-// ProjectRepository defines persistence and RBAC queries for projects and their 1:1 build settings.
+// ProjectRepository defines persistence queries for projects and their 1:1 build settings.
 type ProjectRepository interface {
-	RolePermissions(ctx context.Context, userID, orgID uuid.UUID) (roleID string, permissions []string, err error)
-	VerifyActiveOrgInstallation(ctx context.Context, orgID uuid.UUID, installationID int64) (bool, error)
-
 	CreateProject(ctx context.Context, p *domain.Project) (*domain.Project, error)
 	GetProject(ctx context.Context, orgID, projectID uuid.UUID) (*domain.Project, error)
 	ListProjects(ctx context.Context, orgID uuid.UUID, limit, offset int) ([]domain.Project, error)
@@ -49,61 +46,6 @@ type PostgresProjectRepository struct {
 // NewPostgresProjectRepository creates a PostgresProjectRepository backed by pgxpool.
 func NewPostgresProjectRepository(pool *pgxpool.Pool) *PostgresProjectRepository {
 	return &PostgresProjectRepository{pool: pool}
-}
-
-// RolePermissions resolves a user's role_id and granted permission_ids within orgID.
-func (r *PostgresProjectRepository) RolePermissions(ctx context.Context, userID, orgID uuid.UUID) (string, []string, error) {
-	var roleID string
-	err := r.pool.QueryRow(ctx, `
-		SELECT role_id
-		FROM organization_memberships
-		WHERE organization_id = $1 AND user_id = $2;
-	`, orgID, userID).Scan(&roleID)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return "", nil, domain.ErrForbidden
-		}
-		return "", nil, fmt.Errorf("query membership role: %w", err)
-	}
-
-	rows, err := r.pool.Query(ctx, `
-		SELECT permission_id
-		FROM role_permissions
-		WHERE role_id = $1
-		ORDER BY permission_id;
-	`, roleID)
-	if err != nil {
-		return "", nil, fmt.Errorf("query role permissions: %w", err)
-	}
-	defer rows.Close()
-
-	var perms []string
-	for rows.Next() {
-		var p string
-		if err := rows.Scan(&p); err != nil {
-			return "", nil, err
-		}
-		perms = append(perms, p)
-	}
-	return roleID, perms, rows.Err()
-}
-
-// VerifyActiveOrgInstallation checks that installationID is linked to orgID and has status = 'active'.
-func (r *PostgresProjectRepository) VerifyActiveOrgInstallation(ctx context.Context, orgID uuid.UUID, installationID int64) (bool, error) {
-	var exists bool
-	err := r.pool.QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT 1
-			FROM github_installations
-			WHERE organization_id = $1
-			  AND installation_id = $2
-			  AND status = 'active'
-		);
-	`, orgID, installationID).Scan(&exists)
-	if err != nil {
-		return false, fmt.Errorf("verify active github installation: %w", err)
-	}
-	return exists, nil
 }
 
 // CreateProject inserts a new row into `projects` (revision = 1) and its 1:1 row into `project_build_settings` atomically.
