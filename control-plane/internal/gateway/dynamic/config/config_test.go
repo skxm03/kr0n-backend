@@ -193,3 +193,174 @@ services:
 		t.Fatalf("expected billing address from BILLING_GRPC_ADDR, got %q", got)
 	}
 }
+
+type mockCatalog struct {
+	services map[string][]RouteDescriptor
+}
+
+func (m *mockCatalog) HasService(name string) bool {
+	_, ok := m.services[name]
+	return ok
+}
+
+func (m *mockCatalog) GetServiceEndpoints(name string) ([]RouteDescriptor, bool) {
+	eps, ok := m.services[name]
+	return eps, ok
+}
+
+func TestValidateWithCatalog_UnknownService(t *testing.T) {
+	cat := &mockCatalog{
+		services: map[string][]RouteDescriptor{
+			"auth": {{Method: "POST", Path: "/api/v1/auth/login"}},
+		},
+	}
+
+	yamlData := `
+services:
+  billing:
+    address: "localhost:50059"
+    enabled: true
+`
+	cfg, err := LoadConfig([]byte(yamlData))
+	if err != nil {
+		t.Fatalf("LoadConfig error: %v", err)
+	}
+
+	err = ValidateWithCatalog(cfg, cat)
+	if err == nil {
+		t.Fatalf("expected error for unregistered service 'billing', got nil")
+	}
+}
+
+func TestValidateWithCatalog_AutoMountCollision(t *testing.T) {
+	cat := &mockCatalog{
+		services: map[string][]RouteDescriptor{
+			"auth": {
+				{Method: "POST", Path: "/api/v1/conflict"},
+			},
+			"billing": {
+				{Method: "POST", Path: "/api/v1/conflict"},
+			},
+		},
+	}
+
+	yamlData := `
+services:
+  auth:
+    address: "localhost:50051"
+    auto_mount: true
+  billing:
+    address: "localhost:50052"
+    auto_mount: true
+`
+	cfg, err := LoadConfig([]byte(yamlData))
+	if err != nil {
+		t.Fatalf("LoadConfig error: %v", err)
+	}
+
+	err = ValidateWithCatalog(cfg, cat)
+	if err == nil {
+		t.Fatalf("expected collision error for auto-mounted /api/v1/conflict, got nil")
+	}
+}
+
+func TestValidateWithCatalog_GroupExactMatchTypo(t *testing.T) {
+	cat := &mockCatalog{
+		services: map[string][]RouteDescriptor{
+			"auth": {
+				{Method: "GET", Path: "/api/v1/auth/github/callback"},
+			},
+		},
+	}
+
+	yamlData := `
+middleware_profiles:
+  public_api: []
+
+services:
+  auth:
+    address: "localhost:50051"
+    groups:
+      callback_group:
+        match:
+          - path: "/api/v1/auth/githbub/callback" # deliberate typo
+            type: "exact"
+            methods: ["GET"]
+        use:
+          - public_api
+`
+	cfg, err := LoadConfig([]byte(yamlData))
+	if err != nil {
+		t.Fatalf("LoadConfig error: %v", err)
+	}
+
+	err = ValidateWithCatalog(cfg, cat)
+	if err == nil {
+		t.Fatalf("expected error catching misspelled exact match path in group rule, got nil")
+	}
+}
+
+func TestValidateWithCatalog_ExplicitEndpointUndeclared(t *testing.T) {
+	cat := &mockCatalog{
+		services: map[string][]RouteDescriptor{
+			"auth": {
+				{Method: "POST", Path: "/api/v1/auth/login"},
+			},
+		},
+	}
+
+	yamlData := `
+services:
+  auth:
+    address: "localhost:50051"
+    endpoints:
+      - method: "GET"
+        path: "/api/v1/auth/nonexistent"
+`
+	cfg, err := LoadConfig([]byte(yamlData))
+	if err != nil {
+		t.Fatalf("LoadConfig error: %v", err)
+	}
+
+	err = ValidateWithCatalog(cfg, cat)
+	if err == nil {
+		t.Fatalf("expected error for undeclared explicit endpoint /api/v1/auth/nonexistent, got nil")
+	}
+}
+
+func TestValidateWithCatalog_ValidConfigPasses(t *testing.T) {
+	cat := &mockCatalog{
+		services: map[string][]RouteDescriptor{
+			"auth": {
+				{Method: "POST", Path: "/api/v1/auth/login"},
+				{Method: "GET", Path: "/api/v1/auth/github/callback"},
+			},
+		},
+	}
+
+	yamlData := `
+middleware_profiles:
+  public_api: []
+
+services:
+  auth:
+    address: "localhost:50051"
+    groups:
+      callback_group:
+        match:
+          - path: "/api/v1/auth/github/callback"
+            type: "exact"
+            methods: ["GET"]
+        use:
+          - public_api
+`
+	cfg, err := LoadConfig([]byte(yamlData))
+	if err != nil {
+		t.Fatalf("LoadConfig error: %v", err)
+	}
+
+	err = ValidateWithCatalog(cfg, cat)
+	if err != nil {
+		t.Fatalf("expected valid config with catalog to pass, got: %v", err)
+	}
+}

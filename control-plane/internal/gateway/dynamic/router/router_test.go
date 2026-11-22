@@ -388,3 +388,87 @@ func TestBuildSnapshot_AutoMount_DefaultEndpoints(t *testing.T) {
 		t.Errorf("expected Location with installation_id=999, got %q", loc)
 	}
 }
+
+func TestBuildSnapshot_DeclarativeRedirects(t *testing.T) {
+	t.Setenv("FRONTEND_URL", "https://kr0n.dev")
+
+	cfg := &config.GatewayConfig{
+		Gateway: config.ServerConfig{
+			Redirects: []config.RedirectConfig{
+				{Path: "/app/callback", Target: "/app/callback"},
+				{Path: "/custom-login", Target: "/login"},
+			},
+		},
+		Services: map[string]config.ServiceConfig{},
+	}
+
+	snap, err := BuildSnapshot(context.Background(), cfg, SnapshotOptions{
+		Registry:           registry.NewRegistry(),
+		MiddlewareRegistry: middleware.NewRegistry(),
+		Dialer: func(svc config.ServiceConfig) (*grpc.ClientConn, error) {
+			return nil, nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("failed to build snapshot: %v", err)
+	}
+	defer func() {
+		snap.Retire()
+		snap.WaitAndClose(time.Second)
+	}()
+
+	// 1. First declarative redirect with query parameters
+	rec1 := httptest.NewRecorder()
+	snap.Router().ServeHTTP(rec1, httptest.NewRequest("GET", "/app/callback?org=acme&env=prod", nil))
+	if rec1.Code != http.StatusFound {
+		t.Fatalf("expected 302 Found, got %d", rec1.Code)
+	}
+	if loc := rec1.Header().Get("Location"); loc != "https://kr0n.dev/app/callback?org=acme&env=prod" {
+		t.Fatalf("unexpected Location: %q", loc)
+	}
+
+	// 2. Second declarative redirect
+	rec2 := httptest.NewRecorder()
+	snap.Router().ServeHTTP(rec2, httptest.NewRequest("GET", "/custom-login", nil))
+	if rec2.Code != http.StatusFound {
+		t.Fatalf("expected 302 Found, got %d", rec2.Code)
+	}
+	if loc := rec2.Header().Get("Location"); loc != "https://kr0n.dev/login" {
+		t.Fatalf("unexpected Location: %q", loc)
+	}
+}
+
+func TestBuildSnapshot_ValidateWithCatalog_RejectsMisconfiguredRoute(t *testing.T) {
+	// Group match has a misspelled route that does not exist in auth.proto
+	cfg := &config.GatewayConfig{
+		Gateway: config.ServerConfig{
+			HTTPAddr: ":8080",
+		},
+		MiddlewareProfiles: map[string][]middleware.MiddlewareItem{
+			"public_api": {},
+		},
+		Services: map[string]config.ServiceConfig{
+			"auth": {
+				Address: "localhost:50051",
+				Groups: map[string]config.GroupConfig{
+					"misspelled_group": {
+						Match: []config.MatchRule{
+							{Path: "/api/v1/auth/spelled_wrong", Type: "exact", Methods: []string{"POST"}},
+						},
+						Use: []string{"public_api"},
+					},
+				},
+			},
+		},
+	}
+
+	_, err := BuildSnapshot(context.Background(), cfg, SnapshotOptions{
+		Registry: registry.DefaultRegistry(),
+		Dialer: func(svc config.ServiceConfig) (*grpc.ClientConn, error) {
+			return nil, nil
+		},
+	})
+	if err == nil {
+		t.Fatalf("expected BuildSnapshot to reject misconfigured route with validation error, got nil")
+	}
+}

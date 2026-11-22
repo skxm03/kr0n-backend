@@ -427,3 +427,137 @@ func TestRateLimit_LeakyBucketDrainsAndRecovers(t *testing.T) {
 		t.Fatalf("expected 429 after refilling slot, got %d", rec5.Code)
 	}
 }
+
+func TestRateLimit_MemoryLimiter_EvictsDrainedBuckets(t *testing.T) {
+	// In-memory limiter with capacity 2 and high leak rate (drain in ~100ms)
+	factory := builtins.NewRateLimitFactory(builtins.SharedDeps{})
+
+	mw, err := factory(map[string]any{
+		"capacity":     2,
+		"rate_per_sec": 20.0, // Drains in 100ms
+		"zone":         "mem_evict_test",
+		"key":          "ip",
+	})
+	if err != nil {
+		t.Fatalf("create memory mw: %v", err)
+	}
+
+	okHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	h := mw(okHandler)
+
+	// Send requests across 20 distinct IPs
+	for i := 1; i <= 20; i++ {
+		req := httptest.NewRequest("GET", "/test", nil)
+		req.RemoteAddr = net.JoinHostPort(net.IPv4(10, 0, 0, byte(i)).String(), "12345")
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200 for ip %d, got %d", i, rec.Code)
+		}
+	}
+
+	// Wait for buckets to fully drain (150ms > 100ms)
+	time.Sleep(150 * time.Millisecond)
+
+	// Next request triggers lazy sweep
+	req21 := httptest.NewRequest("GET", "/test", nil)
+	req21.RemoteAddr = "10.0.1.1:12345"
+	rec21 := httptest.NewRecorder()
+	h.ServeHTTP(rec21, req21)
+	if rec21.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec21.Code)
+	}
+}
+
+func TestRateLimit_TwoTierDefense_UnauthenticatedBlockedAtPerimeter(t *testing.T) {
+	// Outer IP rate limiter (capacity 2) -> Authentication -> Inner user rate limiter (capacity 10)
+	mr := miniredis.RunT(t)
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = rdb.Close() })
+
+	deps := builtins.SharedDeps{RedisClient: rdb}
+	factory := builtins.NewRateLimitFactory(deps)
+
+	outerIPMw, err := factory(map[string]any{
+		"requests": 2,
+		"window":   "1m",
+		"zone":     "perimeter_ip",
+		"key":      "ip",
+	})
+	if err != nil {
+		t.Fatalf("create outer limiter: %v", err)
+	}
+
+	innerUserMw, err := factory(map[string]any{
+		"requests": 10,
+		"window":   "1m",
+		"zone":     "inner_user",
+		"key":      "user",
+	})
+	if err != nil {
+		t.Fatalf("create inner limiter: %v", err)
+	}
+
+	authCallCount := 0
+	authMw := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			authCallCount++
+			p, ok := middleware.PrincipalFromContext(r.Context())
+			if !ok || p == nil || p.UserID == "" {
+				http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+
+	endpoint := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	// Pipeline: Outer IP Limiter -> Auth -> Inner User Limiter -> Endpoint
+	chain := middleware.BuildHandler(endpoint, []middleware.Middleware{
+		outerIPMw,
+		authMw,
+		innerUserMw,
+	})
+
+	clientIP := "198.51.100.55:54321"
+
+	// 1. First unauthenticated request passes outer IP limiter, but fails at auth (401)
+	req1 := httptest.NewRequest("GET", "/api/v1/protected", nil)
+	req1.RemoteAddr = clientIP
+	rec1 := httptest.NewRecorder()
+	chain.ServeHTTP(rec1, req1)
+	if rec1.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", rec1.Code)
+	}
+
+	// 2. Second unauthenticated request passes outer IP limiter, fails at auth (401)
+	req2 := httptest.NewRequest("GET", "/api/v1/protected", nil)
+	req2.RemoteAddr = clientIP
+	rec2 := httptest.NewRecorder()
+	chain.ServeHTTP(rec2, req2)
+	if rec2.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", rec2.Code)
+	}
+	if authCallCount != 2 {
+		t.Fatalf("expected auth called twice, got %d", authCallCount)
+	}
+
+	// 3. Third unauthenticated request exceeds outer IP limit (capacity 2 exhausted)
+	// IT MUST BE BLOCKED BY 429 TOO MANY REQUESTS BEFORE EVEN REACHING AUTH!
+	req3 := httptest.NewRequest("GET", "/api/v1/protected", nil)
+	req3.RemoteAddr = clientIP
+	rec3 := httptest.NewRecorder()
+	chain.ServeHTTP(rec3, req3)
+	if rec3.Code != http.StatusTooManyRequests {
+		t.Fatalf("security violation: expected 429 Too Many Requests from outer IP limiter, got %d", rec3.Code)
+	}
+	// Auth must NOT have been called for the 3rd request!
+	if authCallCount != 2 {
+		t.Fatalf("auth should not be invoked when throttled at perimeter, expected 2 calls, got %d", authCallCount)
+	}
+}

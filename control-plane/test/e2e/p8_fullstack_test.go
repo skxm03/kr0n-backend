@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/handlers"
@@ -26,6 +27,7 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/email"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/middleware/builtins"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/ratelimit"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/testdb"
 )
@@ -137,7 +139,10 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 	go func() { _ = grpcServer.Serve(grpcLis) }()
 	defer grpcServer.GracefulStop()
 
-	authConn, err := gateway.DialUpstream(grpcLis.Addr().String(), gateway.DialUpstreamTLSConfig{Insecure: true}, "")
+	authConn, err := grpc.NewClient(grpcLis.Addr().String(),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithChainUnaryInterceptor(gateway.PassportUnaryClientInterceptor()),
+	)
 	if err != nil {
 		t.Fatalf("dial gRPC: %v", err)
 	}
@@ -170,7 +175,10 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 	_ = authLimiter
 	_ = verifier
 
-	srvHandler, err := newE2ETestRouter(authConn)
+	srvHandler, err := newE2ETestRouter(authConn, builtins.SharedDeps{
+		Verifier:         verifier,
+		APITokenVerifier: gateway.NewGRPCAPITokenVerifier(authClient),
+	})
 	if err != nil {
 		t.Fatalf("dynamic router: %v", err)
 	}
@@ -237,7 +245,7 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("password-reset/request: %d %s", resp.StatusCode, string(raw))
 	}
-	msg, ok := waitForLastMessage(emailSender, 2*time.Second)
+	msg, ok := waitForEmailForRecipient(emailSender, emailAddr, email.TemplatePasswordReset, 3*time.Second)
 	if !ok || msg.RawToken == "" {
 		t.Fatal("expected password reset token in email")
 	}

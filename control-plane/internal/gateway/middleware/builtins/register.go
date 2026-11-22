@@ -22,6 +22,7 @@ func RegisterDefaults(reg *middleware.Registry, deps SharedDeps) error {
 		"audit_log":          NewAuditLogFactory(deps),
 		"request_validation": NewRequestValidationFactory(deps),
 		"timeout":            NewTimeoutFactory(),
+		"github_app_callback": NewGitHubAppCallbackFactory(),
 	}
 
 	for name, factory := range factories {

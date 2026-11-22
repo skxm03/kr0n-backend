@@ -4,10 +4,8 @@ import (
 	"context"
 	"net"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"google.golang.org/grpc/metadata"
@@ -16,59 +14,20 @@ import (
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/middleware"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/oauth"
 )
 
 const (
-	AccessTokenCookieName  = "access_token"
-	RefreshTokenCookieName = "refresh_token"
+	AccessTokenCookieName  = oauth.AccessTokenCookieName
+	RefreshTokenCookieName = oauth.RefreshTokenCookieName
 )
 
 // SetAuthCookies writes HttpOnly, SameSite cookies for access_token and refresh_token,
 // ensuring tokens are never exposed in JavaScript or HTTP response bodies (mitigating XSS).
-func SetAuthCookies(w http.ResponseWriter, accessToken, refreshToken string) {
-	if accessToken != "" {
-		http.SetCookie(w, &http.Cookie{
-			Name:     AccessTokenCookieName,
-			Value:    accessToken,
-			Path:     "/",
-			HttpOnly: true,
-			SameSite: http.SameSiteLaxMode,
-			MaxAge:   900, // 15 minutes default
-		})
-	}
-	if refreshToken != "" {
-		http.SetCookie(w, &http.Cookie{
-			Name:     RefreshTokenCookieName,
-			Value:    refreshToken,
-			Path:     "/",
-			HttpOnly: true,
-			SameSite: http.SameSiteLaxMode,
-			MaxAge:   30 * 24 * 3600, // 30 days
-		})
-	}
-}
+var SetAuthCookies = oauth.SetAuthCookies
 
 // ClearAuthCookies invalidates access_token and refresh_token cookies upon logout.
-func ClearAuthCookies(w http.ResponseWriter) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     AccessTokenCookieName,
-		Value:    "",
-		Path:     "/",
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   -1,
-		Expires:  time.Unix(0, 0),
-	})
-	http.SetCookie(w, &http.Cookie{
-		Name:     RefreshTokenCookieName,
-		Value:    "",
-		Path:     "/",
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   -1,
-		Expires:  time.Unix(0, 0),
-	})
-}
+var ClearAuthCookies = oauth.ClearAuthCookies
 
 // NewGatewayServeMux constructs a configured grpc-gateway ServeMux adhering to kr0n conventions:
 // 1. Emits snake_case JSON fields matching current REST DTO contracts.
@@ -118,68 +77,18 @@ func GatewayResponseModifier(ctx context.Context, w http.ResponseWriter, resp pr
 				}
 			}
 		case *authv1.StartGitHubOAuthResponse:
-			if m.CodeVerifier != "" {
-				http.SetCookie(w, &http.Cookie{
-					Name:     "github_oauth_verifier",
-					Value:    m.CodeVerifier,
-					Path:     "/",
-					HttpOnly: true,
-					SameSite: http.SameSiteLaxMode,
-					MaxAge:   600, // 10 minutes
-				})
-			}
+			oauth.SetVerifierCookie(w, oauth.GitHubVerifierCookie, m.CodeVerifier)
 		case *authv1.CompleteGitHubOAuthResponse:
-			if m.AccessToken != "" || m.RefreshToken != "" {
-				SetAuthCookies(w, m.AccessToken, m.RefreshToken)
-				m.AccessToken = ""
-				m.RefreshToken = ""
-			}
-			http.SetCookie(w, &http.Cookie{
-				Name:     "github_oauth_verifier",
-				Value:    "",
-				Path:     "/",
-				HttpOnly: true,
-				SameSite: http.SameSiteLaxMode,
-				MaxAge:   -1,
-			})
-			frontendURL := strings.TrimSpace(os.Getenv("FRONTEND_URL"))
-			if frontendURL == "" {
-				frontendURL = "http://localhost:3000"
-			}
-			w.Header().Set("Location", frontendURL)
-			w.WriteHeader(http.StatusFound)
+			oauth.HandleOAuthCompletion(w, m.AccessToken, m.RefreshToken, oauth.GitHubVerifierCookie)
+			m.AccessToken = ""
+			m.RefreshToken = ""
 			return nil
 		case *authv1.StartGoogleOAuthResponse:
-			if m.CodeVerifier != "" {
-				http.SetCookie(w, &http.Cookie{
-					Name:     "google_oauth_verifier",
-					Value:    m.CodeVerifier,
-					Path:     "/",
-					HttpOnly: true,
-					SameSite: http.SameSiteLaxMode,
-					MaxAge:   600, // 10 minutes
-				})
-			}
+			oauth.SetVerifierCookie(w, oauth.GoogleVerifierCookie, m.CodeVerifier)
 		case *authv1.CompleteGoogleOAuthResponse:
-			if m.AccessToken != "" || m.RefreshToken != "" {
-				SetAuthCookies(w, m.AccessToken, m.RefreshToken)
-				m.AccessToken = ""
-				m.RefreshToken = ""
-			}
-			http.SetCookie(w, &http.Cookie{
-				Name:     "google_oauth_verifier",
-				Value:    "",
-				Path:     "/",
-				HttpOnly: true,
-				SameSite: http.SameSiteLaxMode,
-				MaxAge:   -1,
-			})
-			frontendURL := strings.TrimSpace(os.Getenv("FRONTEND_URL"))
-			if frontendURL == "" {
-				frontendURL = "http://localhost:3000"
-			}
-			w.Header().Set("Location", frontendURL)
-			w.WriteHeader(http.StatusFound)
+			oauth.HandleOAuthCompletion(w, m.AccessToken, m.RefreshToken, oauth.GoogleVerifierCookie)
+			m.AccessToken = ""
+			m.RefreshToken = ""
 			return nil
 		case *authv1.LogoutResponse:
 			ClearAuthCookies(w)

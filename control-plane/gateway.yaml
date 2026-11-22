@@ -5,6 +5,10 @@ gateway:
   idle_timeout: 60s
   max_body_bytes: 4194304
 
+  redirects:
+    - path: "/github/callback"
+      target: "/github/callback"
+
   middleware:
     - request_id
     - recovery
@@ -14,17 +18,21 @@ middleware_profiles:
   public_api:
     - cors:
         allow_credentials: true
-    - request_validation
     - rate_limit:
         zone: public
         key: ip
         requests: 100
         window: 1m
+    - request_validation
 
   authenticated_api:
     - cors:
         allow_credentials: true
-    - audit_log
+    - rate_limit:
+        zone: ingress_ip
+        key: ip
+        requests: 500
+        window: 1m
     - authentication:
         allow_api_tokens: true
     - rate_limit:
@@ -32,11 +40,16 @@ middleware_profiles:
         key: user
         requests: 300
         window: 1m
+    - audit_log
 
   sensitive_api:
     - cors:
         allow_credentials: true
-    - audit_log
+    - rate_limit:
+        zone: sensitive_ip
+        key: ip
+        requests: 100
+        window: 1m
     - authentication:
         allow_api_tokens: true
     - rate_limit:
@@ -45,6 +58,7 @@ middleware_profiles:
         requests: 50
         window: 1m
         fail_open: false
+    - audit_log
 
   webhook_ingress:
     - recovery
@@ -67,6 +81,16 @@ services:
       - cors
 
     groups:
+      github_callback:
+        match:
+          - path: "/api/v1/auth/github/callback"
+            type: exact
+            methods: [GET]
+        use:
+          - public_api
+        middleware:
+          - github_app_callback
+
       public_auth:
         match:
           - path: "/api/v1/auth/register"

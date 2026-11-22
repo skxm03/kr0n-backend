@@ -37,6 +37,19 @@ func waitForLastMessage(s *email.InMemorySender, timeout time.Duration) (email.S
 	return s.LastMessage()
 }
 
+func waitForEmailForRecipient(s *email.InMemorySender, recipient string, tmpl email.TemplateType, timeout time.Duration) (email.SentMessage, bool) {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		for _, m := range s.Messages() {
+			if m.Recipient == recipient && (tmpl == "" || m.Subject == string(tmpl)) {
+				return m, true
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	return email.SentMessage{}, false
+}
+
 func TestE2E_EmailVerification_Lifecycle(t *testing.T) {
 	testDBURL := getTestDatabaseURL(t)
 
@@ -381,6 +394,7 @@ func TestE2E_EmailVerification_Lifecycle(t *testing.T) {
 	// Concurrent Verification Requests Over HTTP
 	// -------------------------------------------------------------
 	t.Run("concurrent verification requests result in exactly one success", func(t *testing.T) {
+		emailSender.Reset()
 		uniqueID := uuid.New().String()
 		emailAddr := "concurrent_" + uniqueID + "@kr0n.dev"
 

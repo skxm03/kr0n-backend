@@ -13,9 +13,12 @@ import (
 
 // In-memory leaky bucket limiter for tests or local dev without Redis
 type memoryLimiter struct {
-	mu      sync.Mutex
-	policy  ratelimit.Policy
-	buckets map[string]*memBucket
+	mu           sync.Mutex
+	policy       ratelimit.Policy
+	buckets      map[string]*memBucket
+	lastEviction time.Time
+	maxBuckets   int
+	ttl          time.Duration
 }
 
 type memBucket struct {
@@ -24,10 +27,62 @@ type memBucket struct {
 }
 
 func newMemoryLimiter(p ratelimit.Policy) *memoryLimiter {
-	return &memoryLimiter{
-		policy:  p,
-		buckets: make(map[string]*memBucket),
+	leakRate := p.LeakPerSec
+	if leakRate <= 0 {
+		leakRate = 1.0
 	}
+	drainSeconds := float64(p.Capacity) / leakRate
+	ttl := time.Duration(drainSeconds * float64(time.Second))
+	if ttl < 5*time.Second {
+		ttl = 5 * time.Second
+	}
+
+	return &memoryLimiter{
+		policy:       p,
+		buckets:      make(map[string]*memBucket),
+		lastEviction: time.Now(),
+		maxBuckets:   10000,
+		ttl:          ttl,
+	}
+}
+
+// evictExpiredLocked scans and deletes buckets whose level has completely drained to 0.
+func (m *memoryLimiter) evictExpiredLocked(now time.Time) {
+	for k, b := range m.buckets {
+		elapsed := now.Sub(b.lastUpdate).Seconds()
+		drainedLevel := b.level - elapsed*m.policy.LeakPerSec
+		if drainedLevel <= 0 {
+			delete(m.buckets, k)
+		}
+	}
+	// If still above maxBuckets (e.g. flood of unique IPs in short window), prune oldest
+	if len(m.buckets) > m.maxBuckets {
+		excess := len(m.buckets) - m.maxBuckets
+		for k := range m.buckets {
+			if excess <= 0 {
+				break
+			}
+			delete(m.buckets, k)
+			excess--
+		}
+	}
+	m.lastEviction = now
+}
+
+// BucketCount returns the current number of active bucket entries in memory.
+func (m *memoryLimiter) BucketCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.buckets)
+}
+
+// EvictExpired manually triggers eviction of fully drained buckets up to time `now`.
+func (m *memoryLimiter) EvictExpired(now time.Time) int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	before := len(m.buckets)
+	m.evictExpiredLocked(now)
+	return before - len(m.buckets)
 }
 
 func (m *memoryLimiter) Allow(ctx context.Context, key string) (ratelimit.Result, error) {
@@ -35,6 +90,12 @@ func (m *memoryLimiter) Allow(ctx context.Context, key string) (ratelimit.Result
 	defer m.mu.Unlock()
 
 	now := time.Now()
+
+	// Periodic eviction check or when max capacity is reached
+	if now.Sub(m.lastEviction) >= m.ttl || len(m.buckets) >= m.maxBuckets {
+		m.evictExpiredLocked(now)
+	}
+
 	b, ok := m.buckets[key]
 	if !ok {
 		b = &memBucket{level: 0, lastUpdate: now}

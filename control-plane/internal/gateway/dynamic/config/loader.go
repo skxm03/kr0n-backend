@@ -31,8 +31,14 @@ func ExpandEnvWithDefaults(s string) string {
 }
 
 // LoadConfig parses a GatewayConfig from raw YAML bytes, expands environment variables,
-// applies default values, and validates the configuration.
+// applies default values, and validates the configuration against basic schema rules.
 func LoadConfig(data []byte) (*GatewayConfig, error) {
+	return LoadConfigWithCatalog(data, nil)
+}
+
+// LoadConfigWithCatalog parses a GatewayConfig from raw YAML bytes, expands environment variables,
+// applies default values, and validates the configuration against a ServiceCatalog.
+func LoadConfigWithCatalog(data []byte, catalog ServiceCatalog) (*GatewayConfig, error) {
 	expanded := ExpandEnvWithDefaults(string(data))
 
 	var cfg GatewayConfig
@@ -42,7 +48,7 @@ func LoadConfig(data []byte) (*GatewayConfig, error) {
 
 	ApplyDefaults(&cfg)
 
-	if err := Validate(&cfg); err != nil {
+	if err := ValidateWithCatalog(&cfg, catalog); err != nil {
 		return nil, fmt.Errorf("config validation error: %w", err)
 	}
 
@@ -51,9 +57,14 @@ func LoadConfig(data []byte) (*GatewayConfig, error) {
 
 // LoadConfigFile reads a YAML configuration file from disk, parses, applies defaults, and validates it.
 func LoadConfigFile(path string) (*GatewayConfig, error) {
+	return LoadConfigFileWithCatalog(path, nil)
+}
+
+// LoadConfigFileWithCatalog reads a YAML configuration file from disk, parses, applies defaults, and validates against a catalog.
+func LoadConfigFileWithCatalog(path string, catalog ServiceCatalog) (*GatewayConfig, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read gateway config file %q: %w", path, err)
 	}
-	return LoadConfig(data)
+	return LoadConfigWithCatalog(data, catalog)
 }

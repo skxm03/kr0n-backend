@@ -19,6 +19,8 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/dynamic/config"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/dynamic/registry"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/middleware"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/middleware/builtins"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/oauth"
 )
 
 // MuxFactory creates a configured grpc-gateway ServeMux.
@@ -97,6 +99,9 @@ func BuildSnapshot(
 	if opts.MiddlewareRegistry == nil {
 		opts.MiddlewareRegistry = middleware.NewRegistry()
 	}
+	if !opts.MiddlewareRegistry.Has("github_app_callback") {
+		_ = opts.MiddlewareRegistry.Register("github_app_callback", builtins.NewGitHubAppCallbackFactory())
+	}
 	if opts.MuxFactory == nil {
 		opts.MuxFactory = func() *runtime.ServeMux {
 			return runtime.NewServeMux(
@@ -106,6 +111,11 @@ func BuildSnapshot(
 	}
 	if opts.Dialer == nil {
 		opts.Dialer = DefaultServiceDialer
+	}
+
+	// Validate configuration against registry catalog for type safety and auto-mount alignment
+	if err := config.ValidateWithCatalog(cfg, opts.Registry); err != nil {
+		return nil, fmt.Errorf("validate config with service registry: %w", err)
 	}
 
 	// 1. Compile profile resolver & chain compiler
@@ -141,18 +151,17 @@ func BuildSnapshot(
 		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ready"})
 	})
 
-	// Top-level convenience route for GitHub App installation redirect on gateway
-	router.Get("/github/callback", func(w http.ResponseWriter, r *http.Request) {
-		frontendURL := strings.TrimSpace(os.Getenv("FRONTEND_URL"))
-		if frontendURL == "" {
-			frontendURL = "http://localhost:3000"
-		}
-		target := fmt.Sprintf("%s/github/callback", strings.TrimRight(frontendURL, "/"))
-		if q := r.URL.RawQuery; q != "" {
-			target += "?" + q
-		}
-		http.Redirect(w, r, target, http.StatusFound)
-	})
+	// Mount declarative redirects configured on gateway (or built-in defaults)
+	redirects := cfg.Gateway.Redirects
+	if len(redirects) == 0 {
+		redirects = oauth.DefaultRedirects()
+	}
+	for _, redir := range redirects {
+		target := redir.Target
+		router.Get(redir.Path, func(w http.ResponseWriter, r *http.Request) {
+			oauth.RedirectToFrontend(w, r, target)
+		})
+	}
 
 	var conns []*grpc.ClientConn
 	cleanupOnErr := func() {
@@ -227,8 +236,9 @@ func BuildSnapshot(
 			if sreg, ok := opts.Registry.GetService(svcName); ok && len(sreg.Endpoints) > 0 {
 				for _, d := range sreg.Endpoints {
 					endpoints = append(endpoints, config.EndpointConfig{
-						Method: d.Method,
-						Path:   d.Path,
+						Method:     d.Method,
+						Path:       d.Path,
+						Middleware: d.DefaultMiddleware,
 					})
 				}
 			}
@@ -248,26 +258,6 @@ func BuildSnapshot(
 			baseHandler := TimeoutWrapper(svcMux, timeout)
 			method := strings.ToUpper(strings.TrimSpace(ep.Method))
 			path := strings.TrimSpace(ep.Path)
-
-			// Intercept GitHub App post-installation redirects landing on /api/v1/auth/github/callback
-			if method == http.MethodGet && path == "/api/v1/auth/github/callback" {
-				prevHandler := baseHandler
-				baseHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					if r.URL.Query().Get("installation_id") != "" || r.URL.Query().Get("setup_action") != "" {
-						frontendURL := strings.TrimSpace(os.Getenv("FRONTEND_URL"))
-						if frontendURL == "" {
-							frontendURL = "http://localhost:3000"
-						}
-						target := fmt.Sprintf("%s/github/callback", strings.TrimRight(frontendURL, "/"))
-						if q := r.URL.RawQuery; q != "" {
-							target += "?" + q
-						}
-						http.Redirect(w, r, target, http.StatusFound)
-						return
-					}
-					prevHandler.ServeHTTP(w, r)
-				})
-			}
 
 			endpointTarget := middleware.EndpointTarget{
 				Method:     method,

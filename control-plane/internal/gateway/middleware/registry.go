@@ -54,6 +54,14 @@ func (r *Registry) Build(name string, config map[string]any) (Middleware, error)
 	return factory(config)
 }
 
+// Has reports whether a middleware factory with the given name is registered.
+func (r *Registry) Has(name string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	_, ok := r.factories[name]
+	return ok
+}
+
 // Freeze marks the registry as frozen, preventing further registrations.
 func (r *Registry) Freeze() {
 	r.mu.Lock()

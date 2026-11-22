@@ -13,6 +13,12 @@ type GatewayConfig struct {
 	Services           map[string]ServiceConfig             `yaml:"services"`
 }
 
+// RedirectConfig defines a declarative HTTP redirect route.
+type RedirectConfig struct {
+	Path   string `yaml:"path"`
+	Target string `yaml:"target"`
+}
+
 // ServerConfig defines the gateway's HTTP listener, global settings, and global middleware.
 type ServerConfig struct {
 	HTTPAddr     string                      `yaml:"http_addr"`
@@ -20,6 +26,7 @@ type ServerConfig struct {
 	WriteTimeout time.Duration               `yaml:"write_timeout"`
 	IdleTimeout  time.Duration               `yaml:"idle_timeout"`
 	MaxBodyBytes int64                       `yaml:"max_body_bytes"`
+	Redirects    []RedirectConfig            `yaml:"redirects"`  // Declarative redirect routes
 	Middleware   []middleware.MiddlewareItem `yaml:"middleware"` // Global middleware chain
 }
 
