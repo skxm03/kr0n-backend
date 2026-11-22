@@ -14,6 +14,7 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/github/domain"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/github/handlers"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/github/service"
+	pkgAudit "github.com/skxm03/kr0n-backend/control-plane/pkg/audit"
 )
 
 func TestHandlers_ListRepositories_EndToEnd(t *testing.T) {
@@ -204,5 +205,103 @@ func TestHandlers_NilRequestAndValidationErrors(t *testing.T) {
 	})
 	if status.Code(err) != codes.InvalidArgument {
 		t.Fatalf("expected InvalidArgument for bad uuid, got %v", err)
+	}
+}
+
+type testAuditEmitter struct {
+	events []pkgAudit.Event
+}
+
+func (e *testAuditEmitter) Emit(_ context.Context, ev pkgAudit.Event) error {
+	e.events = append(e.events, ev)
+	return nil
+}
+
+func (e *testAuditEmitter) EmitSync(ctx context.Context, ev pkgAudit.Event) error {
+	return e.Emit(ctx, ev)
+}
+
+func (e *testAuditEmitter) Close() error {
+	return nil
+}
+
+func TestHandlers_InstallationAuditEvents(t *testing.T) {
+	orgID := uuid.New().String()
+	userID := uuid.New().String()
+	caller := &authv1.CallerPrincipal{
+		UserId: userID,
+		Kind:   "user",
+	}
+
+	ghApp := newMockGitHubApp("scoped-token")
+	repo := newMockInstallationRepo()
+	authorizer := &mockAuthorizer{allowed: true}
+
+	svc := service.NewService(
+		service.WithAuthorizer(authorizer),
+		service.WithGitHubApp(ghApp),
+		service.WithInstallationRepository(repo),
+	)
+
+	emitter := &testAuditEmitter{}
+	srv := handlers.NewServer(svc, handlers.WithAuditEmitter(emitter))
+	ctx := context.Background()
+
+	// 1. Complete installation should emit ActionGitHubInstallationConnected
+	compResp, err := srv.CompleteGitHubInstallation(ctx, &githubv1.CompleteGitHubInstallationRequest{
+		Caller:         caller,
+		OrgId:          orgID,
+		InstallationId: 9988,
+		State:          "valid-state",
+	})
+	if err != nil {
+		t.Fatalf("CompleteGitHubInstallation: %v", err)
+	}
+	if compResp.GetInstallation().GetInstallationId() != 9988 {
+		t.Fatalf("unexpected installation id: %d", compResp.GetInstallation().GetInstallationId())
+	}
+
+	if len(emitter.events) != 1 {
+		t.Fatalf("expected 1 audit event after complete, got %d", len(emitter.events))
+	}
+	ev0 := emitter.events[0]
+	if ev0.Action != pkgAudit.ActionGitHubInstallationConnected.String() {
+		t.Errorf("expected action %q, got %q", pkgAudit.ActionGitHubInstallationConnected.String(), ev0.Action)
+	}
+	if ev0.Target.Type != pkgAudit.TargetTypeGitHubInstallation {
+		t.Errorf("expected target type %q, got %q", pkgAudit.TargetTypeGitHubInstallation, ev0.Target.Type)
+	}
+	if ev0.Target.ID != "9988" {
+		t.Errorf("expected target id 9988, got %q", ev0.Target.ID)
+	}
+	if ev0.OrganizationID == nil || ev0.OrganizationID.String() != orgID {
+		t.Errorf("expected organization id %s, got %v", orgID, ev0.OrganizationID)
+	}
+	if ev0.Actor.UserID == nil || ev0.Actor.UserID.String() != userID {
+		t.Errorf("expected actor user id %s, got %v", userID, ev0.Actor.UserID)
+	}
+
+	// 2. Disconnect installation should emit ActionGitHubInstallationDisconnected
+	_, err = srv.DisconnectGitHubInstallation(ctx, &githubv1.DisconnectGitHubInstallationRequest{
+		Caller:         caller,
+		OrgId:          orgID,
+		InstallationId: 9988,
+	})
+	if err != nil {
+		t.Fatalf("DisconnectGitHubInstallation: %v", err)
+	}
+
+	if len(emitter.events) != 2 {
+		t.Fatalf("expected 2 audit events after disconnect, got %d", len(emitter.events))
+	}
+	ev1 := emitter.events[1]
+	if ev1.Action != pkgAudit.ActionGitHubInstallationDisconnected.String() {
+		t.Errorf("expected action %q, got %q", pkgAudit.ActionGitHubInstallationDisconnected.String(), ev1.Action)
+	}
+	if ev1.Target.Type != pkgAudit.TargetTypeGitHubInstallation {
+		t.Errorf("expected target type %q, got %q", pkgAudit.TargetTypeGitHubInstallation, ev1.Target.Type)
+	}
+	if ev1.Target.ID != "9988" {
+		t.Errorf("expected target id 9988, got %q", ev1.Target.ID)
 	}
 }

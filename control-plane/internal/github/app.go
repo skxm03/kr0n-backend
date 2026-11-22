@@ -173,7 +173,7 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 	)
 	service.WithWebhookHandler(webhookHandler)(svc)
 
-	handler := handlers.NewServer(svc)
+	handler := handlers.NewServer(svc, handlers.WithAuditEmitter(auditEmitter))
 
 	var serverOpts []grpc.ServerOption
 	if cfg.TLSEnabled {

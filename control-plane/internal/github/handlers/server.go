@@ -3,29 +3,50 @@ package handlers
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
 	githubv1 "github.com/skxm03/kr0n-backend/control-plane/gen/github/v1"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/github/client"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/github/domain"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/github/provider"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/github/service"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/github/webhook"
+	pkgAudit "github.com/skxm03/kr0n-backend/control-plane/pkg/audit"
 )
+
+// Option configures Server.
+type Option func(*Server)
+
+// WithAuditEmitter configures an asynchronous RabbitMQ audit emitter for the GitHub gRPC server.
+func WithAuditEmitter(emitter pkgAudit.Emitter) Option {
+	return func(s *Server) {
+		s.auditEmitter = emitter
+	}
+}
 
 // Server implements githubv1.GitHubServiceServer.
 type Server struct {
 	githubv1.UnimplementedGitHubServiceServer
-	svc *service.Service
+	svc          *service.Service
+	auditEmitter pkgAudit.Emitter
 }
 
 // NewServer constructs a new GitHubServiceServer handler instance.
-func NewServer(svc *service.Service) *Server {
-	return &Server{svc: svc}
+func NewServer(svc *service.Service, opts ...Option) *Server {
+	s := &Server{svc: svc}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(s)
+		}
+	}
+	return s
 }
 
 // StartGitHubInstallation generates a signed installation state token and GitHub App installation URL.
@@ -52,6 +73,15 @@ func (s *Server) CompleteGitHubInstallation(ctx context.Context, req *githubv1.C
 	if err != nil {
 		return nil, mapError(err)
 	}
+
+	if orgID, parseErr := uuid.Parse(strings.TrimSpace(req.GetOrgId())); parseErr == nil {
+		s.emitAudit(ctx, req.GetCaller(), orgID, pkgAudit.ActionGitHubInstallationConnected, strconv.FormatInt(inst.InstallationID, 10), map[string]any{
+			"installation_id": inst.InstallationID,
+			"account_login":   inst.AccountLogin,
+			"account_type":    inst.AccountType,
+		})
+	}
+
 	return &githubv1.CompleteGitHubInstallationResponse{
 		Installation: toProtoInstallation(inst),
 	}, nil
@@ -81,6 +111,13 @@ func (s *Server) DisconnectGitHubInstallation(ctx context.Context, req *githubv1
 	if err := s.svc.DisconnectGitHubInstallation(ctx, req.GetCaller(), req.GetOrgId(), req.GetInstallationId()); err != nil {
 		return nil, mapError(err)
 	}
+
+	if orgID, parseErr := uuid.Parse(strings.TrimSpace(req.GetOrgId())); parseErr == nil {
+		s.emitAudit(ctx, req.GetCaller(), orgID, pkgAudit.ActionGitHubInstallationDisconnected, strconv.FormatInt(req.GetInstallationId(), 10), map[string]any{
+			"installation_id": req.GetInstallationId(),
+		})
+	}
+
 	return &githubv1.DisconnectGitHubInstallationResponse{Message: "disconnected successfully"}, nil
 }
 
@@ -303,4 +340,37 @@ func mapError(err error) error {
 	default:
 		return status.Error(codes.Internal, "internal github service error")
 	}
+}
+
+func (s *Server) emitAudit(ctx context.Context, caller *authv1.CallerPrincipal, orgID uuid.UUID, action pkgAudit.Action, resourceID string, meta map[string]any) {
+	if s.auditEmitter == nil {
+		return
+	}
+	actorType := pkgAudit.ActorTypeUser
+	var actorUserID *uuid.UUID
+	if caller != nil {
+		if uid, err := uuid.Parse(strings.TrimSpace(caller.GetUserId())); err == nil {
+			actorUserID = &uid
+		}
+		if caller.GetKind() == pkgAudit.ActorTypeAPIToken {
+			actorType = pkgAudit.ActorTypeAPIToken
+		}
+	}
+	clientCtx := pkgAudit.ExtractClientContext(ctx)
+	_ = s.auditEmitter.Emit(ctx, pkgAudit.Event{
+		Service:        pkgAudit.ServiceGitHub,
+		Action:         action.String(),
+		Status:         pkgAudit.StatusSuccess,
+		OrganizationID: &orgID,
+		Actor: pkgAudit.Actor{
+			UserID: actorUserID,
+			Type:   actorType,
+		},
+		Target: pkgAudit.Target{
+			Type: pkgAudit.TargetTypeGitHubInstallation,
+			ID:   resourceID,
+		},
+		ClientContext: clientCtx,
+		Metadata:      meta,
+	})
 }
