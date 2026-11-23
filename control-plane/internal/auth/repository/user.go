@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -28,16 +27,16 @@ func NewUser(rawEmail, rawDisplayName string) (*User, error) {
 
 // UserRepository defines persistence operations required by the user domain.
 type UserRepository interface {
-	CreateWithPasswordAndVerificationToken(ctx context.Context, u *User, passwordHash string, token *Token, outbox ...*OutboxEvent) error
+	CreateWithPasswordAndVerificationToken(ctx context.Context, u *User, passwordHash string, token *Token, events ...DomainEvent) error
 	GetByEmailWithPassword(ctx context.Context, email string) (*User, string, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
 	GetByIDWithPassword(ctx context.Context, id uuid.UUID) (*User, string, error)
 	RecordLoginFailure(ctx context.Context, userID uuid.UUID, maxAttempts int, lockoutDuration time.Duration, now time.Time) error
 	ResetLoginFailures(ctx context.Context, userID uuid.UUID) error
-	CreateVerificationToken(ctx context.Context, token *Token, outbox ...*OutboxEvent) error
+	CreateVerificationToken(ctx context.Context, token *Token, events ...DomainEvent) error
 	ConsumeVerificationToken(ctx context.Context, tokenHash string, now time.Time) (*Token, error)
 	CountRecentVerificationTokens(ctx context.Context, userID uuid.UUID, since time.Time) (int, error)
-	CreatePasswordResetToken(ctx context.Context, token *Token, outbox ...*OutboxEvent) error
+	CreatePasswordResetToken(ctx context.Context, token *Token, events ...DomainEvent) error
 	ConsumePasswordResetAndUpdatePassword(ctx context.Context, tokenHash, newPasswordHash string, now time.Time) (uuid.UUID, error)
 	UpdatePassword(ctx context.Context, userID uuid.UUID, newPasswordHash string, now time.Time) error
 	ResolveOAuthUser(ctx context.Context, profile OAuthProfile, now time.Time) (*User, error)
@@ -54,9 +53,9 @@ func NewPostgresUserRepository(pool *pgxpool.Pool) *PostgresUserRepository {
 }
 
 // CreateWithPasswordAndVerificationToken persists a User, PasswordCredentials, and optionally an
-// EmailVerificationToken and OutboxEvent in a single atomic database transaction. If any insert fails,
+// EmailVerificationToken and DomainEvent in a single atomic database transaction. If any insert fails,
 // the entire transaction is rolled back, leaving behind no partially initialized account.
-func (r *PostgresUserRepository) CreateWithPasswordAndVerificationToken(ctx context.Context, u *User, passwordHash string, token *Token, outbox ...*OutboxEvent) error {
+func (r *PostgresUserRepository) CreateWithPasswordAndVerificationToken(ctx context.Context, u *User, passwordHash string, token *Token, events ...DomainEvent) error {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
@@ -117,14 +116,10 @@ func (r *PostgresUserRepository) CreateWithPasswordAndVerificationToken(ctx cont
 		}
 	}
 
-	if len(outbox) > 0 && outbox[0] != nil {
-		if err := insertOutboxEventTx(ctx, tx, outbox[0]); err != nil {
+	if len(events) > 0 && events[0] != nil {
+		if err := RecordDomainEventTx(ctx, tx, events[0], u.CreatedAt); err != nil {
 			return err
 		}
-	}
-
-	if err := createDefaultOrgTx(ctx, tx, u.ID, u.DisplayName, u.Email, u.CreatedAt); err != nil {
-		return err
 	}
 
 	if err := tx.Commit(ctx); err != nil {
@@ -290,7 +285,7 @@ func (r *PostgresUserRepository) ResetLoginFailures(ctx context.Context, userID 
 
 // CreateVerificationToken invalidates any prior unconsumed verification tokens for the user and
 // inserts the new email verification token (and optional outbox event) in a single transaction.
-func (r *PostgresUserRepository) CreateVerificationToken(ctx context.Context, token *Token, outbox ...*OutboxEvent) error {
+func (r *PostgresUserRepository) CreateVerificationToken(ctx context.Context, token *Token, events ...DomainEvent) error {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
@@ -313,8 +308,8 @@ func (r *PostgresUserRepository) CreateVerificationToken(ctx context.Context, to
 		return fmt.Errorf("insert verification token: %w", err)
 	}
 
-	if len(outbox) > 0 && outbox[0] != nil {
-		if err := insertOutboxEventTx(ctx, tx, outbox[0]); err != nil {
+	if len(events) > 0 && events[0] != nil {
+		if err := RecordDomainEventTx(ctx, tx, events[0], token.CreatedAt); err != nil {
 			return err
 		}
 	}
@@ -337,7 +332,7 @@ func (r *PostgresUserRepository) CountRecentVerificationTokens(ctx context.Conte
 
 // CreatePasswordResetToken invalidates any prior unconsumed password reset tokens for the user and
 // inserts the new password reset token (and optional outbox event) in a single transaction.
-func (r *PostgresUserRepository) CreatePasswordResetToken(ctx context.Context, token *Token, outbox ...*OutboxEvent) error {
+func (r *PostgresUserRepository) CreatePasswordResetToken(ctx context.Context, token *Token, events ...DomainEvent) error {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
@@ -360,74 +355,14 @@ func (r *PostgresUserRepository) CreatePasswordResetToken(ctx context.Context, t
 		return fmt.Errorf("insert password reset token: %w", err)
 	}
 
-	if len(outbox) > 0 && outbox[0] != nil {
-		if err := insertOutboxEventTx(ctx, tx, outbox[0]); err != nil {
+	if len(events) > 0 && events[0] != nil {
+		if err := RecordDomainEventTx(ctx, tx, events[0], token.CreatedAt); err != nil {
 			return err
 		}
 	}
 
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit password reset token: %w", err)
-	}
-	return nil
-}
-
-func insertOutboxEventTx(ctx context.Context, tx pgx.Tx, ev *OutboxEvent) error {
-	if ev == nil {
-		return nil
-	}
-	if ev.ID == uuid.Nil {
-		id, err := uuid.NewV7()
-		if err != nil {
-			id = uuid.New()
-		}
-		ev.ID = id
-	}
-	if ev.CreatedAt.IsZero() {
-		ev.CreatedAt = time.Now().UTC()
-	}
-	if ev.ScheduledAt.IsZero() {
-		ev.ScheduledAt = ev.CreatedAt
-	}
-	if ev.Status == "" {
-		ev.Status = OutboxStatusPending
-	}
-	if ev.Payload == nil {
-		ev.Payload = map[string]any{}
-	}
-	if ev.Headers == nil {
-		ev.Headers = map[string]any{}
-	}
-
-	payloadJSON, err := json.Marshal(ev.Payload)
-	if err != nil {
-		return fmt.Errorf("marshal outbox payload: %w", err)
-	}
-	headersJSON, err := json.Marshal(ev.Headers)
-	if err != nil {
-		return fmt.Errorf("marshal outbox headers: %w", err)
-	}
-
-	const insertSQL = `
-		INSERT INTO outbox_events (
-			id, event_type, aggregate_type, aggregate_id,
-			payload, headers, status, retry_count,
-			created_at, scheduled_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
-	`
-	if _, err := tx.Exec(ctx, insertSQL,
-		ev.ID,
-		ev.EventType,
-		ev.AggregateType,
-		ev.AggregateID,
-		payloadJSON,
-		headersJSON,
-		ev.Status,
-		ev.RetryCount,
-		ev.CreatedAt,
-		ev.ScheduledAt,
-	); err != nil {
-		return fmt.Errorf("insert outbox event: %w", err)
 	}
 	return nil
 }
@@ -607,12 +542,6 @@ func (r *PostgresUserRepository) resolveOAuthUserTx(ctx context.Context, profile
 			u.EmailVerifiedAt = &now
 			u.UpdatedAt = now
 		}
-		var userOrgCount int
-		if err := tx.QueryRow(ctx, `SELECT count(*) FROM organization_memberships WHERE user_id = $1`, u.ID).Scan(&userOrgCount); err == nil && userOrgCount == 0 {
-			if err := createDefaultOrgTx(ctx, tx, u.ID, u.DisplayName, u.Email, now); err != nil {
-				return nil, false, fmt.Errorf("create default org for existing oauth user: %w", err)
-			}
-		}
 		if err := tx.Commit(ctx); err != nil {
 			return nil, false, fmt.Errorf("commit transaction: %w", err)
 		}
@@ -705,12 +634,6 @@ func (r *PostgresUserRepository) resolveOAuthUserTx(ctx context.Context, profile
 			u.LockedUntil = nil
 			u.UpdatedAt = now
 		}
-		var userOrgCount int
-		if err := tx.QueryRow(ctx, `SELECT count(*) FROM organization_memberships WHERE user_id = $1`, u.ID).Scan(&userOrgCount); err == nil && userOrgCount == 0 {
-			if err := createDefaultOrgTx(ctx, tx, u.ID, u.DisplayName, u.Email, now); err != nil {
-				return nil, false, fmt.Errorf("create default org for linked user: %w", err)
-			}
-		}
 		if err := tx.Commit(ctx); err != nil {
 			return nil, false, fmt.Errorf("commit transaction: %w", err)
 		}
@@ -753,10 +676,6 @@ func (r *PostgresUserRepository) resolveOAuthUserTx(ctx context.Context, profile
 			return nil, true, err
 		}
 		return nil, false, fmt.Errorf("insert oauth identity: %w", err)
-	}
-
-	if err := createDefaultOrgTx(ctx, tx, u.ID, u.DisplayName, u.Email, now); err != nil {
-		return nil, false, fmt.Errorf("create default org for oauth user: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {

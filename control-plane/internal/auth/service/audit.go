@@ -15,6 +15,11 @@ import (
 // AuditOption configures optional dependencies on AuditService.
 type AuditOption func(*AuditService)
 
+// AuditRecorder defines the contract for recording append-only audit events from domain operations.
+type AuditRecorder interface {
+	Record(ctx context.Context, ev domain.AuditEvent) error
+}
+
 // WithAuditEmitter configures an asynchronous RabbitMQ audit emitter for Record calls.
 // When set, audit events are emitted to the audit message broker instead of synchronously writing to Postgres.
 func WithAuditEmitter(emitter pkgAudit.Emitter) AuditOption {
@@ -66,6 +71,21 @@ func (s *AuditService) Record(ctx context.Context, ev domain.AuditEvent) error {
 		ev.Metadata = map[string]any{}
 	} else {
 		ev.Metadata = pkgAudit.RedactMetadata(ev.Metadata)
+	}
+
+	if ev.IPAddress == nil || ev.UserAgent == nil {
+		clientCtx := pkgAudit.ExtractClientContext(ctx)
+		if ev.IPAddress == nil && clientCtx.IPAddress != nil {
+			ev.IPAddress = clientCtx.IPAddress
+		}
+		if ev.UserAgent == nil && clientCtx.UserAgent != nil {
+			ev.UserAgent = clientCtx.UserAgent
+		}
+		if clientCtx.RequestID != "" {
+			if _, exists := ev.Metadata["request_id"]; !exists {
+				ev.Metadata["request_id"] = clientCtx.RequestID
+			}
+		}
 	}
 
 	status := strings.ToLower(strings.TrimSpace(ev.Status))

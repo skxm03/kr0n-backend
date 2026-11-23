@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/service"
+	pkgAudit "github.com/skxm03/kr0n-backend/control-plane/pkg/audit"
 )
 
 type memOrgRepo struct {
@@ -202,7 +203,7 @@ func (m *memOrgRepo) ownerCount(orgID uuid.UUID) int {
 	return n
 }
 
-func (m *memOrgRepo) CreateInvite(ctx context.Context, inv *repository.Invite, outbox ...*repository.OutboxEvent) error {
+func (m *memOrgRepo) CreateInvite(ctx context.Context, inv *repository.Invite, events ...repository.DomainEvent) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	cp := *inv
@@ -294,6 +295,38 @@ func (m *memOrgRepo) TouchAPITokenLastUsed(ctx context.Context, tokenID uuid.UUI
 	return nil
 }
 
+func (m *memOrgRepo) ProvisionDefaultOrg(ctx context.Context, userID uuid.UUID, displayName, email string) (*repository.Organization, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for orgID, members := range m.members {
+		if _, ok := members[userID]; ok {
+			return m.orgs[orgID], nil
+		}
+	}
+	name := strings.TrimSpace(displayName)
+	if name == "" {
+		name = strings.Split(email, "@")[0]
+		if name == "" {
+			name = "default"
+		}
+	}
+	orgName := name + "'s org"
+	now := time.Now().UTC()
+	org := &repository.Organization{
+		ID:        uuid.New(),
+		Name:      orgName,
+		Slug:      strings.ToLower(strings.ReplaceAll(name, " ", "-")) + "-org",
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	m.orgs[org.ID] = org
+	if m.members[org.ID] == nil {
+		m.members[org.ID] = make(map[uuid.UUID]string)
+	}
+	m.members[org.ID][userID] = "owner"
+	return org, nil
+}
+
 
 func TestOrgRBACLastOwnerAndAPITokens(t *testing.T) {
 	repo := newMemOrgRepo()
@@ -383,5 +416,74 @@ func TestOrgRBACLastOwnerAndAPITokens(t *testing.T) {
 	joinedOrg, err := svc.AcceptInvite(ctx, inviteeID, rawInviteTok)
 	if err != nil || joinedOrg.ID != o.ID || joinedOrg.RoleID != "admin" {
 		t.Fatalf("AcceptInvite: %v %+v", err, joinedOrg)
+	}
+}
+
+type mockAuditCollector struct {
+	mu     sync.Mutex
+	events []repository.AuditEvent
+}
+
+func (m *mockAuditCollector) Record(ctx context.Context, ev repository.AuditEvent) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.events = append(m.events, ev)
+	return nil
+}
+
+func TestOrgService_AuditTrailEmission(t *testing.T) {
+	repo := newMemOrgRepo()
+	auditor := &mockAuditCollector{}
+	svc := service.NewOrgService(repo, service.WithOrgAuditRecorder(auditor))
+	ctx := context.Background()
+
+	ownerID := uuid.New()
+	ownerP := repository.Principal{UserID: ownerID}
+
+	// 1. CreateOrg emits org.created
+	o, err := svc.CreateOrg(ctx, ownerID, "Audit Org", "audit-org")
+	if err != nil {
+		t.Fatalf("CreateOrg failed: %v", err)
+	}
+
+	// 2. UpdateOrg emits org.updated
+	_, err = svc.UpdateOrg(ctx, ownerP, o.ID, "Audit Org Updated")
+	if err != nil {
+		t.Fatalf("UpdateOrg failed: %v", err)
+	}
+
+	// 3. CreateAPIToken emits apitoken.created
+	tok, _, err := svc.CreateAPIToken(ctx, ownerP, o.ID, "test-token", []string{"org:read"}, 3600)
+	if err != nil {
+		t.Fatalf("CreateAPIToken failed: %v", err)
+	}
+
+	// 4. RevokeAPIToken emits apitoken.revoked
+	if err := svc.RevokeAPIToken(ctx, ownerP, o.ID, tok.ID); err != nil {
+		t.Fatalf("RevokeAPIToken failed: %v", err)
+	}
+
+	// Verify all actions were recorded
+	auditor.mu.Lock()
+	defer auditor.mu.Unlock()
+
+	expectedActions := []string{
+		pkgAudit.ActionOrgCreated.String(),
+		pkgAudit.ActionOrgUpdated.String(),
+		pkgAudit.ActionAPITokenCreated.String(),
+		pkgAudit.ActionAPITokenRevoked.String(),
+	}
+
+	if len(auditor.events) != len(expectedActions) {
+		t.Fatalf("expected %d audit events, got %d", len(expectedActions), len(auditor.events))
+	}
+
+	for i, expected := range expectedActions {
+		if auditor.events[i].Action != expected {
+			t.Errorf("event %d: expected action %q, got %q", i, expected, auditor.events[i].Action)
+		}
+		if *auditor.events[i].OrganizationID != o.ID {
+			t.Errorf("event %d: expected org ID %s, got %s", i, o.ID, auditor.events[i].OrganizationID)
+		}
 	}
 }

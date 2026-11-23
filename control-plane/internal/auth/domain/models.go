@@ -170,3 +170,105 @@ type OutboxEvent struct {
 	ScheduledAt   time.Time
 	PublishedAt   *time.Time
 }
+
+// DomainEvent represents a typed business event that can produce an atomic transactional outbox message.
+type DomainEvent interface {
+	EventType() string
+	AggregateType() string
+	AggregateID() uuid.UUID
+	ToOutboxEvent(now time.Time) *OutboxEvent
+}
+
+func (e *OutboxEvent) ToOutboxEvent(_ time.Time) *OutboxEvent { return e }
+
+// EmailVerificationEvent is emitted when a user requires email verification.
+type EmailVerificationEvent struct {
+	UserID   uuid.UUID
+	Email    string
+	RawToken string
+}
+
+func (e EmailVerificationEvent) EventType() string      { return EventTypeEmailVerification }
+func (e EmailVerificationEvent) AggregateType() string  { return "user" }
+func (e EmailVerificationEvent) AggregateID() uuid.UUID { return e.UserID }
+func (e EmailVerificationEvent) ToOutboxEvent(now time.Time) *OutboxEvent {
+	return NewEmailOutboxEvent(e.UserID, "user", EventTypeEmailVerification, "verify_email", e.Email, map[string]string{
+		"token": e.RawToken,
+	}, now)
+}
+
+// PasswordResetEvent is emitted when a user requests password reset instructions.
+type PasswordResetEvent struct {
+	UserID   uuid.UUID
+	Email    string
+	RawToken string
+}
+
+func (e PasswordResetEvent) EventType() string      { return EventTypePasswordReset }
+func (e PasswordResetEvent) AggregateType() string  { return "user" }
+func (e PasswordResetEvent) AggregateID() uuid.UUID { return e.UserID }
+func (e PasswordResetEvent) ToOutboxEvent(now time.Time) *OutboxEvent {
+	return NewEmailOutboxEvent(e.UserID, "user", EventTypePasswordReset, "password_reset", e.Email, map[string]string{
+		"token": e.RawToken,
+	}, now)
+}
+
+// OrgInviteEvent is emitted when an invitation to join an organization is created.
+type OrgInviteEvent struct {
+	OrgID    uuid.UUID
+	OrgName  string
+	Email    string
+	RoleID   string
+	RawToken string
+}
+
+func (e OrgInviteEvent) EventType() string      { return EventTypeOrgInvite }
+func (e OrgInviteEvent) AggregateType() string  { return "organization" }
+func (e OrgInviteEvent) AggregateID() uuid.UUID { return e.OrgID }
+func (e OrgInviteEvent) ToOutboxEvent(now time.Time) *OutboxEvent {
+	return NewEmailOutboxEvent(e.OrgID, "organization", EventTypeOrgInvite, "org_invite", e.Email, map[string]string{
+		"org_name": e.OrgName,
+		"role_id":  e.RoleID,
+		"token":    e.RawToken,
+	}, now)
+}
+
+// NewEmailOutboxEvent encapsulates standard email job payload formatting for OutboxEvent.
+func NewEmailOutboxEvent(
+	aggregateID uuid.UUID,
+	aggregateType string,
+	eventType string,
+	templateType string,
+	recipient string,
+	data map[string]string,
+	now time.Time,
+) *OutboxEvent {
+	id, err := uuid.NewV7()
+	if err != nil {
+		id = uuid.New()
+	}
+	jobID, err := uuid.NewV7()
+	if err != nil {
+		jobID = uuid.New()
+	}
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+	return &OutboxEvent{
+		ID:            id,
+		EventType:     eventType,
+		AggregateType: aggregateType,
+		AggregateID:   aggregateID,
+		Payload: map[string]any{
+			"id":         jobID.String(),
+			"type":       templateType,
+			"recipient":  recipient,
+			"data":       data,
+			"created_at": now.Format(time.RFC3339),
+		},
+		Headers:     map[string]any{},
+		Status:      OutboxStatusPending,
+		CreatedAt:   now,
+		ScheduledAt: now,
+	}
+}

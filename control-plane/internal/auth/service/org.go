@@ -11,7 +11,7 @@ import (
 
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/domain"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
-	emailpkg "github.com/skxm03/kr0n-backend/control-plane/internal/email"
+	pkgAudit "github.com/skxm03/kr0n-backend/control-plane/pkg/audit"
 	"github.com/skxm03/kr0n-backend/control-plane/pkg/authz"
 )
 
@@ -27,10 +27,18 @@ func WithOrgOutboxNotifier(notifier OutboxNotifier) OrgOption {
 	}
 }
 
+// WithOrgAuditRecorder wires an audit recorder to OrgService.
+func WithOrgAuditRecorder(recorder AuditRecorder) OrgOption {
+	return func(s *OrgService) {
+		s.audit = recorder
+	}
+}
+
 // OrgService orchestrates organizations, memberships, invites, RBAC checks, and API tokens.
 type OrgService struct {
 	repo     repository.OrgRepository
 	notifier OutboxNotifier
+	audit    AuditRecorder
 }
 
 // NewOrgService constructs an OrgService.
@@ -101,6 +109,15 @@ func (s *OrgService) CreateOrg(ctx context.Context, creatorUserID uuid.UUID, nam
 	if err := s.repo.CreateOrg(ctx, o, creatorUserID); err != nil {
 		return nil, err
 	}
+	s.recordAudit(ctx, domain.AuditEvent{
+		OrganizationID: &o.ID,
+		ActorUserID:    &creatorUserID,
+		ActorType:      domain.ActorTypeUser,
+		Action:         pkgAudit.ActionOrgCreated.String(),
+		ResourceType:   pkgAudit.TargetTypeOrg,
+		ResourceID:     o.ID.String(),
+		Metadata:       map[string]any{"slug": o.Slug, "name": o.Name},
+	})
 	return o, nil
 }
 
@@ -126,7 +143,21 @@ func (s *OrgService) UpdateOrg(ctx context.Context, p domain.Principal, orgID uu
 	if len(name) < 1 || len(name) > 100 {
 		return nil, domain.ErrInvalidOrg
 	}
-	return s.repo.UpdateOrg(ctx, orgID, name, time.Now().UTC())
+	updated, err := s.repo.UpdateOrg(ctx, orgID, name, time.Now().UTC())
+	if err != nil {
+		return nil, err
+	}
+	actorID := p.UserID
+	s.recordAudit(ctx, domain.AuditEvent{
+		OrganizationID: &orgID,
+		ActorUserID:    &actorID,
+		ActorType:      actorTypeFromPrincipal(p),
+		Action:         pkgAudit.ActionOrgUpdated.String(),
+		ResourceType:   pkgAudit.TargetTypeOrg,
+		ResourceID:     orgID.String(),
+		Metadata:       map[string]any{"name": updated.Name},
+	})
+	return updated, nil
 }
 
 // DeleteOrg deletes an organization if the principal has org:delete.
@@ -134,7 +165,19 @@ func (s *OrgService) DeleteOrg(ctx context.Context, p domain.Principal, orgID uu
 	if err := s.require(ctx, p, orgID, "org:delete"); err != nil {
 		return err
 	}
-	return s.repo.DeleteOrg(ctx, orgID)
+	if err := s.repo.DeleteOrg(ctx, orgID); err != nil {
+		return err
+	}
+	actorID := p.UserID
+	s.recordAudit(ctx, domain.AuditEvent{
+		OrganizationID: &orgID,
+		ActorUserID:    &actorID,
+		ActorType:      actorTypeFromPrincipal(p),
+		Action:         pkgAudit.ActionOrgDeleted.String(),
+		ResourceType:   pkgAudit.TargetTypeOrg,
+		ResourceID:     orgID.String(),
+	})
+	return nil
 }
 
 // ListRoles returns all seeded RBAC roles and their permissions.
@@ -163,7 +206,21 @@ func (s *OrgService) AddMember(ctx context.Context, p domain.Principal, orgID uu
 	if err != nil {
 		return nil, err
 	}
-	return s.repo.AddMemberByEmail(ctx, orgID, email, roleID, time.Now().UTC())
+	m, err := s.repo.AddMemberByEmail(ctx, orgID, email, roleID, time.Now().UTC())
+	if err != nil {
+		return nil, err
+	}
+	actorID := p.UserID
+	s.recordAudit(ctx, domain.AuditEvent{
+		OrganizationID: &orgID,
+		ActorUserID:    &actorID,
+		ActorType:      actorTypeFromPrincipal(p),
+		Action:         pkgAudit.ActionOrgMemberAdded.String(),
+		ResourceType:   pkgAudit.TargetTypeOrgMember,
+		ResourceID:     m.UserID.String(),
+		Metadata:       map[string]any{"email": m.Email, "role_id": m.RoleID},
+	})
+	return m, nil
 }
 
 // UpdateMemberRole updates a member's role if the principal has member:update, enforcing the last-owner guard.
@@ -175,7 +232,20 @@ func (s *OrgService) UpdateMemberRole(ctx context.Context, p domain.Principal, o
 	if !validateRoleID(roleID) {
 		return domain.ErrInvalidRole
 	}
-	return s.repo.UpdateMemberRole(ctx, orgID, targetUserID, roleID, time.Now().UTC())
+	if err := s.repo.UpdateMemberRole(ctx, orgID, targetUserID, roleID, time.Now().UTC()); err != nil {
+		return err
+	}
+	actorID := p.UserID
+	s.recordAudit(ctx, domain.AuditEvent{
+		OrganizationID: &orgID,
+		ActorUserID:    &actorID,
+		ActorType:      actorTypeFromPrincipal(p),
+		Action:         pkgAudit.ActionOrgMemberRoleUpdated.String(),
+		ResourceType:   pkgAudit.TargetTypeOrgMember,
+		ResourceID:     targetUserID.String(),
+		Metadata:       map[string]any{"role_id": roleID},
+	})
+	return nil
 }
 
 // RemoveMember removes a member from an organization if the principal has member:delete, enforcing the last-owner guard.
@@ -183,7 +253,19 @@ func (s *OrgService) RemoveMember(ctx context.Context, p domain.Principal, orgID
 	if err := s.require(ctx, p, orgID, "member:delete"); err != nil {
 		return err
 	}
-	return s.repo.RemoveMember(ctx, orgID, targetUserID)
+	if err := s.repo.RemoveMember(ctx, orgID, targetUserID); err != nil {
+		return err
+	}
+	actorID := p.UserID
+	s.recordAudit(ctx, domain.AuditEvent{
+		OrganizationID: &orgID,
+		ActorUserID:    &actorID,
+		ActorType:      actorTypeFromPrincipal(p),
+		Action:         pkgAudit.ActionOrgMemberRemoved.String(),
+		ResourceType:   pkgAudit.TargetTypeOrgMember,
+		ResourceID:     targetUserID.String(),
+	})
+	return nil
 }
 
 // CreateInvite creates an organization invite token if the principal has member:create.
@@ -220,31 +302,28 @@ func (s *OrgService) CreateInvite(ctx context.Context, p domain.Principal, orgID
 		orgName = o.Name
 	}
 
-	outboxEv := &domain.OutboxEvent{
-		ID:            newUUIDv7(),
-		EventType:     domain.EventTypeOrgInvite,
-		AggregateType: "organization",
-		AggregateID:   orgID,
-		Payload: map[string]any{
-			"id":        newUUIDv7().String(),
-			"type":      string(emailpkg.TemplateOrgInvite),
-			"recipient": inv.Email,
-			"data": map[string]string{
-				"org_name": orgName,
-				"role_id":  inv.RoleID,
-				"token":    rawToken,
-			},
-			"created_at": now.Format(time.RFC3339),
-		},
-		Headers:     map[string]any{},
-		Status:      domain.OutboxStatusPending,
-		CreatedAt:   now,
-		ScheduledAt: now,
+	ev := domain.OrgInviteEvent{
+		OrgID:    orgID,
+		OrgName:  orgName,
+		Email:    inv.Email,
+		RoleID:   inv.RoleID,
+		RawToken: rawToken,
 	}
 
-	if err := s.repo.CreateInvite(ctx, inv, outboxEv); err != nil {
+	if err := s.repo.CreateInvite(ctx, inv, ev); err != nil {
 		return nil, "", err
 	}
+
+	actorID := p.UserID
+	s.recordAudit(ctx, domain.AuditEvent{
+		OrganizationID: &orgID,
+		ActorUserID:    &actorID,
+		ActorType:      actorTypeFromPrincipal(p),
+		Action:         pkgAudit.ActionOrgMemberInvited.String(),
+		ResourceType:   pkgAudit.TargetTypeOrgInvite,
+		ResourceID:     inv.ID.String(),
+		Metadata:       map[string]any{"email": inv.Email, "role_id": inv.RoleID},
+	})
 
 	if s.notifier != nil {
 		s.notifier.Notify()
@@ -259,7 +338,20 @@ func (s *OrgService) AcceptInvite(ctx context.Context, userID uuid.UUID, rawToke
 	if userID == uuid.Nil || rawToken == "" {
 		return nil, domain.ErrInvalidInviteToken
 	}
-	return s.repo.AcceptInvite(ctx, userID, domain.HashToken(rawToken), time.Now().UTC())
+	org, err := s.repo.AcceptInvite(ctx, userID, domain.HashToken(rawToken), time.Now().UTC())
+	if err != nil {
+		return nil, err
+	}
+	s.recordAudit(ctx, domain.AuditEvent{
+		OrganizationID: &org.ID,
+		ActorUserID:    &userID,
+		ActorType:      domain.ActorTypeUser,
+		Action:         pkgAudit.ActionOrgInviteAccepted.String(),
+		ResourceType:   pkgAudit.TargetTypeOrgInvite,
+		ResourceID:     org.ID.String(),
+		Metadata:       map[string]any{"org_name": org.Name, "org_slug": org.Slug},
+	})
+	return org, nil
 }
 
 // RevokeInvite revokes a pending organization invite if the principal has member:delete.
@@ -267,7 +359,19 @@ func (s *OrgService) RevokeInvite(ctx context.Context, p domain.Principal, orgID
 	if err := s.require(ctx, p, orgID, "member:delete"); err != nil {
 		return err
 	}
-	return s.repo.RevokeInvite(ctx, orgID, inviteID, time.Now().UTC())
+	if err := s.repo.RevokeInvite(ctx, orgID, inviteID, time.Now().UTC()); err != nil {
+		return err
+	}
+	actorID := p.UserID
+	s.recordAudit(ctx, domain.AuditEvent{
+		OrganizationID: &orgID,
+		ActorUserID:    &actorID,
+		ActorType:      actorTypeFromPrincipal(p),
+		Action:         pkgAudit.ActionOrgInviteRevoked.String(),
+		ResourceType:   pkgAudit.TargetTypeOrgInvite,
+		ResourceID:     inviteID.String(),
+	})
+	return nil
 }
 
 // CreateAPIToken issues an org-scoped API token (`kr0n_pat_...`) whose permissions must be a subset
@@ -319,6 +423,16 @@ func (s *OrgService) CreateAPIToken(ctx context.Context, p domain.Principal, org
 	if err := s.repo.CreateAPIToken(ctx, tok); err != nil {
 		return nil, "", err
 	}
+	actorID := p.UserID
+	s.recordAudit(ctx, domain.AuditEvent{
+		OrganizationID: &orgID,
+		ActorUserID:    &actorID,
+		ActorType:      actorTypeFromPrincipal(p),
+		Action:         pkgAudit.ActionAPITokenCreated.String(),
+		ResourceType:   pkgAudit.TargetTypeAPIToken,
+		ResourceID:     tok.ID.String(),
+		Metadata:       map[string]any{"name": tok.Name, "permissions": tok.Permissions},
+	})
 	return tok, rawToken, nil
 }
 
@@ -335,7 +449,19 @@ func (s *OrgService) RevokeAPIToken(ctx context.Context, p domain.Principal, org
 	if err := s.require(ctx, p, orgID, "apitoken:delete"); err != nil {
 		return err
 	}
-	return s.repo.RevokeAPIToken(ctx, orgID, tokenID, time.Now().UTC())
+	if err := s.repo.RevokeAPIToken(ctx, orgID, tokenID, time.Now().UTC()); err != nil {
+		return err
+	}
+	actorID := p.UserID
+	s.recordAudit(ctx, domain.AuditEvent{
+		OrganizationID: &orgID,
+		ActorUserID:    &actorID,
+		ActorType:      actorTypeFromPrincipal(p),
+		Action:         pkgAudit.ActionAPITokenRevoked.String(),
+		ResourceType:   pkgAudit.TargetTypeAPIToken,
+		ResourceID:     tokenID.String(),
+	})
+	return nil
 }
 
 // ValidateAPIToken validates a raw `kr0n_pat_...` token, verifies its hash in constant time,
@@ -385,4 +511,18 @@ func (s *OrgService) ValidateAPIToken(ctx context.Context, rawToken string) (*do
 	}
 
 	return tok, nil
+}
+
+func (s *OrgService) recordAudit(ctx context.Context, ev domain.AuditEvent) {
+	if s.audit == nil {
+		return
+	}
+	_ = s.audit.Record(ctx, ev)
+}
+
+func actorTypeFromPrincipal(p domain.Principal) string {
+	if p.Kind == domain.ActorTypeAPIToken {
+		return domain.ActorTypeAPIToken
+	}
+	return domain.ActorTypeUser
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/dynamic/config"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/dynamic/registry"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/middleware"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/middleware/builtins"
 )
 
 func TestSnapshot_LifecycleAndConns(t *testing.T) {
@@ -470,5 +471,138 @@ func TestBuildSnapshot_ValidateWithCatalog_RejectsMisconfiguredRoute(t *testing.
 	})
 	if err == nil {
 		t.Fatalf("expected BuildSnapshot to reject misconfigured route with validation error, got nil")
+	}
+}
+
+func TestRouter_CORSPreflightOptionsBypassesAuth(t *testing.T) {
+	reg := registry.NewRegistry()
+	_ = reg.Register("auth", func(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
+		_ = mux.HandlePath("POST", "/api/v1/auth/protected", func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"status":"ok"}`))
+		})
+		return nil
+	})
+
+	mwReg := middleware.NewRegistry()
+	_ = mwReg.Register("cors", builtins.NewCORSFactory())
+	_ = mwReg.Register("authentication", func(cfg map[string]any) (middleware.Middleware, error) {
+		return func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Header.Get("Authorization") == "" {
+					middleware.WriteError(w, r, http.StatusUnauthorized, "authentication required", "UNAUTHORIZED")
+					return
+				}
+				next.ServeHTTP(w, r)
+			})
+		}, nil
+	})
+
+	cfg := &config.GatewayConfig{
+		MiddlewareProfiles: map[string][]middleware.MiddlewareItem{
+			"authenticated_api": {
+				{Name: "cors"},
+				{Name: "authentication"},
+			},
+		},
+		Services: map[string]config.ServiceConfig{
+			"auth": {
+				Address: "mock:1234",
+				Endpoints: []config.EndpointConfig{
+					{
+						Path:   "/api/v1/auth/protected",
+						Method: "POST",
+						Use:    []string{"authenticated_api"},
+					},
+				},
+			},
+		},
+	}
+
+	snap, err := BuildSnapshot(context.Background(), cfg, SnapshotOptions{
+		Registry:           reg,
+		MiddlewareRegistry: mwReg,
+		Dialer: func(svc config.ServiceConfig) (*grpc.ClientConn, error) {
+			return nil, nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("failed to build snapshot: %v", err)
+	}
+	defer snap.Retire()
+
+	// 1. Unauthenticated POST to protected endpoint must return 401
+	recPost := httptest.NewRecorder()
+	reqPost := httptest.NewRequest(http.MethodPost, "/api/v1/auth/protected", nil)
+	snap.Router().ServeHTTP(recPost, reqPost)
+	if recPost.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 for unauthenticated POST, got %d", recPost.Code)
+	}
+
+	// 2. Unauthenticated CORS preflight OPTIONS to protected endpoint must return 204 No Content without auth
+	recOptions := httptest.NewRecorder()
+	reqOptions := httptest.NewRequest(http.MethodOptions, "/api/v1/auth/protected", nil)
+	reqOptions.Header.Set("Origin", "https://app.example.com")
+	reqOptions.Header.Set("Access-Control-Request-Method", "POST")
+	snap.Router().ServeHTTP(recOptions, reqOptions)
+	if recOptions.Code != http.StatusNoContent {
+		t.Fatalf("expected 204 No Content for CORS preflight OPTIONS, got %d", recOptions.Code)
+	}
+	if recOptions.Header().Get("Access-Control-Allow-Origin") != "https://app.example.com" {
+		t.Errorf("expected Access-Control-Allow-Origin header, got %q", recOptions.Header().Get("Access-Control-Allow-Origin"))
+	}
+}
+
+func TestRouter_NotFoundAndMethodNotAllowedJSON(t *testing.T) {
+	reg := registry.NewRegistry()
+	_ = reg.Register("test_svc", func(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
+		_ = mux.HandlePath("POST", "/api/v1/items", func(w http.ResponseWriter, r *http.Request, pathParams map[string]string) {
+			w.WriteHeader(http.StatusOK)
+		})
+		return nil
+	})
+
+	cfg := &config.GatewayConfig{
+		Services: map[string]config.ServiceConfig{
+			"test_svc": {
+				Address: "mock:1234",
+				Endpoints: []config.EndpointConfig{
+					{Path: "/api/v1/items", Method: "POST"},
+				},
+			},
+		},
+	}
+
+	snap, err := BuildSnapshot(context.Background(), cfg, SnapshotOptions{
+		Registry: reg,
+		Dialer: func(svc config.ServiceConfig) (*grpc.ClientConn, error) {
+			return nil, nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("build snapshot: %v", err)
+	}
+	defer snap.Retire()
+
+	// 1. NotFound (404) returns JSON envelope
+	rec404 := httptest.NewRecorder()
+	req404 := httptest.NewRequest(http.MethodGet, "/api/v1/nonexistent", nil)
+	snap.Router().ServeHTTP(rec404, req404)
+	if rec404.Code != http.StatusNotFound {
+		t.Fatalf("expected 404, got %d", rec404.Code)
+	}
+	if ct := rec404.Header().Get("Content-Type"); ct != "application/json" {
+		t.Fatalf("expected Content-Type application/json, got %q", ct)
+	}
+
+	// 2. MethodNotAllowed (405) returns JSON envelope
+	rec405 := httptest.NewRecorder()
+	req405 := httptest.NewRequest(http.MethodDelete, "/api/v1/items", nil)
+	snap.Router().ServeHTTP(rec405, req405)
+	if rec405.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected 405, got %d", rec405.Code)
+	}
+	if ct := rec405.Header().Get("Content-Type"); ct != "application/json" {
+		t.Fatalf("expected Content-Type application/json, got %q", ct)
 	}
 }

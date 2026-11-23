@@ -3,6 +3,7 @@ package gateway
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -66,6 +67,12 @@ func TranslateGRPCStatus(err error) (statusCode int, message, code string) {
 		return http.StatusGatewayTimeout, "upstream service timeout", "GATEWAY_TIMEOUT"
 	case codes.Unavailable:
 		return http.StatusServiceUnavailable, "upstream service unavailable", "SERVICE_UNAVAILABLE"
+	case codes.Internal, codes.Unknown:
+		slog.Error("internal upstream error", "code", st.Code().String(), "raw_error", st.Message())
+		if code == "" {
+			code = "INTERNAL_ERROR"
+		}
+		return http.StatusInternalServerError, "internal server error", code
 	}
 
 	msg := st.Message()

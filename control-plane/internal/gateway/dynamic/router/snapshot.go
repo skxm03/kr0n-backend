@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -127,6 +128,13 @@ func BuildSnapshot(
 
 	router := chi.NewRouter()
 
+	router.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		middleware.WriteError(w, r, http.StatusNotFound, "route not found", "NOT_FOUND")
+	})
+	router.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
+		middleware.WriteError(w, r, http.StatusMethodNotAllowed, "method not allowed", "METHOD_NOT_ALLOWED")
+	})
+
 	// Global independent health and readiness endpoints
 	router.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -199,7 +207,14 @@ func BuildSnapshot(
 
 		// Compile service groups
 		var compiledGroups []middleware.CompiledGroup
-		for gName, gCfg := range svc.Groups {
+		groupNames := make([]string, 0, len(svc.Groups))
+		for gName := range svc.Groups {
+			groupNames = append(groupNames, gName)
+		}
+		sort.Strings(groupNames)
+
+		for _, gName := range groupNames {
+			gCfg := svc.Groups[gName]
 			grpItems := gCfg.Middleware
 			if len(gCfg.Use) > 0 {
 				pItems, err := resolver.Resolve(gCfg.Use)

@@ -11,7 +11,7 @@ import (
 
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/domain"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
-	"github.com/skxm03/kr0n-backend/control-plane/internal/email"
+	pkgAudit "github.com/skxm03/kr0n-backend/control-plane/pkg/audit"
 )
 
 // OutboxNotifier notifies background workers when a new outbox event is persisted.
@@ -32,8 +32,27 @@ type AuthenticateParams struct {
 	Password string
 }
 
+// DefaultOrgProvisioner encapsulates default organization provisioning for new users.
+type DefaultOrgProvisioner interface {
+	ProvisionDefaultOrg(ctx context.Context, userID uuid.UUID, displayName, email string) (*domain.Organization, error)
+}
+
 // UserOption defines a functional option for configuring UserService.
 type UserOption func(*UserService)
+
+// WithOrgProvisioner wires an organization provisioner to UserService.
+func WithOrgProvisioner(provisioner DefaultOrgProvisioner) UserOption {
+	return func(s *UserService) {
+		s.orgProvisioner = provisioner
+	}
+}
+
+// WithUserAuditRecorder wires an audit recorder to UserService.
+func WithUserAuditRecorder(recorder AuditRecorder) UserOption {
+	return func(s *UserService) {
+		s.audit = recorder
+	}
+}
 
 // WithOutboxNotifier wires an outbox notifier to UserService.
 func WithOutboxNotifier(notifier OutboxNotifier) UserOption {
@@ -90,8 +109,10 @@ func WithLockoutPolicy(maxAttempts int, lockoutDuration time.Duration) UserOptio
 type UserService struct {
 	repo                 repository.UserRepository
 	sessionRepo          repository.SessionRepository
+	orgProvisioner       DefaultOrgProvisioner
 	hasher               PasswordHasher
 	notifier             OutboxNotifier
+	audit                AuditRecorder
 	tokenLifetime        time.Duration
 	resetTokenLifetime   time.Duration
 	requireVerifiedEmail bool
@@ -155,33 +176,34 @@ func (s *UserService) Register(ctx context.Context, params RegisterParams) (*dom
 		CreatedAt: now,
 	}
 
-	outboxEv := &domain.OutboxEvent{
-		ID:            newUUIDv7(),
-		EventType:     domain.EventTypeEmailVerification,
-		AggregateType: "user",
-		AggregateID:   newUser.ID,
-		Payload: map[string]any{
-			"id":        newUUIDv7().String(),
-			"type":      string(email.TemplateVerifyEmail),
-			"recipient": newUser.Email,
-			"data": map[string]string{
-				"token": rawToken,
-			},
-			"created_at": now.Format(time.RFC3339),
-		},
-		Headers:     map[string]any{},
-		Status:      domain.OutboxStatusPending,
-		CreatedAt:   now,
-		ScheduledAt: now,
+	ev := domain.EmailVerificationEvent{
+		UserID:   newUser.ID,
+		Email:    newUser.Email,
+		RawToken: rawToken,
 	}
 
-	if err := s.repo.CreateWithPasswordAndVerificationToken(ctx, newUser, hash, token, outboxEv); err != nil {
+	if err := s.repo.CreateWithPasswordAndVerificationToken(ctx, newUser, hash, token, ev); err != nil {
 		return nil, err
+	}
+
+	if s.orgProvisioner != nil {
+		if _, err := s.orgProvisioner.ProvisionDefaultOrg(ctx, newUser.ID, newUser.DisplayName, newUser.Email); err != nil {
+			return nil, fmt.Errorf("provision default organization: %w", err)
+		}
 	}
 
 	if s.notifier != nil {
 		s.notifier.Notify()
 	}
+
+	s.recordAudit(ctx, domain.AuditEvent{
+		ActorUserID:  &newUser.ID,
+		ActorType:    domain.ActorTypeUser,
+		Action:       pkgAudit.ActionUserRegistered.String(),
+		ResourceType: pkgAudit.TargetTypeUser,
+		ResourceID:   newUser.ID.String(),
+		Metadata:     map[string]any{"email": newUser.Email},
+	})
 
 	return newUser, nil
 }
@@ -279,27 +301,13 @@ func (s *UserService) ResendVerification(ctx context.Context, rawEmail string) e
 		CreatedAt: now,
 	}
 
-	outboxEv := &domain.OutboxEvent{
-		ID:            newUUIDv7(),
-		EventType:     domain.EventTypeEmailVerification,
-		AggregateType: "user",
-		AggregateID:   u.ID,
-		Payload: map[string]any{
-			"id":        newUUIDv7().String(),
-			"type":      string(email.TemplateVerifyEmail),
-			"recipient": u.Email,
-			"data": map[string]string{
-				"token": rawToken,
-			},
-			"created_at": now.Format(time.RFC3339),
-		},
-		Headers:     map[string]any{},
-		Status:      domain.OutboxStatusPending,
-		CreatedAt:   now,
-		ScheduledAt: now,
+	ev := domain.EmailVerificationEvent{
+		UserID:   u.ID,
+		Email:    u.Email,
+		RawToken: rawToken,
 	}
 
-	if err := s.repo.CreateVerificationToken(ctx, token, outboxEv); err != nil {
+	if err := s.repo.CreateVerificationToken(ctx, token, ev); err != nil {
 		return err
 	}
 
@@ -321,8 +329,18 @@ func (s *UserService) VerifyEmail(ctx context.Context, rawToken string) error {
 	tokenHash := domain.HashToken(trimmed)
 	now := time.Now().UTC()
 
-	_, err := s.repo.ConsumeVerificationToken(ctx, tokenHash, now)
-	return err
+	tok, err := s.repo.ConsumeVerificationToken(ctx, tokenHash, now)
+	if err != nil {
+		return err
+	}
+	s.recordAudit(ctx, domain.AuditEvent{
+		ActorUserID:  &tok.UserID,
+		ActorType:    domain.ActorTypeUser,
+		Action:       pkgAudit.ActionUserEmailVerified.String(),
+		ResourceType: pkgAudit.TargetTypeUser,
+		ResourceID:   tok.UserID.String(),
+	})
+	return nil
 }
 
 // RequestPasswordReset issues a fresh password reset token and creates an outbox event atomically.
@@ -357,29 +375,23 @@ func (s *UserService) RequestPasswordReset(ctx context.Context, rawEmail string)
 		CreatedAt: now,
 	}
 
-	outboxEv := &domain.OutboxEvent{
-		ID:            newUUIDv7(),
-		EventType:     domain.EventTypePasswordReset,
-		AggregateType: "user",
-		AggregateID:   u.ID,
-		Payload: map[string]any{
-			"id":        newUUIDv7().String(),
-			"type":      string(email.TemplatePasswordReset),
-			"recipient": u.Email,
-			"data": map[string]string{
-				"token": rawToken,
-			},
-			"created_at": now.Format(time.RFC3339),
-		},
-		Headers:     map[string]any{},
-		Status:      domain.OutboxStatusPending,
-		CreatedAt:   now,
-		ScheduledAt: now,
+	ev := domain.PasswordResetEvent{
+		UserID:   u.ID,
+		Email:    u.Email,
+		RawToken: rawToken,
 	}
 
-	if err := s.repo.CreatePasswordResetToken(ctx, token, outboxEv); err != nil {
+	if err := s.repo.CreatePasswordResetToken(ctx, token, ev); err != nil {
 		return err
 	}
+
+	s.recordAudit(ctx, domain.AuditEvent{
+		ActorUserID:  &u.ID,
+		ActorType:    domain.ActorTypeUser,
+		Action:       pkgAudit.ActionUserPasswordResetRequested.String(),
+		ResourceType: pkgAudit.TargetTypeUser,
+		ResourceID:   u.ID.String(),
+	})
 
 	if s.notifier != nil {
 		s.notifier.Notify()
@@ -414,6 +426,14 @@ func (s *UserService) ConfirmPasswordReset(ctx context.Context, rawToken, newPas
 			return uuid.Nil, fmt.Errorf("revoke user sessions after reset: %w", err)
 		}
 	}
+
+	s.recordAudit(ctx, domain.AuditEvent{
+		ActorUserID:  &userID,
+		ActorType:    domain.ActorTypeUser,
+		Action:       pkgAudit.ActionUserPasswordResetConfirmed.String(),
+		ResourceType: pkgAudit.TargetTypeUser,
+		ResourceID:   userID.String(),
+	})
 
 	return userID, nil
 }
@@ -451,10 +471,23 @@ func (s *UserService) ChangePassword(ctx context.Context, userID uuid.UUID, curr
 
 	if s.sessionRepo != nil {
 		if currentSessionID != nil && *currentSessionID != uuid.Nil {
-			return s.sessionRepo.RevokeAllExcept(ctx, userID, *currentSessionID, now)
+			if err := s.sessionRepo.RevokeAllExcept(ctx, userID, *currentSessionID, now); err != nil {
+				return err
+			}
+		} else {
+			if err := s.sessionRepo.RevokeAllByUserID(ctx, userID, now); err != nil {
+				return err
+			}
 		}
-		return s.sessionRepo.RevokeAllByUserID(ctx, userID, now)
 	}
+
+	s.recordAudit(ctx, domain.AuditEvent{
+		ActorUserID:  &userID,
+		ActorType:    domain.ActorTypeUser,
+		Action:       pkgAudit.ActionUserPasswordChanged.String(),
+		ResourceType: pkgAudit.TargetTypeUser,
+		ResourceID:   userID.String(),
+	})
 
 	return nil
 }
@@ -488,5 +521,32 @@ func (s *UserService) ResolveOAuthUser(ctx context.Context, profile domain.OAuth
 		profile.DisplayName = profile.DisplayName[:100]
 	}
 
-	return s.repo.ResolveOAuthUser(ctx, profile, time.Now().UTC())
+	u, err := s.repo.ResolveOAuthUser(ctx, profile, time.Now().UTC())
+	if err != nil {
+		return nil, err
+	}
+
+	if s.orgProvisioner != nil {
+		if _, err := s.orgProvisioner.ProvisionDefaultOrg(ctx, u.ID, u.DisplayName, u.Email); err != nil {
+			return nil, fmt.Errorf("provision default organization for oauth user: %w", err)
+		}
+	}
+
+	s.recordAudit(ctx, domain.AuditEvent{
+		ActorUserID:  &u.ID,
+		ActorType:    domain.ActorTypeUser,
+		Action:       pkgAudit.ActionUserOAuthLinked.String(),
+		ResourceType: pkgAudit.TargetTypeUser,
+		ResourceID:   u.ID.String(),
+		Metadata:     map[string]any{"provider": profile.Provider, "provider_user_id": profile.ProviderUserID},
+	})
+
+	return u, nil
+}
+
+func (s *UserService) recordAudit(ctx context.Context, ev domain.AuditEvent) {
+	if s.audit == nil {
+		return
+	}
+	_ = s.audit.Record(ctx, ev)
 }

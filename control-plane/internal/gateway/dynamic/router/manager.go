@@ -126,7 +126,7 @@ func (m *Manager) ActiveSnapshot() *Snapshot {
 func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s := m.Acquire()
 	if s == nil {
-		http.Error(w, "gateway service unavailable", http.StatusServiceUnavailable)
+		middleware.WriteError(w, r, http.StatusServiceUnavailable, "gateway service unavailable", "SERVICE_UNAVAILABLE")
 		return
 	}
 	defer s.Release()

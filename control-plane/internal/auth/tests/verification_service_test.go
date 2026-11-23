@@ -15,7 +15,7 @@ import (
 
 type dummyUserBase struct{}
 
-func (dummyUserBase) CreateWithPasswordAndVerificationToken(context.Context, *repository.User, string, *repository.Token, ...*repository.OutboxEvent) error {
+func (dummyUserBase) CreateWithPasswordAndVerificationToken(context.Context, *repository.User, string, *repository.Token, ...repository.DomainEvent) error {
 	return nil
 }
 func (dummyUserBase) GetByEmailWithPassword(context.Context, string) (*repository.User, string, error) {
@@ -29,13 +29,13 @@ func (dummyUserBase) RecordLoginFailure(context.Context, uuid.UUID, int, time.Du
 	return nil
 }
 func (dummyUserBase) ResetLoginFailures(context.Context, uuid.UUID) error { return nil }
-func (dummyUserBase) CreateVerificationToken(context.Context, *repository.Token, ...*repository.OutboxEvent) error {
+func (dummyUserBase) CreateVerificationToken(context.Context, *repository.Token, ...repository.DomainEvent) error {
 	return nil
 }
 func (dummyUserBase) CountRecentVerificationTokens(context.Context, uuid.UUID, time.Time) (int, error) {
 	return 0, nil
 }
-func (dummyUserBase) CreatePasswordResetToken(context.Context, *repository.Token, ...*repository.OutboxEvent) error {
+func (dummyUserBase) CreatePasswordResetToken(context.Context, *repository.Token, ...repository.DomainEvent) error {
 	return nil
 }
 func (dummyUserBase) ConsumePasswordResetAndUpdatePassword(context.Context, string, string, time.Time) (uuid.UUID, error) {

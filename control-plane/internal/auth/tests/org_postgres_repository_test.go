@@ -148,6 +148,9 @@ func TestOrgPostgresRepository_SoleOrganizationGuards(t *testing.T) {
 	if err := userRepo.CreateWithPasswordAndVerificationToken(ctx, u1, "$2a$12$e8I7n.oE/1u9jFq7m5yRyeuG.F/5kX5g5g1", nil); err != nil {
 		t.Fatalf("CreateWithPasswordAndVerificationToken failed: %v", err)
 	}
+	if _, err := repo.ProvisionDefaultOrg(ctx, u1.ID, u1.DisplayName, u1.Email); err != nil {
+		t.Fatalf("ProvisionDefaultOrg failed: %v", err)
+	}
 
 	userOrgs, err := repo.ListUserOrgs(ctx, u1.ID)
 	if err != nil || len(userOrgs) != 1 {
@@ -205,6 +208,49 @@ func TestOrgPostgresRepository_SoleOrganizationGuards(t *testing.T) {
 	// And now u1 can delete org2, since u1 still has defaultOrg
 	if err := repo.DeleteOrg(ctx, org2.ID); err != nil {
 		t.Fatalf("expected DeleteOrg to succeed when u1 has another org, got %v", err)
+	}
+}
+
+func TestOrgPostgresRepository_ProvisionDefaultOrg(t *testing.T) {
+	pool := testdb.Pool(t)
+	repo := repository.NewPostgresOrgRepository(pool)
+	userRepo := repository.NewPostgresUserRepository(pool)
+	ctx := context.Background()
+
+	email := "prov_" + uuid.New().String() + "@kr0n.dev"
+	u, err := repository.NewUser(email, "Provision User")
+	if err != nil {
+		t.Fatalf("NewUser: %v", err)
+	}
+	if err := userRepo.CreateWithPasswordAndVerificationToken(ctx, u, "$2a$12$e8I7n.oE/1u9jFq7m5yRyeuG.F/5kX5g5g1", nil); err != nil {
+		t.Fatalf("CreateWithPasswordAndVerificationToken: %v", err)
+	}
+
+	// First call provisions default organization
+	org1, err := repo.ProvisionDefaultOrg(ctx, u.ID, u.DisplayName, u.Email)
+	if err != nil {
+		t.Fatalf("ProvisionDefaultOrg failed: %v", err)
+	}
+	if org1.Name != "Provision User's org" {
+		t.Fatalf("unexpected org name: %q", org1.Name)
+	}
+
+	// Verify membership role is owner
+	roleID, perms, err := repo.RolePermissions(ctx, u.ID, org1.ID)
+	if err != nil {
+		t.Fatalf("RolePermissions failed: %v", err)
+	}
+	if roleID != "owner" || len(perms) == 0 {
+		t.Fatalf("expected owner role with permissions, got role=%q, perms=%v", roleID, perms)
+	}
+
+	// Second call is idempotent and returns the existing org
+	org2, err := repo.ProvisionDefaultOrg(ctx, u.ID, u.DisplayName, u.Email)
+	if err != nil {
+		t.Fatalf("ProvisionDefaultOrg idempotent call failed: %v", err)
+	}
+	if org2.ID != org1.ID {
+		t.Fatalf("expected same org ID on repeat call, got %s vs %s", org2.ID, org1.ID)
 	}
 }
 

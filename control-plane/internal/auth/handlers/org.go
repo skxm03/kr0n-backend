@@ -14,7 +14,6 @@ import (
 
 	authv1 "github.com/skxm03/kr0n-backend/control-plane/gen/auth/v1"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/domain"
-	pkgAudit "github.com/skxm03/kr0n-backend/control-plane/pkg/audit"
 )
 
 func mapOrgError(err error) error {
@@ -137,16 +136,6 @@ func (s *Server) CreateOrganization(ctx context.Context, req *authv1.CreateOrgan
 	if err != nil {
 		return nil, mapOrgError(err)
 	}
-	oid := o.ID
-	s.recordAudit(ctx, domain.AuditEvent{
-		OrganizationID: &oid,
-		ActorUserID:    &p.UserID,
-		ActorType:      actorTypeFromPrincipal(p),
-		Action:         pkgAudit.ActionOrgCreated.String(),
-		ResourceType:   pkgAudit.TargetTypeOrg,
-		ResourceID:     o.ID.String(),
-		Metadata:       map[string]any{"slug": o.Slug, "name": o.Name},
-	})
 	return &authv1.CreateOrganizationResponse{
 		Id:        o.ID.String(),
 		Name:      o.Name,
@@ -224,16 +213,6 @@ func (s *Server) UpdateOrganization(ctx context.Context, req *authv1.UpdateOrgan
 	if err != nil {
 		return nil, mapOrgError(err)
 	}
-	actorID := p.UserID
-	s.recordAudit(ctx, domain.AuditEvent{
-		OrganizationID: &orgID,
-		ActorUserID:    &actorID,
-		ActorType:      actorTypeFromPrincipal(p),
-		Action:         pkgAudit.ActionOrgUpdated.String(),
-		ResourceType:   pkgAudit.TargetTypeOrg,
-		ResourceID:     orgID.String(),
-		Metadata:       map[string]any{"name": o.Name},
-	})
 	return &authv1.UpdateOrganizationResponse{
 		Id:        o.ID.String(),
 		Name:      o.Name,
@@ -260,15 +239,6 @@ func (s *Server) DeleteOrganization(ctx context.Context, req *authv1.DeleteOrgan
 	if err := s.orgService.DeleteOrg(ctx, p, orgID); err != nil {
 		return nil, mapOrgError(err)
 	}
-	actorID := p.UserID
-	s.recordAudit(ctx, domain.AuditEvent{
-		ActorUserID:  &actorID,
-		ActorType:    actorTypeFromPrincipal(p),
-		Action:       pkgAudit.ActionOrgDeleted.String(),
-		ResourceType: pkgAudit.TargetTypeOrg,
-		ResourceID:   orgID.String(),
-		Metadata:     map[string]any{"deleted_org_id": orgID.String()},
-	})
 	return &authv1.DeleteOrganizationResponse{Message: "organization deleted successfully"}, nil
 }
 
@@ -319,16 +289,6 @@ func (s *Server) AddMember(ctx context.Context, req *authv1.AddMemberRequest) (*
 	if err != nil {
 		return nil, mapOrgError(err)
 	}
-	actorID := p.UserID
-	s.recordAudit(ctx, domain.AuditEvent{
-		OrganizationID: &orgID,
-		ActorUserID:    &actorID,
-		ActorType:      actorTypeFromPrincipal(p),
-		Action:         pkgAudit.ActionOrgMemberAdded.String(),
-		ResourceType:   pkgAudit.TargetTypeOrgMember,
-		ResourceID:     m.UserID.String(),
-		Metadata:       map[string]any{"email": m.Email, "role_id": m.RoleID},
-	})
 	return &authv1.AddMemberResponse{
 		UserId:      m.UserID.String(),
 		Email:       m.Email,
@@ -358,16 +318,6 @@ func (s *Server) UpdateMemberRole(ctx context.Context, req *authv1.UpdateMemberR
 	if err := s.orgService.UpdateMemberRole(ctx, p, orgID, targetID, req.GetRoleId()); err != nil {
 		return nil, mapOrgError(err)
 	}
-	actorID := p.UserID
-	s.recordAudit(ctx, domain.AuditEvent{
-		OrganizationID: &orgID,
-		ActorUserID:    &actorID,
-		ActorType:      actorTypeFromPrincipal(p),
-		Action:         pkgAudit.ActionOrgMemberRoleUpdated.String(),
-		ResourceType:   pkgAudit.TargetTypeOrgMember,
-		ResourceID:     targetID.String(),
-		Metadata:       map[string]any{"role_id": strings.ToLower(strings.TrimSpace(req.GetRoleId()))},
-	})
 	return &authv1.UpdateMemberRoleResponse{Message: "member role updated successfully"}, nil
 }
 
@@ -391,15 +341,6 @@ func (s *Server) RemoveMember(ctx context.Context, req *authv1.RemoveMemberReque
 	if err := s.orgService.RemoveMember(ctx, p, orgID, targetID); err != nil {
 		return nil, mapOrgError(err)
 	}
-	actorID := p.UserID
-	s.recordAudit(ctx, domain.AuditEvent{
-		OrganizationID: &orgID,
-		ActorUserID:    &actorID,
-		ActorType:      actorTypeFromPrincipal(p),
-		Action:         pkgAudit.ActionOrgMemberRemoved.String(),
-		ResourceType:   pkgAudit.TargetTypeOrgMember,
-		ResourceID:     targetID.String(),
-	})
 	return &authv1.RemoveMemberResponse{Message: "member removed successfully"}, nil
 }
 
@@ -420,16 +361,6 @@ func (s *Server) CreateInvite(ctx context.Context, req *authv1.CreateInviteReque
 	if err != nil {
 		return nil, mapOrgError(err)
 	}
-	actorID := p.UserID
-	s.recordAudit(ctx, domain.AuditEvent{
-		OrganizationID: &orgID,
-		ActorUserID:    &actorID,
-		ActorType:      actorTypeFromPrincipal(p),
-		Action:         pkgAudit.ActionOrgMemberInvited.String(),
-		ResourceType:   pkgAudit.TargetTypeOrgInvite,
-		ResourceID:     inv.ID.String(),
-		Metadata:       map[string]any{"email": inv.Email, "role_id": inv.RoleID},
-	})
 	return &authv1.CreateInviteResponse{
 		Id:        inv.ID.String(),
 		OrgId:     inv.OrganizationID.String(),
@@ -457,16 +388,6 @@ func (s *Server) AcceptInvite(ctx context.Context, req *authv1.AcceptInviteReque
 	if err != nil {
 		return nil, mapOrgError(err)
 	}
-	oid := o.ID
-	s.recordAudit(ctx, domain.AuditEvent{
-		OrganizationID: &oid,
-		ActorUserID:    &p.UserID,
-		ActorType:      actorTypeFromPrincipal(p),
-		Action:         pkgAudit.ActionOrgInviteAccepted.String(),
-		ResourceType:   pkgAudit.TargetTypeOrgMember,
-		ResourceID:     p.UserID.String(),
-		Metadata:       map[string]any{"role_id": o.RoleID},
-	})
 	return &authv1.AcceptInviteResponse{
 		Id:        o.ID.String(),
 		Name:      o.Name,
@@ -497,15 +418,6 @@ func (s *Server) RevokeInvite(ctx context.Context, req *authv1.RevokeInviteReque
 	if err := s.orgService.RevokeInvite(ctx, p, orgID, inviteID); err != nil {
 		return nil, mapOrgError(err)
 	}
-	actorID := p.UserID
-	s.recordAudit(ctx, domain.AuditEvent{
-		OrganizationID: &orgID,
-		ActorUserID:    &actorID,
-		ActorType:      actorTypeFromPrincipal(p),
-		Action:         pkgAudit.ActionOrgInviteRevoked.String(),
-		ResourceType:   pkgAudit.TargetTypeOrgInvite,
-		ResourceID:     inviteID.String(),
-	})
 	return &authv1.RevokeInviteResponse{Message: "invite revoked successfully"}, nil
 }
 
@@ -526,16 +438,6 @@ func (s *Server) CreateAPIToken(ctx context.Context, req *authv1.CreateAPITokenR
 	if err != nil {
 		return nil, mapOrgError(err)
 	}
-	actorID := p.UserID
-	s.recordAudit(ctx, domain.AuditEvent{
-		OrganizationID: &orgID,
-		ActorUserID:    &actorID,
-		ActorType:      actorTypeFromPrincipal(p),
-		Action:         pkgAudit.ActionAPITokenCreated.String(),
-		ResourceType:   pkgAudit.TargetTypeAPIToken,
-		ResourceID:     tok.ID.String(),
-		Metadata:       map[string]any{"name": tok.Name, "token_prefix": tok.TokenPrefix, "permissions": tok.Permissions},
-	})
 	return &authv1.CreateAPITokenResponse{
 		Token:  toAPITokenProto(tok),
 		Secret: secret,
@@ -586,15 +488,6 @@ func (s *Server) RevokeAPIToken(ctx context.Context, req *authv1.RevokeAPITokenR
 	if err := s.orgService.RevokeAPIToken(ctx, p, orgID, tokenID); err != nil {
 		return nil, mapOrgError(err)
 	}
-	actorID := p.UserID
-	s.recordAudit(ctx, domain.AuditEvent{
-		OrganizationID: &orgID,
-		ActorUserID:    &actorID,
-		ActorType:      actorTypeFromPrincipal(p),
-		Action:         pkgAudit.ActionAPITokenRevoked.String(),
-		ResourceType:   pkgAudit.TargetTypeAPIToken,
-		ResourceID:     tokenID.String(),
-	})
 	return &authv1.RevokeAPITokenResponse{Message: "token revoked successfully"}, nil
 }
 

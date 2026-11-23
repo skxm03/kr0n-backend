@@ -62,19 +62,6 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 	outboxPublisher := outbox.NewEmailPublisher(emailEnqueuer)
 	outboxWorker := outbox.NewWorker(outboxRepo, outboxPublisher, outbox.DefaultConfig())
 
-	userRepo := repository.NewPostgresUserRepository(dbPool)
-	sessionRepo := repository.NewPostgresSessionRepository(dbPool)
-	hasher := service.NewBcryptHasher(12)
-	userService := service.NewUserService(
-		userRepo,
-		hasher,
-		service.WithSessionRepository(sessionRepo),
-		service.WithOutboxNotifier(outboxWorker),
-		service.WithTokenLifetime(cfg.EmailVerificationTokenLifetime),
-		service.WithPasswordResetTokenLifetime(cfg.PasswordResetTokenLifetime),
-		service.WithRequireVerifiedEmail(cfg.RequireVerifiedEmail),
-	)
-
 	var auditEmitter pkgAudit.Emitter
 	if cfg.AuditRabbitMQURL != "" {
 		auditEmitter, err = pkgAudit.NewRabbitMQEmitter(pkgAudit.EmitterConfig{
@@ -91,6 +78,9 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 		}
 	}
 
+	auditRepo := repository.NewPostgresAuditRepository(dbPool)
+	auditService := service.NewAuditService(auditRepo, service.WithAuditEmitter(auditEmitter))
+
 	cleanup := func() {
 		if auditEmitter != nil {
 			_ = auditEmitter.Close()
@@ -100,6 +90,22 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 		}
 		dbPool.Close()
 	}
+
+	userRepo := repository.NewPostgresUserRepository(dbPool)
+	orgRepo := repository.NewPostgresOrgRepository(dbPool)
+	sessionRepo := repository.NewPostgresSessionRepository(dbPool)
+	hasher := service.NewBcryptHasher(12)
+	userService := service.NewUserService(
+		userRepo,
+		hasher,
+		service.WithSessionRepository(sessionRepo),
+		service.WithOrgProvisioner(orgRepo),
+		service.WithUserAuditRecorder(auditService),
+		service.WithOutboxNotifier(outboxWorker),
+		service.WithTokenLifetime(cfg.EmailVerificationTokenLifetime),
+		service.WithPasswordResetTokenLifetime(cfg.PasswordResetTokenLifetime),
+		service.WithRequireVerifiedEmail(cfg.RequireVerifiedEmail),
+	)
 
 	isDev := cfg.Env == "dev" || cfg.Env == "development"
 
@@ -128,7 +134,13 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 		return nil, err
 	}
 	tokenIssuer := service.NewDefaultTokenIssuer(jwtSigner)
-	sessionService := service.NewSessionService(userService, sessionRepo, tokenIssuer, cfg.RefreshTokenLifetime)
+	sessionService := service.NewSessionService(
+		userService,
+		sessionRepo,
+		tokenIssuer,
+		cfg.RefreshTokenLifetime,
+		service.WithSessionAuditRecorder(auditService),
+	)
 
 	githubOAuth := oauth.NewGitHubProvider(oauth.GitHubConfig{
 		ClientID:     cfg.GitHubClientID,
@@ -142,14 +154,11 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 		RedirectURL:  cfg.GoogleRedirectURL,
 	})
 
-	orgRepo := repository.NewPostgresOrgRepository(dbPool)
 	orgService := service.NewOrgService(
 		orgRepo,
 		service.WithOrgOutboxNotifier(outboxWorker),
+		service.WithOrgAuditRecorder(auditService),
 	)
-
-	auditRepo := repository.NewPostgresAuditRepository(dbPool)
-	auditService := service.NewAuditService(auditRepo, service.WithAuditEmitter(auditEmitter))
 
 	serviceAuthConfig := handlers.ServiceAuthConfig{
 		Enabled:            !isDev || cfg.AuthGRPCClientCAFile != "",

@@ -89,6 +89,7 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 	userService := service.NewUserService(
 		userRepo,
 		hasher,
+		service.WithOrgProvisioner(repository.NewPostgresOrgRepository(dbPool)),
 		service.WithSessionRepository(sessionRepo),
 		service.WithOutboxNotifier(outboxWorker),
 		service.WithTokenLifetime(24*time.Hour),

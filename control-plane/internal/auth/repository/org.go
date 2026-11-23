@@ -48,7 +48,7 @@ type OrgRepository interface {
 	UpdateMemberRole(ctx context.Context, orgID, targetUserID uuid.UUID, roleID string, now time.Time) error
 	RemoveMember(ctx context.Context, orgID, targetUserID uuid.UUID) error
 
-	CreateInvite(ctx context.Context, inv *Invite, outbox ...*OutboxEvent) error
+	CreateInvite(ctx context.Context, inv *Invite, events ...DomainEvent) error
 	AcceptInvite(ctx context.Context, userID uuid.UUID, tokenHash string, now time.Time) (*Organization, error)
 	RevokeInvite(ctx context.Context, orgID, inviteID uuid.UUID, now time.Time) error
 
@@ -57,6 +57,8 @@ type OrgRepository interface {
 	RevokeAPIToken(ctx context.Context, orgID, tokenID uuid.UUID, now time.Time) error
 	GetAPITokenByHash(ctx context.Context, tokenHash string) (*APIToken, Status, error)
 	TouchAPITokenLastUsed(ctx context.Context, tokenID uuid.UUID, usedAt time.Time) error
+
+	ProvisionDefaultOrg(ctx context.Context, userID uuid.UUID, displayName, email string) (*Organization, error)
 }
 
 // PostgresOrgRepository implements OrgRepository using PostgreSQL.
@@ -452,7 +454,7 @@ func ensureMultipleOwners(ctx context.Context, tx pgx.Tx, orgID uuid.UUID) error
 
 // CreateInvite persists a new organization invite and optional outbox event. It rejects invites for emails that already belong
 // to a member, and revokes any earlier pending invite for the same org+email so only one is live.
-func (r *PostgresOrgRepository) CreateInvite(ctx context.Context, inv *Invite, outbox ...*OutboxEvent) error {
+func (r *PostgresOrgRepository) CreateInvite(ctx context.Context, inv *Invite, events ...DomainEvent) error {
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
@@ -487,8 +489,8 @@ func (r *PostgresOrgRepository) CreateInvite(ctx context.Context, inv *Invite, o
 		return fmt.Errorf("insert invite: %w", err)
 	}
 
-	if len(outbox) > 0 && outbox[0] != nil {
-		if err := insertOutboxEventTx(ctx, tx, outbox[0]); err != nil {
+	if len(events) > 0 && events[0] != nil {
+		if err := RecordDomainEventTx(ctx, tx, events[0], inv.CreatedAt); err != nil {
 			return err
 		}
 	}
@@ -690,8 +692,53 @@ func slugify(s string) string {
 	return s
 }
 
+// ProvisionDefaultOrg provisions a personal organization and owner membership for a user if they do not already belong to one.
+// If the user already belongs to an organization, it returns their existing primary organization.
+func (r *PostgresOrgRepository) ProvisionDefaultOrg(ctx context.Context, userID uuid.UUID, displayName, email string) (*Organization, error) {
+	now := time.Now().UTC()
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return nil, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	var userOrgCount int
+	if err := tx.QueryRow(ctx, `SELECT count(*) FROM organization_memberships WHERE user_id = $1`, userID).Scan(&userOrgCount); err != nil {
+		return nil, fmt.Errorf("check existing memberships: %w", err)
+	}
+	if userOrgCount > 0 {
+		var org Organization
+		err := tx.QueryRow(ctx, `
+			SELECT o.id, o.name, o.slug, o.created_at, o.updated_at
+			FROM organizations o
+			JOIN organization_memberships om ON om.organization_id = o.id
+			WHERE om.user_id = $1
+			ORDER BY om.created_at ASC
+			LIMIT 1
+		`, userID).Scan(&org.ID, &org.Name, &org.Slug, &org.CreatedAt, &org.UpdatedAt)
+		if err != nil {
+			return nil, fmt.Errorf("query existing org: %w", err)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return nil, fmt.Errorf("commit transaction: %w", err)
+		}
+		return &org, nil
+	}
+
+	org, err := createDefaultOrgTx(ctx, tx, userID, displayName, email, now)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit transaction: %w", err)
+	}
+
+	return org, nil
+}
+
 // createDefaultOrgTx provisions a personal organization and owner membership within an active database transaction.
-func createDefaultOrgTx(ctx context.Context, tx pgx.Tx, userID uuid.UUID, displayName, email string, now time.Time) error {
+func createDefaultOrgTx(ctx context.Context, tx pgx.Tx, userID uuid.UUID, displayName, email string, now time.Time) (*Organization, error) {
 	var orgName string
 	trimmedName := strings.TrimSpace(displayName)
 	if trimmedName != "" {
@@ -722,7 +769,7 @@ func createDefaultOrgTx(ctx context.Context, tx pgx.Tx, userID uuid.UUID, displa
 		var exists bool
 		err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM organizations WHERE slug = $1)`, slug).Scan(&exists)
 		if err != nil {
-			return fmt.Errorf("check org slug existence: %w", err)
+			return nil, fmt.Errorf("check org slug existence: %w", err)
 		}
 		if !exists {
 			break
@@ -737,7 +784,7 @@ func createDefaultOrgTx(ctx context.Context, tx pgx.Tx, userID uuid.UUID, displa
 		VALUES ($1, $2, $3, $4, $4);
 	`, orgID, orgName, slug, now)
 	if err != nil {
-		return fmt.Errorf("insert default organization: %w", err)
+		return nil, fmt.Errorf("insert default organization: %w", err)
 	}
 
 	_, err = tx.Exec(ctx, `
@@ -745,10 +792,16 @@ func createDefaultOrgTx(ctx context.Context, tx pgx.Tx, userID uuid.UUID, displa
 		VALUES ($1, $2, $3, 'owner', $4, $4);
 	`, uuid.New(), orgID, userID, now)
 	if err != nil {
-		return fmt.Errorf("insert default organization membership: %w", err)
+		return nil, fmt.Errorf("insert default organization membership: %w", err)
 	}
 
-	return nil
+	return &Organization{
+		ID:        orgID,
+		Name:      orgName,
+		Slug:      slug,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}, nil
 }
 
 

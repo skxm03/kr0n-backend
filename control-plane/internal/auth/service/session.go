@@ -12,6 +12,7 @@ import (
 
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/domain"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
+	pkgAudit "github.com/skxm03/kr0n-backend/control-plane/pkg/audit"
 )
 
 // TokenSigner defines the contract for generating signed access tokens.
@@ -55,25 +56,42 @@ type Authenticator interface {
 	Authenticate(ctx context.Context, params AuthenticateParams) (*domain.User, error)
 }
 
+// SessionOption configures optional dependencies on SessionService.
+type SessionOption func(*SessionService)
+
+// WithSessionAuditRecorder wires an audit recorder to SessionService.
+func WithSessionAuditRecorder(recorder AuditRecorder) SessionOption {
+	return func(s *SessionService) {
+		s.audit = recorder
+	}
+}
+
 // SessionService orchestrates login authentication and session creation.
 type SessionService struct {
 	auth            Authenticator
 	sessionRepo     repository.SessionRepository
 	tokenIssuer     TokenIssuer
+	audit           AuditRecorder
 	sessionLifetime time.Duration
 }
 
 // NewSessionService creates a SessionService instance.
-func NewSessionService(auth Authenticator, sessionRepo repository.SessionRepository, tokenIssuer TokenIssuer, sessionLifetime time.Duration) *SessionService {
+func NewSessionService(auth Authenticator, sessionRepo repository.SessionRepository, tokenIssuer TokenIssuer, sessionLifetime time.Duration, opts ...SessionOption) *SessionService {
 	if sessionLifetime <= 0 {
 		sessionLifetime = 30 * 24 * time.Hour // default 30 days
 	}
-	return &SessionService{
+	s := &SessionService{
 		auth:            auth,
 		sessionRepo:     sessionRepo,
 		tokenIssuer:     tokenIssuer,
 		sessionLifetime: sessionLifetime,
 	}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(s)
+		}
+	}
+	return s
 }
 
 // LoginParams contains parameters for the login operation.
@@ -101,10 +119,35 @@ func (s *SessionService) Login(ctx context.Context, params LoginParams) (*LoginR
 		Password: params.Password,
 	})
 	if err != nil {
+		s.recordAudit(ctx, domain.AuditEvent{
+			ActorType:    domain.ActorTypeUser,
+			Action:       pkgAudit.ActionUserLoginFailed.String(),
+			Status:       pkgAudit.StatusFailure,
+			ResourceType: pkgAudit.TargetTypeUser,
+			IPAddress:    params.ClientIP,
+			UserAgent:    params.UserAgent,
+			Metadata:     map[string]any{"email": strings.ToLower(strings.TrimSpace(params.Email))},
+		})
 		return nil, err
 	}
 
-	return s.CreateSessionForUser(ctx, authenticatedUser, params.UserAgent, params.ClientIP)
+	res, err := s.CreateSessionForUser(ctx, authenticatedUser, params.UserAgent, params.ClientIP)
+	if err != nil {
+		return nil, err
+	}
+
+	uid := res.User.ID
+	s.recordAudit(ctx, domain.AuditEvent{
+		ActorUserID:  &uid,
+		ActorType:    domain.ActorTypeUser,
+		Action:       pkgAudit.ActionUserLogin.String(),
+		ResourceType: "session",
+		ResourceID:   uid.String(),
+		IPAddress:    params.ClientIP,
+		UserAgent:    params.UserAgent,
+	})
+
+	return res, nil
 }
 
 // CreateSessionForUser issues an access token and refresh token and persists the session for an already-authenticated user.
@@ -229,7 +272,29 @@ func (s *SessionService) Logout(ctx context.Context, rawRefreshToken string) (*d
 		return nil, fmt.Errorf("revoke session: %w", err)
 	}
 
+	var actorID *uuid.UUID
+	var resourceID string
+	if sess != nil {
+		actorID = &sess.UserID
+		resourceID = sess.ID.String()
+	}
+
+	s.recordAudit(ctx, domain.AuditEvent{
+		ActorUserID:  actorID,
+		ActorType:    domain.ActorTypeUser,
+		Action:       pkgAudit.ActionUserLogout.String(),
+		ResourceType: "session",
+		ResourceID:   resourceID,
+	})
+
 	return sess, nil
+}
+
+func (s *SessionService) recordAudit(ctx context.Context, ev domain.AuditEvent) {
+	if s.audit == nil {
+		return
+	}
+	_ = s.audit.Record(ctx, ev)
 }
 
 // ListSessions returns all active (non-revoked, non-expired) sessions for a user.

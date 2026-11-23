@@ -142,6 +142,20 @@ func TestGatewayErrorHandler(t *testing.T) {
 			wantCode:   "PAYMENT_METHOD_REQUIRED",
 			wantMsg:    "payment source required",
 		},
+		{
+			name:       "internal database error sanitized",
+			err:        status.Error(codes.Internal, "pq: relation \"users\" does not exist at SELECT * FROM users"),
+			wantStatus: http.StatusInternalServerError,
+			wantCode:   "INTERNAL_ERROR",
+			wantMsg:    "internal server error",
+		},
+		{
+			name:       "unknown panic error sanitized",
+			err:        status.Error(codes.Unknown, "panic: runtime error: invalid memory address or nil pointer dereference"),
+			wantStatus: http.StatusInternalServerError,
+			wantCode:   "INTERNAL_ERROR",
+			wantMsg:    "internal server error",
+		},
 	}
 
 	for _, tt := range tests {
@@ -439,6 +453,28 @@ func TestGatewayMetadataAnnotator_RefreshTokenCookie(t *testing.T) {
 	tokens := md.Get("x-refresh-token")
 	if len(tokens) != 1 || tokens[0] != "cookie-refresh-token-123" {
 		t.Fatalf("expected x-refresh-token in gRPC metadata to be cookie-refresh-token-123, got %v", tokens)
+	}
+
+	// Verify logout also receives refresh token
+	reqLogout := httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout", nil)
+	reqLogout.AddCookie(&http.Cookie{
+		Name:  RefreshTokenCookieName,
+		Value: "cookie-refresh-token-123",
+	})
+	mdLogout := annotator(context.Background(), reqLogout)
+	if logoutTokens := mdLogout.Get("x-refresh-token"); len(logoutTokens) != 1 || logoutTokens[0] != "cookie-refresh-token-123" {
+		t.Fatalf("expected x-refresh-token on logout endpoint, got %v", logoutTokens)
+	}
+
+	// Other microservices/endpoints must NEVER receive refresh token
+	reqOther := httptest.NewRequest(http.MethodGet, "/api/v1/orgs/123", nil)
+	reqOther.AddCookie(&http.Cookie{
+		Name:  RefreshTokenCookieName,
+		Value: "cookie-refresh-token-123",
+	})
+	mdOther := annotator(context.Background(), reqOther)
+	if otherTokens := mdOther.Get("x-refresh-token"); len(otherTokens) != 0 {
+		t.Fatalf("security violation: non-auth endpoint received refresh token metadata: %v", otherTokens)
 	}
 }
 

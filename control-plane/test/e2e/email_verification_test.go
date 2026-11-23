@@ -87,6 +87,7 @@ func TestE2E_EmailVerification_Lifecycle(t *testing.T) {
 	userService := service.NewUserService(
 		userRepo,
 		hasher,
+		service.WithOrgProvisioner(repository.NewPostgresOrgRepository(dbPool)),
 		service.WithOutboxNotifier(outboxWorker),
 		service.WithTokenLifetime(24*time.Hour),
 	)
@@ -488,6 +489,7 @@ func TestE2E_EmailVerification_Manual10StepsVerification(t *testing.T) {
 	userService := service.NewUserService(
 		userRepo,
 		hasher,
+		service.WithOrgProvisioner(repository.NewPostgresOrgRepository(dbPool)),
 		service.WithOutboxNotifier(outboxWorker),
 		service.WithTokenLifetime(24*time.Hour),
 	)

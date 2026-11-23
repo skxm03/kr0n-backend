@@ -318,9 +318,7 @@ func DefaultRegistry() *Registry {
 			return mux.HandlePath("POST", "/api/v1/github/webhooks", func(w http.ResponseWriter, r *http.Request, _ map[string]string) {
 				body, err := io.ReadAll(io.LimitReader(r.Body, maxBytes+1))
 				if err != nil || int64(len(body)) > maxBytes {
-					w.Header().Set("Content-Type", "application/json")
-					w.WriteHeader(http.StatusRequestEntityTooLarge)
-					_, _ = w.Write([]byte(`{"error":"payload too large"}`))
+					middleware.WriteError(w, r, http.StatusRequestEntityTooLarge, "payload too large", "PAYLOAD_TOO_LARGE")
 					return
 				}
 				resp, err := client.HandleGitHubWebhook(r.Context(), &githubv1.HandleGitHubWebhookRequest{
@@ -330,20 +328,15 @@ func DefaultRegistry() *Registry {
 					DeliveryId:      r.Header.Get("X-GitHub-Delivery"),
 				})
 				if err != nil {
-					w.Header().Set("Content-Type", "application/json")
 					switch status.Code(err) {
 					case codes.Unauthenticated:
-						w.WriteHeader(http.StatusUnauthorized)
-						_, _ = w.Write([]byte(`{"error":"invalid signature"}`))
+						middleware.WriteError(w, r, http.StatusUnauthorized, "invalid signature", "UNAUTHORIZED")
 					case codes.InvalidArgument:
-						w.WriteHeader(http.StatusBadRequest)
-						_, _ = w.Write([]byte(`{"error":"invalid payload"}`))
+						middleware.WriteError(w, r, http.StatusBadRequest, "invalid payload", "INVALID_ARGUMENT")
 					case codes.ResourceExhausted:
-						w.WriteHeader(http.StatusRequestEntityTooLarge)
-						_, _ = w.Write([]byte(`{"error":"payload too large"}`))
+						middleware.WriteError(w, r, http.StatusRequestEntityTooLarge, "payload too large", "PAYLOAD_TOO_LARGE")
 					default:
-						w.WriteHeader(http.StatusInternalServerError)
-						_, _ = w.Write([]byte(`{"error":"internal processing error"}`))
+						middleware.WriteError(w, r, http.StatusInternalServerError, "internal processing error", "INTERNAL_ERROR")
 					}
 					return
 				}

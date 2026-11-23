@@ -561,3 +561,27 @@ func TestRateLimit_TwoTierDefense_UnauthenticatedBlockedAtPerimeter(t *testing.T
 		t.Fatalf("auth should not be invoked when throttled at perimeter, expected 2 calls, got %d", authCallCount)
 	}
 }
+
+func TestRateLimitFactory_IntegerRatePerSec(t *testing.T) {
+	mr := miniredis.RunT(t)
+	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	t.Cleanup(func() { _ = rdb.Close() })
+
+	deps := builtins.SharedDeps{
+		RedisClient: rdb,
+	}
+	factory := builtins.NewRateLimitFactory(deps)
+
+	// Configure with integer rate_per_sec and integer capacity
+	mw, err := factory(map[string]any{
+		"capacity":     5,
+		"rate_per_sec": 2, // integer instead of float64
+		"zone":         "integer_test",
+	})
+	if err != nil {
+		t.Fatalf("failed to create rate limit mw with integer rate_per_sec: %v", err)
+	}
+	if mw == nil {
+		t.Fatal("expected non-nil middleware")
+	}
+}

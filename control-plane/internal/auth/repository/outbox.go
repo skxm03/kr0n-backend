@@ -32,8 +32,22 @@ func NewPostgresOutboxRepository(pool *pgxpool.Pool) *PostgresOutboxRepository {
 	return &PostgresOutboxRepository{pool: pool}
 }
 
-// RecordEventTx writes an outbox event within an existing database transaction.
-func (r *PostgresOutboxRepository) RecordEventTx(ctx context.Context, tx pgx.Tx, ev *OutboxEvent) error {
+// RecordDomainEventTx writes a domain event to the transactional outbox table within an active database transaction.
+func RecordDomainEventTx(ctx context.Context, tx pgx.Tx, ev DomainEvent, now time.Time) error {
+	if ev == nil {
+		return nil
+	}
+	outboxEv := ev.ToOutboxEvent(now)
+	if outboxEv == nil {
+		return nil
+	}
+	return insertOutboxEventTx(ctx, tx, outboxEv)
+}
+
+func insertOutboxEventTx(ctx context.Context, tx pgx.Tx, ev *OutboxEvent) error {
+	if ev == nil {
+		return nil
+	}
 	if ev.ID == uuid.Nil {
 		id, err := uuid.NewV7()
 		if err != nil {
@@ -89,6 +103,11 @@ func (r *PostgresOutboxRepository) RecordEventTx(ctx context.Context, tx pgx.Tx,
 		return fmt.Errorf("insert outbox event: %w", err)
 	}
 	return nil
+}
+
+// RecordEventTx writes an outbox event within an existing database transaction.
+func (r *PostgresOutboxRepository) RecordEventTx(ctx context.Context, tx pgx.Tx, ev *OutboxEvent) error {
+	return insertOutboxEventTx(ctx, tx, ev)
 }
 
 // RecordEvent writes an outbox event in its own transaction.

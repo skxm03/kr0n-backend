@@ -14,10 +14,11 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/repository"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/service"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/email"
+	pkgAudit "github.com/skxm03/kr0n-backend/control-plane/pkg/audit"
 )
 
 type mockUserRepository struct {
-	createTokenFunc       func(ctx context.Context, u *repository.User, passwordHash string, token *repository.Token, outbox ...*repository.OutboxEvent) error
+	createTokenFunc       func(ctx context.Context, u *repository.User, passwordHash string, token *repository.Token, events ...repository.DomainEvent) error
 	getFunc               func(ctx context.Context, email string) (*repository.User, string, error)
 	getByIDFunc           func(ctx context.Context, id uuid.UUID) (*repository.User, error)
 	getByIDPwFunc         func(ctx context.Context, id uuid.UUID) (*repository.User, string, error)
@@ -31,21 +32,23 @@ type mockUserRepository struct {
 	created               []*repository.User
 	createdTokens         []*repository.Token
 	createdOutbox         []*repository.OutboxEvent
+	createdEvents         []repository.DomainEvent
 	resetTokens           []*repository.Token
 	failureRecorded       int
 	failuresReset         bool
 }
 
-func (m *mockUserRepository) CreateWithPasswordAndVerificationToken(ctx context.Context, u *repository.User, passwordHash string, token *repository.Token, outbox ...*repository.OutboxEvent) error {
+func (m *mockUserRepository) CreateWithPasswordAndVerificationToken(ctx context.Context, u *repository.User, passwordHash string, token *repository.Token, events ...repository.DomainEvent) error {
 	if m.createTokenFunc != nil {
-		return m.createTokenFunc(ctx, u, passwordHash, token, outbox...)
+		return m.createTokenFunc(ctx, u, passwordHash, token, events...)
 	}
 	m.created = append(m.created, u)
 	if token != nil {
 		m.createdTokens = append(m.createdTokens, token)
 	}
-	if len(outbox) > 0 && outbox[0] != nil {
-		m.createdOutbox = append(m.createdOutbox, outbox[0])
+	if len(events) > 0 && events[0] != nil {
+		m.createdEvents = append(m.createdEvents, events[0])
+		m.createdOutbox = append(m.createdOutbox, events[0].ToOutboxEvent(time.Now().UTC()))
 	}
 	return nil
 }
@@ -87,10 +90,11 @@ func (m *mockUserRepository) ResetLoginFailures(ctx context.Context, userID uuid
 	return nil
 }
 
-func (m *mockUserRepository) CreateVerificationToken(ctx context.Context, token *repository.Token, outbox ...*repository.OutboxEvent) error {
+func (m *mockUserRepository) CreateVerificationToken(ctx context.Context, token *repository.Token, events ...repository.DomainEvent) error {
 	m.createdTokens = append(m.createdTokens, token)
-	if len(outbox) > 0 && outbox[0] != nil {
-		m.createdOutbox = append(m.createdOutbox, outbox[0])
+	if len(events) > 0 && events[0] != nil {
+		m.createdEvents = append(m.createdEvents, events[0])
+		m.createdOutbox = append(m.createdOutbox, events[0].ToOutboxEvent(time.Now().UTC()))
 	}
 	return nil
 }
@@ -109,10 +113,11 @@ func (m *mockUserRepository) ConsumeVerificationToken(ctx context.Context, token
 	return nil, nil
 }
 
-func (m *mockUserRepository) CreatePasswordResetToken(ctx context.Context, token *repository.Token, outbox ...*repository.OutboxEvent) error {
+func (m *mockUserRepository) CreatePasswordResetToken(ctx context.Context, token *repository.Token, events ...repository.DomainEvent) error {
 	m.resetTokens = append(m.resetTokens, token)
-	if len(outbox) > 0 && outbox[0] != nil {
-		m.createdOutbox = append(m.createdOutbox, outbox[0])
+	if len(events) > 0 && events[0] != nil {
+		m.createdEvents = append(m.createdEvents, events[0])
+		m.createdOutbox = append(m.createdOutbox, events[0].ToOutboxEvent(time.Now().UTC()))
 	}
 	return nil
 }
@@ -224,7 +229,7 @@ func TestUserService_Register_PolicyFailBeforeHash(t *testing.T) {
 
 func TestUserService_Register_DuplicateEmail(t *testing.T) {
 	repo := &mockUserRepository{
-		createTokenFunc: func(ctx context.Context, u *repository.User, passwordHash string, token *repository.Token, outbox ...*repository.OutboxEvent) error {
+		createTokenFunc: func(ctx context.Context, u *repository.User, passwordHash string, token *repository.Token, events ...repository.DomainEvent) error {
 			return repository.ErrEmailAlreadyExists
 		},
 	}
@@ -870,5 +875,116 @@ func TestUserService_SessionRevocationOnPasswordOperations(t *testing.T) {
 
 	if sess1.RevokedAt == nil || sess2.RevokedAt == nil || sess3.RevokedAt == nil {
 		t.Fatal("all sessions must be revoked on ConfirmPasswordReset")
+	}
+}
+
+type mockOrgProvisioner struct {
+	calledWith []uuid.UUID
+}
+
+func (m *mockOrgProvisioner) ProvisionDefaultOrg(ctx context.Context, userID uuid.UUID, displayName, email string) (*repository.Organization, error) {
+	m.calledWith = append(m.calledWith, userID)
+	return &repository.Organization{ID: uuid.New(), Name: displayName + "'s org"}, nil
+}
+
+func TestUserService_DefaultOrgProvisioning(t *testing.T) {
+	ctx := context.Background()
+	repo := &mockUserRepository{}
+	hasher := &mockHasher{}
+	prov := &mockOrgProvisioner{}
+
+	svc := service.NewUserService(repo, hasher, service.WithOrgProvisioner(prov))
+
+	// 1. Register invokes default org provisioning
+	u, err := svc.Register(ctx, service.RegisterParams{
+		Email:       "newuser@kr0n.dev",
+		Password:    "ValidPassword123!",
+		DisplayName: "New User",
+	})
+	if err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
+
+	if len(prov.calledWith) != 1 || prov.calledWith[0] != u.ID {
+		t.Fatalf("expected ProvisionDefaultOrg to be called with user ID %s, got %v", u.ID, prov.calledWith)
+	}
+
+	// 2. ResolveOAuthUser invokes default org provisioning
+	prov.calledWith = nil
+	oauthUser, err := svc.ResolveOAuthUser(ctx, repository.OAuthProfile{
+		Provider:       "github",
+		ProviderUserID: "oauth_123",
+		Email:          "oauth@kr0n.dev",
+		EmailVerified:  true,
+		DisplayName:    "OAuth User",
+	})
+	if err != nil {
+		t.Fatalf("ResolveOAuthUser failed: %v", err)
+	}
+
+	if len(prov.calledWith) != 1 || prov.calledWith[0] != oauthUser.ID {
+		t.Fatalf("expected ProvisionDefaultOrg on OAuth user ID %s, got %v", oauthUser.ID, prov.calledWith)
+	}
+}
+
+func TestUserService_AuditTrailEmission(t *testing.T) {
+	ctx := context.Background()
+	repo := &mockUserRepository{
+		consumeVerifFunc: func(ctx context.Context, tokenHash string, now time.Time) (*repository.Token, error) {
+			return &repository.Token{UserID: uuid.New()}, nil
+		},
+	}
+	hasher := &mockHasher{}
+	auditor := &mockAuditCollector{}
+
+	svc := service.NewUserService(repo, hasher, service.WithUserAuditRecorder(auditor))
+
+	// 1. Register emits user.registered
+	u, err := svc.Register(ctx, service.RegisterParams{
+		Email:       "audituser@kr0n.dev",
+		Password:    "ValidPassword123!",
+		DisplayName: "Audit User",
+	})
+	if err != nil {
+		t.Fatalf("Register failed: %v", err)
+	}
+
+	// 2. VerifyEmail emits user.email_verified
+	if err := svc.VerifyEmail(ctx, "valid_raw_token"); err != nil {
+		t.Fatalf("VerifyEmail failed: %v", err)
+	}
+
+	// 3. ResolveOAuthUser emits user.oauth_linked
+	_, err = svc.ResolveOAuthUser(ctx, repository.OAuthProfile{
+		Provider:       "google",
+		ProviderUserID: "g_123",
+		Email:          "audituser@kr0n.dev",
+		EmailVerified:  true,
+		DisplayName:    "Audit User",
+	})
+	if err != nil {
+		t.Fatalf("ResolveOAuthUser failed: %v", err)
+	}
+
+	auditor.mu.Lock()
+	defer auditor.mu.Unlock()
+
+	expectedActions := []string{
+		pkgAudit.ActionUserRegistered.String(),
+		pkgAudit.ActionUserEmailVerified.String(),
+		pkgAudit.ActionUserOAuthLinked.String(),
+	}
+
+	if len(auditor.events) != len(expectedActions) {
+		t.Fatalf("expected %d audit events, got %d", len(expectedActions), len(auditor.events))
+	}
+
+	for i, expected := range expectedActions {
+		if auditor.events[i].Action != expected {
+			t.Errorf("event %d: expected action %q, got %q", i, expected, auditor.events[i].Action)
+		}
+	}
+	if *auditor.events[0].ActorUserID != u.ID {
+		t.Errorf("expected register actor ID %s, got %s", u.ID, auditor.events[0].ActorUserID)
 	}
 }

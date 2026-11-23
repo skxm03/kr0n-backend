@@ -18,7 +18,6 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/oauth"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/domain"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/service"
-	pkgAudit "github.com/skxm03/kr0n-backend/control-plane/pkg/audit"
 )
 
 // GitHubOAuthProvider defines the contract for GitHub OAuth 2.0 + PKCE operations.
@@ -164,20 +163,7 @@ func (s *Server) Register(ctx context.Context, req *authv1.RegisterRequest) (*au
 		DisplayName: u.DisplayName,
 		Status:      string(u.Status),
 		CreatedAt:   timestamppb.New(u.CreatedAt),
-	}, s.auditAfterRegister(ctx, u)
-}
-
-func (s *Server) auditAfterRegister(ctx context.Context, u *domain.User) error {
-	uid := u.ID
-	s.recordAudit(ctx, domain.AuditEvent{
-		ActorUserID:  &uid,
-		ActorType:    domain.ActorTypeUser,
-		Action:       pkgAudit.ActionUserRegistered.String(),
-		ResourceType: pkgAudit.TargetTypeUser,
-		ResourceID:   uid.String(),
-		Metadata:     map[string]any{"email": u.Email},
-	})
-	return nil
+	}, nil
 }
 
 // Login processes user authentication and token issuance requests over gRPC.
@@ -200,15 +186,6 @@ func (s *Server) Login(ctx context.Context, req *authv1.LoginRequest) (*authv1.L
 		ClientIP:  clientIP,
 	})
 	if err != nil {
-		s.recordAudit(ctx, domain.AuditEvent{
-			ActorType:    domain.ActorTypeUser,
-			Action:       pkgAudit.ActionUserLoginFailed.String(),
-			Status:       pkgAudit.StatusFailure,
-			ResourceType: pkgAudit.TargetTypeUser,
-			IPAddress:    clientIP,
-			UserAgent:    userAgent,
-			Metadata:     map[string]any{"email": strings.ToLower(strings.TrimSpace(req.GetEmail()))},
-		})
 		switch {
 		case errors.Is(err, domain.ErrInvalidCredentials):
 			return nil, status.Error(codes.Unauthenticated, "invalid email or password")
@@ -225,17 +202,6 @@ func (s *Server) Login(ctx context.Context, req *authv1.LoginRequest) (*authv1.L
 			return nil, status.Error(codes.Internal, "internal server error")
 		}
 	}
-
-	uid := res.User.ID
-	s.recordAudit(ctx, domain.AuditEvent{
-		ActorUserID:  &uid,
-		ActorType:    domain.ActorTypeUser,
-		Action:       pkgAudit.ActionUserLogin.String(),
-		ResourceType: "session",
-		ResourceID:   uid.String(),
-		IPAddress:    clientIP,
-		UserAgent:    userAgent,
-	})
 
 	return &authv1.LoginResponse{
 		AccessToken:  res.AccessToken,
@@ -314,7 +280,7 @@ func (s *Server) Logout(ctx context.Context, req *authv1.LogoutRequest) (*authv1
 		return nil, status.Error(codes.InvalidArgument, "refresh token is required")
 	}
 
-	sess, err := s.sessionService.Logout(ctx, refreshToken)
+	_, err := s.sessionService.Logout(ctx, refreshToken)
 	if err != nil {
 		switch {
 		case errors.Is(err, context.DeadlineExceeded):
@@ -327,20 +293,6 @@ func (s *Server) Logout(ctx context.Context, req *authv1.LogoutRequest) (*authv1
 		}
 	}
 
-	var actorID *uuid.UUID
-	var resourceID string
-	if sess != nil {
-		actorID = &sess.UserID
-		resourceID = sess.ID.String()
-	}
-
-	s.recordAudit(ctx, domain.AuditEvent{
-		ActorUserID:  actorID,
-		ActorType:    domain.ActorTypeUser,
-		Action:       pkgAudit.ActionUserLogout.String(),
-		ResourceType: "session",
-		ResourceID:   resourceID,
-	})
 	return &authv1.LogoutResponse{Message: "logged out successfully"}, nil
 }
 
@@ -452,7 +404,7 @@ func (s *Server) ConfirmPasswordReset(ctx context.Context, req *authv1.ConfirmPa
 	if s.regService == nil {
 		return nil, status.Error(codes.Unimplemented, "registration service not configured")
 	}
-	userID, err := s.regService.ConfirmPasswordReset(ctx, token, req.GetNewPassword())
+	_, err := s.regService.ConfirmPasswordReset(ctx, token, req.GetNewPassword())
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrInvalidResetToken):
@@ -466,13 +418,6 @@ func (s *Server) ConfirmPasswordReset(ctx context.Context, req *authv1.ConfirmPa
 			return nil, status.Error(codes.Internal, "internal server error")
 		}
 	}
-	s.recordAudit(ctx, domain.AuditEvent{
-		ActorUserID:  &userID,
-		ActorType:    domain.ActorTypeUser,
-		Action:       pkgAudit.ActionUserPasswordResetConfirmed.String(),
-		ResourceType: pkgAudit.TargetTypeUser,
-		ResourceID:   userID.String(),
-	})
 	return &authv1.ConfirmPasswordResetResponse{Message: "password reset successfully"}, nil
 }
 
@@ -511,13 +456,6 @@ func (s *Server) ChangePassword(ctx context.Context, req *authv1.ChangePasswordR
 			return nil, status.Error(codes.Internal, "internal server error")
 		}
 	}
-	s.recordAudit(ctx, domain.AuditEvent{
-		ActorUserID:  &p.UserID,
-		ActorType:    actorTypeFromPrincipal(p),
-		Action:       pkgAudit.ActionUserPasswordChanged.String(),
-		ResourceType: pkgAudit.TargetTypeUser,
-		ResourceID:   p.UserID.String(),
-	})
 	return &authv1.ChangePasswordResponse{Message: "password changed successfully"}, nil
 }
 
@@ -750,17 +688,6 @@ func (s *Server) CompleteGitHubOAuth(ctx context.Context, req *authv1.CompleteGi
 		return nil, status.Error(codes.Internal, "internal server error")
 	}
 
-	uid := res.User.ID
-	s.recordAudit(ctx, domain.AuditEvent{
-		ActorUserID:  &uid,
-		ActorType:    domain.ActorTypeUser,
-		Action:       pkgAudit.ActionUserOAuthLinked.String(),
-		ResourceType: pkgAudit.TargetTypeUser,
-		ResourceID:   uid.String(),
-		IPAddress:    clientIP,
-		UserAgent:    userAgent,
-		Metadata:     map[string]any{"provider": profile.Provider, "provider_user_id": profile.ProviderUserID},
-	})
 	return &authv1.CompleteGitHubOAuthResponse{
 		AccessToken:  res.AccessToken,
 		RefreshToken: res.RefreshToken,
@@ -884,17 +811,6 @@ func (s *Server) CompleteGoogleOAuth(ctx context.Context, req *authv1.CompleteGo
 		return nil, status.Error(codes.Internal, "internal server error")
 	}
 
-	uid := res.User.ID
-	s.recordAudit(ctx, domain.AuditEvent{
-		ActorUserID:  &uid,
-		ActorType:    domain.ActorTypeUser,
-		Action:       pkgAudit.ActionUserOAuthLinked.String(),
-		ResourceType: pkgAudit.TargetTypeUser,
-		ResourceID:   uid.String(),
-		IPAddress:    clientIP,
-		UserAgent:    userAgent,
-		Metadata:     map[string]any{"provider": profile.Provider, "provider_user_id": profile.ProviderUserID},
-	})
 	return &authv1.CompleteGoogleOAuthResponse{
 		AccessToken:  res.AccessToken,
 		RefreshToken: res.RefreshToken,

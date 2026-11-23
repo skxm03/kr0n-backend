@@ -142,36 +142,18 @@ func GatewayMetadataAnnotator(trustedProxies []*net.IPNet) func(ctx context.Cont
 		if ua := r.UserAgent(); ua != "" {
 			md.Set("x-user-agent", ua)
 		}
-		if c, err := r.Cookie(RefreshTokenCookieName); err == nil && strings.TrimSpace(c.Value) != "" {
-			md.Set("x-refresh-token", strings.TrimSpace(c.Value))
-		} else if h := r.Header.Get("X-Refresh-Token"); strings.TrimSpace(h) != "" {
-			md.Set("x-refresh-token", strings.TrimSpace(h))
+		if r.URL != nil && (r.URL.Path == "/api/v1/auth/refresh" || r.URL.Path == "/api/v1/auth/logout") {
+			if c, err := r.Cookie(RefreshTokenCookieName); err == nil && strings.TrimSpace(c.Value) != "" {
+				md.Set("x-refresh-token", strings.TrimSpace(c.Value))
+			} else if h := r.Header.Get("X-Refresh-Token"); strings.TrimSpace(h) != "" {
+				md.Set("x-refresh-token", strings.TrimSpace(h))
+			}
 		}
 		if c, err := r.Cookie("github_oauth_verifier"); err == nil && strings.TrimSpace(c.Value) != "" {
 			md.Set("x-code-verifier", strings.TrimSpace(c.Value))
 		}
 		if c, err := r.Cookie("google_oauth_verifier"); err == nil && strings.TrimSpace(c.Value) != "" {
 			md.Set("x-code-verifier", strings.TrimSpace(c.Value))
-		}
-
-		if p, ok := middleware.PrincipalFromContext(r.Context()); ok && p != nil {
-			if p.UserID != "" {
-				md.Set("x-passport-user-id", p.UserID)
-			}
-			if p.Kind != "" {
-				md.Set("x-passport-kind", p.Kind)
-			}
-			if p.OrgID != "" {
-				md.Set("x-passport-org-id", p.OrgID)
-			}
-			if p.SessionID != "" {
-				md.Set("x-passport-session-id", p.SessionID)
-			}
-			if len(p.Permissions) > 0 {
-				roles := strings.Join(p.Permissions, ",")
-				md.Set("x-passport-roles", roles)
-				md.Set("x-passport-permissions", roles)
-			}
 		}
 
 		return md

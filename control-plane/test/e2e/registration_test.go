@@ -47,8 +47,9 @@ func TestE2E_UserRegistration(t *testing.T) {
 
 	// 2. Start Auth gRPC Service on dynamic loopback port
 	userRepo := repository.NewPostgresUserRepository(dbPool)
+	orgRepo := repository.NewPostgresOrgRepository(dbPool)
 	hasher := service.NewBcryptHasher(12)
-	userService := service.NewUserService(userRepo, hasher)
+	userService := service.NewUserService(userRepo, hasher, service.WithOrgProvisioner(orgRepo))
 
 	jwtSigner, err := jwtkeys.NewSigner(jwtkeys.DevPrivateKey(), "k1", "kr0n-test", "kr0n-api", 15*time.Minute)
 	if err != nil {

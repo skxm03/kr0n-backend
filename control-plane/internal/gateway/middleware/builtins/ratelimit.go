@@ -149,14 +149,47 @@ func NewRateLimitFactory(deps SharedDeps) middleware.MiddlewareFactory {
 		prefix := ""
 
 		if cfg != nil {
-			if reqs, ok := cfg["requests"].(int); ok && reqs > 0 {
-				capacity = reqs
+			switch reqs := cfg["requests"].(type) {
+			case int:
+				if reqs > 0 {
+					capacity = reqs
+				}
+			case int64:
+				if reqs > 0 {
+					capacity = int(reqs)
+				}
+			case float64:
+				if reqs > 0 {
+					capacity = int(reqs)
+				}
 			}
-			if capVal, ok := cfg["capacity"].(int); ok && capVal > 0 {
-				capacity = capVal
+			switch capVal := cfg["capacity"].(type) {
+			case int:
+				if capVal > 0 {
+					capacity = capVal
+				}
+			case int64:
+				if capVal > 0 {
+					capacity = int(capVal)
+				}
+			case float64:
+				if capVal > 0 {
+					capacity = int(capVal)
+				}
 			}
-			if rate, ok := cfg["rate_per_sec"].(float64); ok && rate > 0 {
-				leakPerSec = rate
+			switch rate := cfg["rate_per_sec"].(type) {
+			case float64:
+				if rate > 0 {
+					leakPerSec = rate
+				}
+			case int:
+				if rate > 0 {
+					leakPerSec = float64(rate)
+				}
+			case int64:
+				if rate > 0 {
+					leakPerSec = float64(rate)
+				}
 			}
 			if winStr, ok := cfg["window"].(string); ok && winStr != "" {
 				d, err := time.ParseDuration(winStr)

@@ -41,10 +41,15 @@ const (
 
 type AuditEvent = domain.AuditEvent
 type OutboxEvent = domain.OutboxEvent
+type DomainEvent = domain.DomainEvent
+type EmailVerificationEvent = domain.EmailVerificationEvent
+type PasswordResetEvent = domain.PasswordResetEvent
+type OrgInviteEvent = domain.OrgInviteEvent
 
-// Re-exported token helpers from internal/auth/domain.
+// Re-exported token and event helpers from internal/auth/domain.
 var (
-	GenerateToken   = domain.GenerateToken
-	HashToken       = domain.HashToken
-	VerifyTokenHash = domain.VerifyToken
+	GenerateToken       = domain.GenerateToken
+	HashToken           = domain.HashToken
+	VerifyTokenHash     = domain.VerifyToken
+	NewEmailOutboxEvent = domain.NewEmailOutboxEvent
 )
