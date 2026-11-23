@@ -2,6 +2,8 @@ package tests
 
 import (
 	"context"
+	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -196,4 +198,65 @@ func (m *mockGitHubClient) ListDirectoriesWithPresets(ctx context.Context, token
 		presets[d] = "auto"
 	}
 	return m.dirs, presets, nil
+}
+
+func (m *mockGitHubClient) ExploreDirectory(ctx context.Context, token string, owner, repo, ref, targetPath string) (*client.DirectoryDiscoveryResult, error) {
+	m.lastToken = token
+	if m.err != nil {
+		return nil, m.err
+	}
+
+	normPath := "/" + strings.Trim(strings.TrimSpace(targetPath), "/")
+	if normPath == "//" {
+		normPath = "/"
+	}
+
+	currPreset := "other"
+	if m.presets != nil && m.presets[normPath] != "" {
+		currPreset = m.presets[normPath]
+	}
+
+	curr := client.DirectoryInfo{
+		Path:           normPath,
+		Name:           path.Base(normPath),
+		ParentPath:     path.Dir(normPath),
+		DetectedPreset: currPreset,
+	}
+	if normPath == "/" {
+		curr.Name = "/"
+		curr.ParentPath = "/"
+	}
+
+	var children []client.DirectoryInfo
+	for _, d := range m.dirs {
+		if d == normPath || d == "/" {
+			continue
+		}
+		preset := "other"
+		if m.presets != nil && m.presets[d] != "" {
+			preset = m.presets[d]
+		}
+		children = append(children, client.DirectoryInfo{
+			Path:           d,
+			Name:           path.Base(d),
+			ParentPath:     normPath,
+			DetectedPreset: preset,
+		})
+	}
+	curr.HasChildren = len(children) > 0
+
+	return &client.DirectoryDiscoveryResult{
+		CurrentDirectory: curr,
+		Children:         children,
+		Directories:      m.dirs,
+		Presets:          m.presets,
+	}, nil
+}
+
+func (m *mockGitHubClient) GetBlobContent(ctx context.Context, token, owner, repo, sha string) ([]byte, error) {
+	return nil, nil
+}
+
+func (m *mockGitHubClient) GetFileContent(ctx context.Context, token, owner, repo, filePath, ref string) ([]byte, error) {
+	return nil, nil
 }

@@ -20,18 +20,16 @@ type memOrgRepo struct {
 	usersByMail   map[string]uuid.UUID
 	invites       map[string]*repository.Invite // tokenHash -> Invite
 	tokens        map[string]*repository.APIToken
-	installations map[int64]*repository.GitHubInstallation
 	rolePerms     map[string][]string
 }
 
 func newMemOrgRepo() *memOrgRepo {
 	return &memOrgRepo{
-		orgs:          make(map[uuid.UUID]*repository.Organization),
-		members:       make(map[uuid.UUID]map[uuid.UUID]string),
-		usersByMail:   make(map[string]uuid.UUID),
-		invites:       make(map[string]*repository.Invite),
-		tokens:        make(map[string]*repository.APIToken),
-		installations: make(map[int64]*repository.GitHubInstallation),
+		orgs:        make(map[uuid.UUID]*repository.Organization),
+		members:     make(map[uuid.UUID]map[uuid.UUID]string),
+		usersByMail: make(map[string]uuid.UUID),
+		invites:     make(map[string]*repository.Invite),
+		tokens:      make(map[string]*repository.APIToken),
 		rolePerms: map[string][]string{
 			"owner":  {"org:read", "org:update", "org:delete", "member:read", "member:create", "member:update", "member:delete", "apitoken:read", "apitoken:create", "apitoken:delete", "project:read", "project:create", "service:read", "service:create", "service:update", "service:delete"},
 			"admin":  {"org:read", "org:update", "member:read", "member:create", "member:update", "member:delete", "apitoken:read", "apitoken:create", "apitoken:delete", "project:read", "project:create", "service:read", "service:create", "service:update", "service:delete"},
@@ -296,72 +294,6 @@ func (m *memOrgRepo) TouchAPITokenLastUsed(ctx context.Context, tokenID uuid.UUI
 	return nil
 }
 
-func (m *memOrgRepo) UpsertGitHubInstallation(ctx context.Context, inst *repository.GitHubInstallation) (*repository.GitHubInstallation, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if existing, ok := m.installations[inst.InstallationID]; ok {
-		if existing.OrganizationID != inst.OrganizationID {
-			return nil, repository.ErrInstallationAlreadyLinked
-		}
-		existing.AccountLogin = inst.AccountLogin
-		existing.AccountType = inst.AccountType
-		existing.RepositorySelection = inst.RepositorySelection
-		existing.Status = inst.Status
-		existing.UpdatedAt = inst.UpdatedAt
-		cp := *existing
-		return &cp, nil
-	}
-	cp := *inst
-	m.installations[inst.InstallationID] = &cp
-	out := cp
-	return &out, nil
-}
-
-func (m *memOrgRepo) ListGitHubInstallations(ctx context.Context, orgID uuid.UUID) ([]repository.GitHubInstallation, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	var out []repository.GitHubInstallation
-	for _, inst := range m.installations {
-		if inst.OrganizationID == orgID {
-			out = append(out, *inst)
-		}
-	}
-	return out, nil
-}
-
-func (m *memOrgRepo) DeleteGitHubInstallation(ctx context.Context, orgID uuid.UUID, installationID int64) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	inst, ok := m.installations[installationID]
-	if !ok || inst.OrganizationID != orgID {
-		return repository.ErrInstallationNotFound
-	}
-	delete(m.installations, installationID)
-	return nil
-}
-
-func (m *memOrgRepo) UpdateGitHubInstallationStatus(ctx context.Context, installationID int64, status string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	inst, ok := m.installations[installationID]
-	if !ok {
-		return repository.ErrInstallationNotFound
-	}
-	inst.Status = status
-	inst.UpdatedAt = time.Now().UTC()
-	return nil
-}
-
-func (m *memOrgRepo) GetGitHubInstallationByInstallationID(ctx context.Context, installationID int64) (*repository.GitHubInstallation, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	inst, ok := m.installations[installationID]
-	if !ok {
-		return nil, repository.ErrInstallationNotFound
-	}
-	cp := *inst
-	return &cp, nil
-}
 
 func TestOrgRBACLastOwnerAndAPITokens(t *testing.T) {
 	repo := newMemOrgRepo()

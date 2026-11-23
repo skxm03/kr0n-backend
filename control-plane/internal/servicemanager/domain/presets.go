@@ -24,19 +24,11 @@ type PresetSpec struct {
 	Category               PresetCategory
 	DefaultInstallCommand  string
 	DefaultBuildCommand    string
+	DefaultRunCommand      string
 	DefaultOutputDirectory string
 }
 
 var presetCatalog = []PresetSpec{
-	{
-		ID:                     "auto",
-		DisplayName:            "Auto-Detect (Railpack)",
-		RailpackProvider:       "auto",
-		Category:               PresetCategoryAuto,
-		DefaultInstallCommand:  "",
-		DefaultBuildCommand:    "",
-		DefaultOutputDirectory: "",
-	},
 	{
 		ID:                     "nextjs",
 		DisplayName:            "Next.js",
@@ -44,6 +36,7 @@ var presetCatalog = []PresetSpec{
 		Category:               PresetCategoryFullstack,
 		DefaultInstallCommand:  "npm install",
 		DefaultBuildCommand:    "npm run build",
+		DefaultRunCommand:      "npm start",
 		DefaultOutputDirectory: ".next",
 	},
 	{
@@ -53,186 +46,27 @@ var presetCatalog = []PresetSpec{
 		Category:               PresetCategoryFrontend,
 		DefaultInstallCommand:  "npm install",
 		DefaultBuildCommand:    "npm run build",
+		DefaultRunCommand:      "npm run preview",
 		DefaultOutputDirectory: "dist",
 	},
 	{
-		ID:                     "react",
-		DisplayName:            "React (CRA / SPA)",
-		RailpackProvider:       "node",
-		Category:               PresetCategoryFrontend,
-		DefaultInstallCommand:  "npm install",
-		DefaultBuildCommand:    "npm run build",
-		DefaultOutputDirectory: "build",
-	},
-	{
-		ID:                     "vue",
-		DisplayName:            "Vue.js",
-		RailpackProvider:       "node",
-		Category:               PresetCategoryFrontend,
-		DefaultInstallCommand:  "npm install",
-		DefaultBuildCommand:    "npm run build",
-		DefaultOutputDirectory: "dist",
-	},
-	{
-		ID:                     "nuxt",
-		DisplayName:            "Nuxt",
-		RailpackProvider:       "node",
-		Category:               PresetCategoryFullstack,
-		DefaultInstallCommand:  "npm install",
-		DefaultBuildCommand:    "npm run build",
-		DefaultOutputDirectory: ".output",
-	},
-	{
-		ID:                     "sveltekit",
-		DisplayName:            "SvelteKit",
-		RailpackProvider:       "node",
-		Category:               PresetCategoryFullstack,
-		DefaultInstallCommand:  "npm install",
-		DefaultBuildCommand:    "npm run build",
-		DefaultOutputDirectory: "build",
-	},
-	{
-		ID:                     "astro",
-		DisplayName:            "Astro",
-		RailpackProvider:       "node",
-		Category:               PresetCategoryFullstack,
-		DefaultInstallCommand:  "npm install",
-		DefaultBuildCommand:    "npm run build",
-		DefaultOutputDirectory: "dist",
-	},
-	{
-		ID:                     "remix",
-		DisplayName:            "Remix / React Router",
-		RailpackProvider:       "node",
-		Category:               PresetCategoryFullstack,
-		DefaultInstallCommand:  "npm install",
-		DefaultBuildCommand:    "npm run build",
-		DefaultOutputDirectory: "build",
-	},
-	{
-		ID:                     "nodejs",
-		DisplayName:            "Node.js",
-		RailpackProvider:       "node",
-		Category:               PresetCategoryBackend,
-		DefaultInstallCommand:  "npm install",
-		DefaultBuildCommand:    "npm run build --if-present",
-		DefaultOutputDirectory: "",
-	},
-	{
-		ID:                     "bun",
-		DisplayName:            "Bun",
-		RailpackProvider:       "node",
-		Category:               PresetCategoryBackend,
-		DefaultInstallCommand:  "bun install",
-		DefaultBuildCommand:    "bun run build",
-		DefaultOutputDirectory: "dist",
-	},
-	{
-		ID:                     "deno",
-		DisplayName:            "Deno",
-		RailpackProvider:       "deno",
-		Category:               PresetCategoryBackend,
-		DefaultInstallCommand:  "deno cache main.ts",
-		DefaultBuildCommand:    "",
-		DefaultOutputDirectory: "",
-	},
-	{
-		ID:                     "go",
+		ID:                     "golang",
 		DisplayName:            "Go",
 		RailpackProvider:       "golang",
 		Category:               PresetCategoryBackend,
 		DefaultInstallCommand:  "go mod download",
 		DefaultBuildCommand:    "go build -o out/app ./...",
+		DefaultRunCommand:      "./out/app",
 		DefaultOutputDirectory: "out",
 	},
 	{
-		ID:                     "python",
-		DisplayName:            "Python",
-		RailpackProvider:       "python",
-		Category:               PresetCategoryBackend,
-		DefaultInstallCommand:  "pip install -r requirements.txt",
-		DefaultBuildCommand:    "",
-		DefaultOutputDirectory: "",
-	},
-	{
-		ID:                     "rust",
-		DisplayName:            "Rust",
-		RailpackProvider:       "rust",
-		Category:               PresetCategoryBackend,
-		DefaultInstallCommand:  "cargo fetch",
-		DefaultBuildCommand:    "cargo build --release",
-		DefaultOutputDirectory: "target/release",
-	},
-	{
-		ID:                     "ruby",
-		DisplayName:            "Ruby",
-		RailpackProvider:       "ruby",
-		Category:               PresetCategoryBackend,
-		DefaultInstallCommand:  "bundle install",
-		DefaultBuildCommand:    "",
-		DefaultOutputDirectory: "",
-	},
-	{
-		ID:                     "php",
-		DisplayName:            "PHP",
-		RailpackProvider:       "php",
-		Category:               PresetCategoryBackend,
-		DefaultInstallCommand:  "composer install --no-dev --optimize-autoloader",
-		DefaultBuildCommand:    "",
-		DefaultOutputDirectory: "public",
-	},
-	{
-		ID:                     "java",
-		DisplayName:            "Java",
-		RailpackProvider:       "java",
-		Category:               PresetCategoryBackend,
-		DefaultInstallCommand:  "",
-		DefaultBuildCommand:    "./mvnw clean package -DskipTests",
-		DefaultOutputDirectory: "target",
-	},
-	{
-		ID:                     "dotnet",
-		DisplayName:            ".NET",
-		RailpackProvider:       "dotnet",
-		Category:               PresetCategoryBackend,
-		DefaultInstallCommand:  "dotnet restore",
-		DefaultBuildCommand:    "dotnet publish -c Release -o out",
-		DefaultOutputDirectory: "out",
-	},
-	{
-		ID:                     "gleam",
-		DisplayName:            "Gleam",
-		RailpackProvider:       "gleam",
-		Category:               PresetCategoryBackend,
-		DefaultInstallCommand:  "gleam deps download",
-		DefaultBuildCommand:    "gleam export erlang-shipment",
-		DefaultOutputDirectory: "build/erlang-shipment",
-	},
-	{
-		ID:                     "dockerfile",
-		DisplayName:            "Dockerfile",
-		RailpackProvider:       "dockerfile",
-		Category:               PresetCategoryContainer,
-		DefaultInstallCommand:  "",
-		DefaultBuildCommand:    "",
-		DefaultOutputDirectory: "",
-	},
-	{
-		ID:                     "static",
-		DisplayName:            "Static Site",
-		RailpackProvider:       "staticfile",
-		Category:               PresetCategoryStatic,
-		DefaultInstallCommand:  "",
-		DefaultBuildCommand:    "",
-		DefaultOutputDirectory: ".",
-	},
-	{
-		ID:                     "custom",
-		DisplayName:            "Custom (Railpack)",
+		ID:                     "other",
+		DisplayName:            "Other",
 		RailpackProvider:       "custom",
 		Category:               PresetCategoryAuto,
 		DefaultInstallCommand:  "",
 		DefaultBuildCommand:    "",
+		DefaultRunCommand:      "",
 		DefaultOutputDirectory: "",
 	},
 }
@@ -242,17 +76,25 @@ var presetIndex = func() map[string]PresetSpec {
 	for _, p := range presetCatalog {
 		m[p.ID] = p
 	}
+	// Aliases for compatibility
+	if golangSpec, ok := m["golang"]; ok {
+		m["go"] = golangSpec
+	}
+	if otherSpec, ok := m["other"]; ok {
+		m["auto"] = otherSpec
+		m["custom"] = otherSpec
+	}
 	return m
 }()
 
-// ListPresets returns a copy of the supported Railpack application preset catalog.
+// ListPresets returns a copy of the supported application preset catalog.
 func ListPresets() []PresetSpec {
 	out := make([]PresetSpec, len(presetCatalog))
 	copy(out, presetCatalog)
 	return out
 }
 
-// LookupPreset returns the PresetSpec for id (case-insensitive).
+// LookupPreset returns the PresetSpec for id (case-insensitive, supporting aliases).
 func LookupPreset(id string) (PresetSpec, bool) {
 	normalized := strings.ToLower(strings.TrimSpace(id))
 	p, ok := presetIndex[normalized]
@@ -264,11 +106,12 @@ func LookupPreset(id string) (PresetSpec, bool) {
 type EffectiveBuildSettings struct {
 	InstallCommand  string
 	BuildCommand    string
+	RunCommand      string
 	OutputDirectory string
 }
 
 // ResolveEffectiveBuildSettings computes the effective install command, build command,
-// and output directory for a project.
+// run command, and output directory for a project.
 //   - If an override toggle is TRUE: the user's exact stored string is returned (even if "" to skip the step).
 //   - If an override toggle is FALSE: the preset's default string is returned.
 func ResolveEffectiveBuildSettings(presetID string, bs BuildSettings) EffectiveBuildSettings {
@@ -277,6 +120,7 @@ func ResolveEffectiveBuildSettings(presetID string, bs BuildSettings) EffectiveB
 	eff := EffectiveBuildSettings{
 		InstallCommand:  spec.DefaultInstallCommand,
 		BuildCommand:    spec.DefaultBuildCommand,
+		RunCommand:      spec.DefaultRunCommand,
 		OutputDirectory: spec.DefaultOutputDirectory,
 	}
 	if bs.InstallCommandOverride {
@@ -284,6 +128,9 @@ func ResolveEffectiveBuildSettings(presetID string, bs BuildSettings) EffectiveB
 	}
 	if bs.BuildCommandOverride {
 		eff.BuildCommand = bs.BuildCommand
+	}
+	if bs.RunCommandOverride {
+		eff.RunCommand = bs.RunCommand
 	}
 	if bs.OutputDirectoryOverride {
 		eff.OutputDirectory = bs.OutputDirectory

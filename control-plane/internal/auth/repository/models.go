@@ -23,7 +23,6 @@ type Member = domain.Member
 type Invite = domain.Invite
 type Role = domain.Role
 type APIToken = domain.APIToken
-type GitHubInstallation = domain.GitHubInstallation
 
 const (
 	ActorTypeUser     = domain.ActorTypeUser
@@ -42,3 +41,10 @@ const (
 
 type AuditEvent = domain.AuditEvent
 type OutboxEvent = domain.OutboxEvent
+
+// Re-exported token helpers from internal/auth/domain.
+var (
+	GenerateToken   = domain.GenerateToken
+	HashToken       = domain.HashToken
+	VerifyTokenHash = domain.VerifyToken
+)

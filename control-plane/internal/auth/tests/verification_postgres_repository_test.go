@@ -46,7 +46,7 @@ func insertVerificationTestToken(t *testing.T, pool *pgxpool.Pool, tok *reposito
 
 func TestVerificationPostgresRepository_VerifyAndConsume_Success(t *testing.T) {
 	pool := setupTestPool(t)
-	repo := repository.NewPostgresVerificationRepository(pool)
+	repo := repository.NewPostgresUserRepository(pool)
 	ctx := context.Background()
 
 	testUserID := createVerificationTestUser(t, pool, "active")
@@ -89,7 +89,7 @@ func TestVerificationPostgresRepository_VerifyAndConsume_Success(t *testing.T) {
 
 	// Execute VerifyAndConsume
 	verifyTime := time.Now().UTC()
-	consumedToken, err := repo.VerifyAndConsume(ctx, tokenHash, verifyTime)
+	consumedToken, err := repo.ConsumeVerificationToken(ctx, tokenHash, verifyTime)
 	if err != nil {
 		t.Fatalf("VerifyAndConsume failed: %v", err)
 	}
@@ -119,7 +119,7 @@ func TestVerificationPostgresRepository_VerifyAndConsume_Success(t *testing.T) {
 	}
 
 	// Second attempt with consumed token must fail
-	_, err = repo.VerifyAndConsume(ctx, tokenHash, time.Now().UTC())
+	_, err = repo.ConsumeVerificationToken(ctx, tokenHash, time.Now().UTC())
 	if !errors.Is(err, repository.ErrTokenAlreadyConsumed) {
 		t.Fatalf("expected ErrTokenAlreadyConsumed on reuse, got %v", err)
 	}
@@ -127,7 +127,7 @@ func TestVerificationPostgresRepository_VerifyAndConsume_Success(t *testing.T) {
 
 func TestVerificationPostgresRepository_VerifyAndConsume_ExpiredToken(t *testing.T) {
 	pool := setupTestPool(t)
-	repo := repository.NewPostgresVerificationRepository(pool)
+	repo := repository.NewPostgresUserRepository(pool)
 	ctx := context.Background()
 
 	testUserID := createVerificationTestUser(t, pool, "active")
@@ -146,7 +146,7 @@ func TestVerificationPostgresRepository_VerifyAndConsume_ExpiredToken(t *testing
 
 	insertVerificationTestToken(t, pool, tok)
 
-	_, err := repo.VerifyAndConsume(ctx, tokenHash, now)
+	_, err := repo.ConsumeVerificationToken(ctx, tokenHash, now)
 	if !errors.Is(err, repository.ErrTokenExpired) {
 		t.Fatalf("expected ErrTokenExpired, got %v", err)
 	}
@@ -161,7 +161,7 @@ func TestVerificationPostgresRepository_VerifyAndConsume_ExpiredToken(t *testing
 
 func TestVerificationPostgresRepository_VerifyAndConsume_Concurrent(t *testing.T) {
 	pool := setupTestPool(t)
-	repo := repository.NewPostgresVerificationRepository(pool)
+	repo := repository.NewPostgresUserRepository(pool)
 	ctx := context.Background()
 
 	testUserID := createVerificationTestUser(t, pool, "active")
@@ -190,7 +190,7 @@ func TestVerificationPostgresRepository_VerifyAndConsume_Concurrent(t *testing.T
 	for i := 0; i < goroutines; i++ {
 		go func() {
 			defer wg.Done()
-			_, err := repo.VerifyAndConsume(ctx, tokenHash, time.Now().UTC())
+			_, err := repo.ConsumeVerificationToken(ctx, tokenHash, time.Now().UTC())
 			if err == nil {
 				atomic.AddInt64(&successCount, 1)
 			} else if errors.Is(err, repository.ErrTokenAlreadyConsumed) {
@@ -211,7 +211,7 @@ func TestVerificationPostgresRepository_VerifyAndConsume_Concurrent(t *testing.T
 
 func TestVerificationPostgresRepository_VerifyAndConsume_RollbackOnInactiveUser(t *testing.T) {
 	pool := setupTestPool(t)
-	repo := repository.NewPostgresVerificationRepository(pool)
+	repo := repository.NewPostgresUserRepository(pool)
 	ctx := context.Background()
 
 	testUserID := createVerificationTestUser(t, pool, "suspended")
@@ -230,7 +230,7 @@ func TestVerificationPostgresRepository_VerifyAndConsume_RollbackOnInactiveUser(
 
 	insertVerificationTestToken(t, pool, tok)
 
-	_, err := repo.VerifyAndConsume(ctx, tokenHash, now)
+	_, err := repo.ConsumeVerificationToken(ctx, tokenHash, now)
 	if !errors.Is(err, repository.ErrUserNotActive) {
 		t.Fatalf("expected ErrUserNotActive, got %v", err)
 	}

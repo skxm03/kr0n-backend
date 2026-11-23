@@ -1205,6 +1205,7 @@ type ListDirectoriesRequest struct {
 	Owner          string                 `protobuf:"bytes,4,opt,name=owner,proto3" json:"owner,omitempty"`
 	Repo           string                 `protobuf:"bytes,5,opt,name=repo,proto3" json:"repo,omitempty"`
 	Ref            string                 `protobuf:"bytes,6,opt,name=ref,proto3" json:"ref,omitempty"`
+	Path           string                 `protobuf:"bytes,7,opt,name=path,proto3" json:"path,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -1281,14 +1282,26 @@ func (x *ListDirectoriesRequest) GetRef() string {
 	return ""
 }
 
+func (x *ListDirectoriesRequest) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
 type DirectoryEntry struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Path           string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	Name           string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	ParentPath     string                 `protobuf:"bytes,3,opt,name=parent_path,json=parentPath,proto3" json:"parent_path,omitempty"`
-	DetectedPreset string                 `protobuf:"bytes,4,opt,name=detected_preset,json=detectedPreset,proto3" json:"detected_preset,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state                    protoimpl.MessageState `protogen:"open.v1"`
+	Path                     string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Name                     string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	ParentPath               string                 `protobuf:"bytes,3,opt,name=parent_path,json=parentPath,proto3" json:"parent_path,omitempty"`
+	DetectedPreset           string                 `protobuf:"bytes,4,opt,name=detected_preset,json=detectedPreset,proto3" json:"detected_preset,omitempty"`
+	SuggestedInstallCommand  string                 `protobuf:"bytes,5,opt,name=suggested_install_command,json=suggestedInstallCommand,proto3" json:"suggested_install_command,omitempty"`
+	SuggestedBuildCommand    string                 `protobuf:"bytes,6,opt,name=suggested_build_command,json=suggestedBuildCommand,proto3" json:"suggested_build_command,omitempty"`
+	SuggestedRunCommand      string                 `protobuf:"bytes,7,opt,name=suggested_run_command,json=suggestedRunCommand,proto3" json:"suggested_run_command,omitempty"`
+	SuggestedOutputDirectory string                 `protobuf:"bytes,8,opt,name=suggested_output_directory,json=suggestedOutputDirectory,proto3" json:"suggested_output_directory,omitempty"`
+	HasChildren              bool                   `protobuf:"varint,9,opt,name=has_children,json=hasChildren,proto3" json:"has_children,omitempty"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *DirectoryEntry) Reset() {
@@ -1349,14 +1362,54 @@ func (x *DirectoryEntry) GetDetectedPreset() string {
 	return ""
 }
 
+func (x *DirectoryEntry) GetSuggestedInstallCommand() string {
+	if x != nil {
+		return x.SuggestedInstallCommand
+	}
+	return ""
+}
+
+func (x *DirectoryEntry) GetSuggestedBuildCommand() string {
+	if x != nil {
+		return x.SuggestedBuildCommand
+	}
+	return ""
+}
+
+func (x *DirectoryEntry) GetSuggestedRunCommand() string {
+	if x != nil {
+		return x.SuggestedRunCommand
+	}
+	return ""
+}
+
+func (x *DirectoryEntry) GetSuggestedOutputDirectory() string {
+	if x != nil {
+		return x.SuggestedOutputDirectory
+	}
+	return ""
+}
+
+func (x *DirectoryEntry) GetHasChildren() bool {
+	if x != nil {
+		return x.HasChildren
+	}
+	return false
+}
+
 type DirectoryNode struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Path           string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	Name           string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Children       []*DirectoryNode       `protobuf:"bytes,3,rep,name=children,proto3" json:"children,omitempty"`
-	DetectedPreset string                 `protobuf:"bytes,4,opt,name=detected_preset,json=detectedPreset,proto3" json:"detected_preset,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state                    protoimpl.MessageState `protogen:"open.v1"`
+	Path                     string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Name                     string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Children                 []*DirectoryNode       `protobuf:"bytes,3,rep,name=children,proto3" json:"children,omitempty"`
+	DetectedPreset           string                 `protobuf:"bytes,4,opt,name=detected_preset,json=detectedPreset,proto3" json:"detected_preset,omitempty"`
+	SuggestedInstallCommand  string                 `protobuf:"bytes,5,opt,name=suggested_install_command,json=suggestedInstallCommand,proto3" json:"suggested_install_command,omitempty"`
+	SuggestedBuildCommand    string                 `protobuf:"bytes,6,opt,name=suggested_build_command,json=suggestedBuildCommand,proto3" json:"suggested_build_command,omitempty"`
+	SuggestedRunCommand      string                 `protobuf:"bytes,7,opt,name=suggested_run_command,json=suggestedRunCommand,proto3" json:"suggested_run_command,omitempty"`
+	SuggestedOutputDirectory string                 `protobuf:"bytes,8,opt,name=suggested_output_directory,json=suggestedOutputDirectory,proto3" json:"suggested_output_directory,omitempty"`
+	HasChildren              bool                   `protobuf:"varint,9,opt,name=has_children,json=hasChildren,proto3" json:"has_children,omitempty"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *DirectoryNode) Reset() {
@@ -1417,13 +1470,50 @@ func (x *DirectoryNode) GetDetectedPreset() string {
 	return ""
 }
 
+func (x *DirectoryNode) GetSuggestedInstallCommand() string {
+	if x != nil {
+		return x.SuggestedInstallCommand
+	}
+	return ""
+}
+
+func (x *DirectoryNode) GetSuggestedBuildCommand() string {
+	if x != nil {
+		return x.SuggestedBuildCommand
+	}
+	return ""
+}
+
+func (x *DirectoryNode) GetSuggestedRunCommand() string {
+	if x != nil {
+		return x.SuggestedRunCommand
+	}
+	return ""
+}
+
+func (x *DirectoryNode) GetSuggestedOutputDirectory() string {
+	if x != nil {
+		return x.SuggestedOutputDirectory
+	}
+	return ""
+}
+
+func (x *DirectoryNode) GetHasChildren() bool {
+	if x != nil {
+		return x.HasChildren
+	}
+	return false
+}
+
 type ListDirectoriesResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Directories   []string               `protobuf:"bytes,1,rep,name=directories,proto3" json:"directories,omitempty"`
-	Entries       []*DirectoryEntry      `protobuf:"bytes,2,rep,name=entries,proto3" json:"entries,omitempty"`
-	Root          *DirectoryNode         `protobuf:"bytes,3,opt,name=root,proto3" json:"root,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Directories      []string               `protobuf:"bytes,1,rep,name=directories,proto3" json:"directories,omitempty"`
+	Entries          []*DirectoryEntry      `protobuf:"bytes,2,rep,name=entries,proto3" json:"entries,omitempty"`
+	Root             *DirectoryNode         `protobuf:"bytes,3,opt,name=root,proto3" json:"root,omitempty"`
+	CurrentDirectory *DirectoryEntry        `protobuf:"bytes,4,opt,name=current_directory,json=currentDirectory,proto3" json:"current_directory,omitempty"`
+	Children         []*DirectoryEntry      `protobuf:"bytes,5,rep,name=children,proto3" json:"children,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *ListDirectoriesResponse) Reset() {
@@ -1473,6 +1563,20 @@ func (x *ListDirectoriesResponse) GetEntries() []*DirectoryEntry {
 func (x *ListDirectoriesResponse) GetRoot() *DirectoryNode {
 	if x != nil {
 		return x.Root
+	}
+	return nil
+}
+
+func (x *ListDirectoriesResponse) GetCurrentDirectory() *DirectoryEntry {
+	if x != nil {
+		return x.CurrentDirectory
+	}
+	return nil
+}
+
+func (x *ListDirectoriesResponse) GetChildren() []*DirectoryEntry {
+	if x != nil {
+		return x.Children
 	}
 	return nil
 }
@@ -1570,29 +1674,42 @@ const file_github_v1_github_proto_rawDesc = "" +
 	"\x05owner\x18\x04 \x01(\tR\x05owner\x12\x12\n" +
 	"\x04repo\x18\x05 \x01(\tR\x04repo\"O\n" +
 	"\x14ListBranchesResponse\x127\n" +
-	"\bbranches\x18\x01 \x03(\v2\x1b.github.v1.GitHubBranchInfoR\bbranches\"\xcd\x01\n" +
+	"\bbranches\x18\x01 \x03(\v2\x1b.github.v1.GitHubBranchInfoR\bbranches\"\xe1\x01\n" +
 	"\x16ListDirectoriesRequest\x127\n" +
 	"\x06caller\x18\x01 \x01(\v2\x18.auth.v1.CallerPrincipalB\x05\x92A\x02@\x01R\x06caller\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12'\n" +
 	"\x0finstallation_id\x18\x03 \x01(\x03R\x0einstallationId\x12\x14\n" +
 	"\x05owner\x18\x04 \x01(\tR\x05owner\x12\x12\n" +
 	"\x04repo\x18\x05 \x01(\tR\x04repo\x12\x10\n" +
-	"\x03ref\x18\x06 \x01(\tR\x03ref\"\x82\x01\n" +
+	"\x03ref\x18\x06 \x01(\tR\x03ref\x12\x12\n" +
+	"\x04path\x18\a \x01(\tR\x04path\"\x8b\x03\n" +
 	"\x0eDirectoryEntry\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1f\n" +
 	"\vparent_path\x18\x03 \x01(\tR\n" +
 	"parentPath\x12'\n" +
-	"\x0fdetected_preset\x18\x04 \x01(\tR\x0edetectedPreset\"\x96\x01\n" +
+	"\x0fdetected_preset\x18\x04 \x01(\tR\x0edetectedPreset\x12:\n" +
+	"\x19suggested_install_command\x18\x05 \x01(\tR\x17suggestedInstallCommand\x126\n" +
+	"\x17suggested_build_command\x18\x06 \x01(\tR\x15suggestedBuildCommand\x122\n" +
+	"\x15suggested_run_command\x18\a \x01(\tR\x13suggestedRunCommand\x12<\n" +
+	"\x1asuggested_output_directory\x18\b \x01(\tR\x18suggestedOutputDirectory\x12!\n" +
+	"\fhas_children\x18\t \x01(\bR\vhasChildren\"\x9f\x03\n" +
 	"\rDirectoryNode\x12\x12\n" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x124\n" +
 	"\bchildren\x18\x03 \x03(\v2\x18.github.v1.DirectoryNodeR\bchildren\x12'\n" +
-	"\x0fdetected_preset\x18\x04 \x01(\tR\x0edetectedPreset\"\x9e\x01\n" +
+	"\x0fdetected_preset\x18\x04 \x01(\tR\x0edetectedPreset\x12:\n" +
+	"\x19suggested_install_command\x18\x05 \x01(\tR\x17suggestedInstallCommand\x126\n" +
+	"\x17suggested_build_command\x18\x06 \x01(\tR\x15suggestedBuildCommand\x122\n" +
+	"\x15suggested_run_command\x18\a \x01(\tR\x13suggestedRunCommand\x12<\n" +
+	"\x1asuggested_output_directory\x18\b \x01(\tR\x18suggestedOutputDirectory\x12!\n" +
+	"\fhas_children\x18\t \x01(\bR\vhasChildren\"\x9d\x02\n" +
 	"\x17ListDirectoriesResponse\x12 \n" +
 	"\vdirectories\x18\x01 \x03(\tR\vdirectories\x123\n" +
 	"\aentries\x18\x02 \x03(\v2\x19.github.v1.DirectoryEntryR\aentries\x12,\n" +
-	"\x04root\x18\x03 \x01(\v2\x18.github.v1.DirectoryNodeR\x04root2\xb7\x17\n" +
+	"\x04root\x18\x03 \x01(\v2\x18.github.v1.DirectoryNodeR\x04root\x12F\n" +
+	"\x11current_directory\x18\x04 \x01(\v2\x19.github.v1.DirectoryEntryR\x10currentDirectory\x125\n" +
+	"\bchildren\x18\x05 \x03(\v2\x19.github.v1.DirectoryEntryR\bchildren2\xb7\x17\n" +
 	"\rGitHubService\x12\x89\x03\n" +
 	"\x17StartGitHubInstallation\x12).github.v1.StartGitHubInstallationRequest\x1a*.github.v1.StartGitHubInstallationResponse\"\x96\x02\x92A\xda\x01\n" +
 	"\x17GitHub App Integrations\x12\x1dStart GitHub App installation\x1a\x8d\x01Initiates the GitHub App installation flow by generating a cryptographically signed HMAC state token and redirect URL. Requires `org:update`.b\x10\n" +
@@ -1699,29 +1816,31 @@ var file_github_v1_github_proto_depIdxs = []int32{
 	21, // 14: github.v1.DirectoryNode.children:type_name -> github.v1.DirectoryNode
 	20, // 15: github.v1.ListDirectoriesResponse.entries:type_name -> github.v1.DirectoryEntry
 	21, // 16: github.v1.ListDirectoriesResponse.root:type_name -> github.v1.DirectoryNode
-	1,  // 17: github.v1.GitHubService.StartGitHubInstallation:input_type -> github.v1.StartGitHubInstallationRequest
-	3,  // 18: github.v1.GitHubService.CompleteGitHubInstallation:input_type -> github.v1.CompleteGitHubInstallationRequest
-	5,  // 19: github.v1.GitHubService.ListGitHubInstallations:input_type -> github.v1.ListGitHubInstallationsRequest
-	7,  // 20: github.v1.GitHubService.DisconnectGitHubInstallation:input_type -> github.v1.DisconnectGitHubInstallationRequest
-	9,  // 21: github.v1.GitHubService.GetGitHubInstallationToken:input_type -> github.v1.GetGitHubInstallationTokenRequest
-	11, // 22: github.v1.GitHubService.HandleGitHubWebhook:input_type -> github.v1.HandleGitHubWebhookRequest
-	14, // 23: github.v1.GitHubService.ListRepositories:input_type -> github.v1.ListRepositoriesRequest
-	17, // 24: github.v1.GitHubService.ListBranches:input_type -> github.v1.ListBranchesRequest
-	19, // 25: github.v1.GitHubService.ListDirectories:input_type -> github.v1.ListDirectoriesRequest
-	2,  // 26: github.v1.GitHubService.StartGitHubInstallation:output_type -> github.v1.StartGitHubInstallationResponse
-	4,  // 27: github.v1.GitHubService.CompleteGitHubInstallation:output_type -> github.v1.CompleteGitHubInstallationResponse
-	6,  // 28: github.v1.GitHubService.ListGitHubInstallations:output_type -> github.v1.ListGitHubInstallationsResponse
-	8,  // 29: github.v1.GitHubService.DisconnectGitHubInstallation:output_type -> github.v1.DisconnectGitHubInstallationResponse
-	10, // 30: github.v1.GitHubService.GetGitHubInstallationToken:output_type -> github.v1.GetGitHubInstallationTokenResponse
-	12, // 31: github.v1.GitHubService.HandleGitHubWebhook:output_type -> github.v1.HandleGitHubWebhookResponse
-	15, // 32: github.v1.GitHubService.ListRepositories:output_type -> github.v1.ListRepositoriesResponse
-	18, // 33: github.v1.GitHubService.ListBranches:output_type -> github.v1.ListBranchesResponse
-	22, // 34: github.v1.GitHubService.ListDirectories:output_type -> github.v1.ListDirectoriesResponse
-	26, // [26:35] is the sub-list for method output_type
-	17, // [17:26] is the sub-list for method input_type
-	17, // [17:17] is the sub-list for extension type_name
-	17, // [17:17] is the sub-list for extension extendee
-	0,  // [0:17] is the sub-list for field type_name
+	20, // 17: github.v1.ListDirectoriesResponse.current_directory:type_name -> github.v1.DirectoryEntry
+	20, // 18: github.v1.ListDirectoriesResponse.children:type_name -> github.v1.DirectoryEntry
+	1,  // 19: github.v1.GitHubService.StartGitHubInstallation:input_type -> github.v1.StartGitHubInstallationRequest
+	3,  // 20: github.v1.GitHubService.CompleteGitHubInstallation:input_type -> github.v1.CompleteGitHubInstallationRequest
+	5,  // 21: github.v1.GitHubService.ListGitHubInstallations:input_type -> github.v1.ListGitHubInstallationsRequest
+	7,  // 22: github.v1.GitHubService.DisconnectGitHubInstallation:input_type -> github.v1.DisconnectGitHubInstallationRequest
+	9,  // 23: github.v1.GitHubService.GetGitHubInstallationToken:input_type -> github.v1.GetGitHubInstallationTokenRequest
+	11, // 24: github.v1.GitHubService.HandleGitHubWebhook:input_type -> github.v1.HandleGitHubWebhookRequest
+	14, // 25: github.v1.GitHubService.ListRepositories:input_type -> github.v1.ListRepositoriesRequest
+	17, // 26: github.v1.GitHubService.ListBranches:input_type -> github.v1.ListBranchesRequest
+	19, // 27: github.v1.GitHubService.ListDirectories:input_type -> github.v1.ListDirectoriesRequest
+	2,  // 28: github.v1.GitHubService.StartGitHubInstallation:output_type -> github.v1.StartGitHubInstallationResponse
+	4,  // 29: github.v1.GitHubService.CompleteGitHubInstallation:output_type -> github.v1.CompleteGitHubInstallationResponse
+	6,  // 30: github.v1.GitHubService.ListGitHubInstallations:output_type -> github.v1.ListGitHubInstallationsResponse
+	8,  // 31: github.v1.GitHubService.DisconnectGitHubInstallation:output_type -> github.v1.DisconnectGitHubInstallationResponse
+	10, // 32: github.v1.GitHubService.GetGitHubInstallationToken:output_type -> github.v1.GetGitHubInstallationTokenResponse
+	12, // 33: github.v1.GitHubService.HandleGitHubWebhook:output_type -> github.v1.HandleGitHubWebhookResponse
+	15, // 34: github.v1.GitHubService.ListRepositories:output_type -> github.v1.ListRepositoriesResponse
+	18, // 35: github.v1.GitHubService.ListBranches:output_type -> github.v1.ListBranchesResponse
+	22, // 36: github.v1.GitHubService.ListDirectories:output_type -> github.v1.ListDirectoriesResponse
+	28, // [28:37] is the sub-list for method output_type
+	19, // [19:28] is the sub-list for method input_type
+	19, // [19:19] is the sub-list for extension type_name
+	19, // [19:19] is the sub-list for extension extendee
+	0,  // [0:19] is the sub-list for field type_name
 }
 
 func init() { file_github_v1_github_proto_init() }

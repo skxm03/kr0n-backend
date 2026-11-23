@@ -26,7 +26,7 @@ func TestInjectPassport_Authenticated(t *testing.T) {
 	}
 
 	req := &authv1.GetMeRequest{}
-	InjectPassport(req, principal)
+	middleware.InjectPassport(req, principal)
 
 	if req.GetCaller() == nil {
 		t.Fatal("expected req.Caller to be populated, got nil")
@@ -59,7 +59,7 @@ func TestInjectPassport_ClearsUntrustedCallerWhenUnauthenticated(t *testing.T) {
 	}
 
 	// No principal in context (unauthenticated)
-	InjectPassport(req, nil)
+	middleware.InjectPassport(req, nil)
 
 	if req.GetCaller() != nil {
 		t.Fatalf("expected spoofed caller to be cleared when unauthenticated, got %+v", req.GetCaller())
@@ -82,7 +82,7 @@ func TestInjectPassport_OverwritesSpoofedCallerWhenAuthenticated(t *testing.T) {
 		NewPassword:     "new",
 	}
 
-	InjectPassport(req, principal)
+	middleware.InjectPassport(req, principal)
 
 	if req.GetCaller() == nil {
 		t.Fatal("expected caller to be present")
@@ -104,14 +104,14 @@ func TestInjectPassport_NoCallerFieldOnMessage(t *testing.T) {
 	}
 
 	// Should not panic or corrupt message
-	InjectPassport(req, principal)
+	middleware.InjectPassport(req, principal)
 	if req.GetEmail() != "test@example.com" {
 		t.Fatalf("unexpected modification to LoginRequest: %v", req)
 	}
 }
 
 func TestPassportUnaryClientInterceptor(t *testing.T) {
-	interceptor := PassportUnaryClientInterceptor()
+	interceptor := middleware.PassportUnaryClientInterceptor()
 
 	principal := &middleware.Principal{
 		UserID:    "user-999",
@@ -167,7 +167,7 @@ func TestIncomingHeaderMatcher_BlocksPassportSpoofing(t *testing.T) {
 
 	for _, hdr := range maliciousHeaders {
 		t.Run(hdr, func(t *testing.T) {
-			key, ok := IncomingHeaderMatcher(hdr)
+			key, ok := middleware.IncomingHeaderMatcher(hdr)
 			if ok {
 				t.Fatalf("security violation: IncomingHeaderMatcher allowed spoofed passport header %q (mapped to %q)", hdr, key)
 			}
@@ -180,7 +180,7 @@ func TestIncomingHeaderMatcher_BlocksPassportSpoofing(t *testing.T) {
 		"Grpc-Metadata-Custom-Tracking": "Custom-Tracking",
 	}
 	for hdr, wantKey := range allowedHeaders {
-		key, ok := IncomingHeaderMatcher(hdr)
+		key, ok := middleware.IncomingHeaderMatcher(hdr)
 		if !ok || key != wantKey {
 			t.Fatalf("expected header %q to map to %q, got ok=%v, key=%q", hdr, wantKey, ok, key)
 		}

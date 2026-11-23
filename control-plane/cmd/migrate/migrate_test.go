@@ -333,8 +333,8 @@ func TestModularMigrationVersions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("smmigrations: %v", err)
 	}
-	if smVer != 2 {
-		t.Errorf("expected servicemanager latest migration version 2, got %d", smVer)
+	if smVer != 3 {
+		t.Errorf("expected servicemanager latest migration version 3, got %d", smVer)
 	}
 
 	secVer, err := database.LatestMigrationVersion(secretsmigrations.FS)

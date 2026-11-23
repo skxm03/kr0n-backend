@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -55,12 +57,6 @@ type OrgRepository interface {
 	RevokeAPIToken(ctx context.Context, orgID, tokenID uuid.UUID, now time.Time) error
 	GetAPITokenByHash(ctx context.Context, tokenHash string) (*APIToken, Status, error)
 	TouchAPITokenLastUsed(ctx context.Context, tokenID uuid.UUID, usedAt time.Time) error
-
-	UpsertGitHubInstallation(ctx context.Context, inst *GitHubInstallation) (*GitHubInstallation, error)
-	ListGitHubInstallations(ctx context.Context, orgID uuid.UUID) ([]GitHubInstallation, error)
-	DeleteGitHubInstallation(ctx context.Context, orgID uuid.UUID, installationID int64) error
-	UpdateGitHubInstallationStatus(ctx context.Context, installationID int64, status string) error
-	GetGitHubInstallationByInstallationID(ctx context.Context, installationID int64) (*GitHubInstallation, error)
 }
 
 // PostgresOrgRepository implements OrgRepository using PostgreSQL.
@@ -678,127 +674,81 @@ func (r *PostgresOrgRepository) TouchAPITokenLastUsed(ctx context.Context, token
 	return err
 }
 
-// UpsertGitHubInstallation inserts or updates a GitHub installation for orgID, rejecting cross-org hijacks.
-func (r *PostgresOrgRepository) UpsertGitHubInstallation(ctx context.Context, inst *GitHubInstallation) (*GitHubInstallation, error) {
-	var out GitHubInstallation
-	var createdBy *uuid.UUID
-	err := r.pool.QueryRow(ctx, `
-		INSERT INTO github_installations (
-			id, organization_id, installation_id, account_login, account_type,
-			repository_selection, status, created_by_user_id, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-		ON CONFLICT (installation_id) DO UPDATE
-		SET account_login = EXCLUDED.account_login,
-		    account_type = EXCLUDED.account_type,
-		    repository_selection = EXCLUDED.repository_selection,
-		    status = EXCLUDED.status,
-		    updated_at = EXCLUDED.updated_at
-		WHERE github_installations.organization_id = EXCLUDED.organization_id
-		RETURNING id, organization_id, installation_id, account_login, account_type,
-		          repository_selection, status, created_by_user_id, created_at, updated_at;
-	`, inst.ID, inst.OrganizationID, inst.InstallationID, inst.AccountLogin, inst.AccountType,
-		inst.RepositorySelection, inst.Status, inst.CreatedByUserID, inst.CreatedAt, inst.UpdatedAt).Scan(
-		&out.ID, &out.OrganizationID, &out.InstallationID, &out.AccountLogin, &out.AccountType,
-		&out.RepositorySelection, &out.Status, &createdBy, &out.CreatedAt, &out.UpdatedAt,
-	)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrInstallationAlreadyLinked
-		}
-		return nil, fmt.Errorf("upsert github installation: %w", err)
+var nonAlphaNumRegex = regexp.MustCompile(`[^a-z0-9]+`)
+
+func slugify(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	s = nonAlphaNumRegex.ReplaceAllString(s, "-")
+	s = strings.Trim(s, "-")
+	if s == "" {
+		s = "default"
 	}
-	if createdBy != nil {
-		out.CreatedByUserID = *createdBy
+	if len(s) > 40 {
+		s = s[:40]
+		s = strings.Trim(s, "-")
 	}
-	return &out, nil
+	return s
 }
 
-// ListGitHubInstallations returns all GitHub installations bound to orgID.
-func (r *PostgresOrgRepository) ListGitHubInstallations(ctx context.Context, orgID uuid.UUID) ([]GitHubInstallation, error) {
-	rows, err := r.pool.Query(ctx, `
-		SELECT id, organization_id, installation_id, account_login, account_type,
-		       repository_selection, status, created_by_user_id, created_at, updated_at
-		FROM github_installations
-		WHERE organization_id = $1
-		ORDER BY created_at DESC;
-	`, orgID)
-	if err != nil {
-		return nil, fmt.Errorf("list github installations: %w", err)
-	}
-	defer rows.Close()
-
-	var out []GitHubInstallation
-	for rows.Next() {
-		var item GitHubInstallation
-		var createdBy *uuid.UUID
-		if err := rows.Scan(
-			&item.ID, &item.OrganizationID, &item.InstallationID, &item.AccountLogin, &item.AccountType,
-			&item.RepositorySelection, &item.Status, &createdBy, &item.CreatedAt, &item.UpdatedAt,
-		); err != nil {
-			return nil, err
+// createDefaultOrgTx provisions a personal organization and owner membership within an active database transaction.
+func createDefaultOrgTx(ctx context.Context, tx pgx.Tx, userID uuid.UUID, displayName, email string, now time.Time) error {
+	var orgName string
+	trimmedName := strings.TrimSpace(displayName)
+	if trimmedName != "" {
+		orgName = trimmedName + "'s org"
+	} else {
+		prefix := strings.Split(email, "@")[0]
+		if prefix == "" {
+			prefix = "default"
 		}
-		if createdBy != nil {
-			item.CreatedByUserID = *createdBy
-		}
-		out = append(out, item)
+		orgName = prefix + "'s org"
 	}
-	return out, rows.Err()
-}
+	if len(orgName) > 100 {
+		orgName = orgName[:100]
+	}
 
-// DeleteGitHubInstallation removes a GitHub installation record from orgID.
-func (r *PostgresOrgRepository) DeleteGitHubInstallation(ctx context.Context, orgID uuid.UUID, installationID int64) error {
-	tag, err := r.pool.Exec(ctx, `
-		DELETE FROM github_installations
-		WHERE organization_id = $1 AND installation_id = $2;
-	`, orgID, installationID)
+	base := slugify(displayName)
+	if base == "default" && email != "" {
+		base = slugify(strings.Split(email, "@")[0])
+	}
+	baseSlug := base + "-org"
+	if len(baseSlug) > 50 {
+		baseSlug = strings.Trim(baseSlug[:50], "-")
+	}
+
+	slug := baseSlug
+	counter := 1
+	for {
+		var exists bool
+		err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM organizations WHERE slug = $1)`, slug).Scan(&exists)
+		if err != nil {
+			return fmt.Errorf("check org slug existence: %w", err)
+		}
+		if !exists {
+			break
+		}
+		slug = fmt.Sprintf("%s-%d", baseSlug, counter)
+		counter++
+	}
+
+	orgID := uuid.New()
+	_, err := tx.Exec(ctx, `
+		INSERT INTO organizations (id, name, slug, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $4);
+	`, orgID, orgName, slug, now)
 	if err != nil {
-		return fmt.Errorf("delete github installation: %w", err)
+		return fmt.Errorf("insert default organization: %w", err)
 	}
-	if tag.RowsAffected() == 0 {
-		return ErrInstallationNotFound
+
+	_, err = tx.Exec(ctx, `
+		INSERT INTO organization_memberships (id, organization_id, user_id, role_id, created_at, updated_at)
+		VALUES ($1, $2, $3, 'owner', $4, $4);
+	`, uuid.New(), orgID, userID, now)
+	if err != nil {
+		return fmt.Errorf("insert default organization membership: %w", err)
 	}
+
 	return nil
 }
 
-// UpdateGitHubInstallationStatus updates the lifecycle status ('active', 'suspended', 'deleted', 'uninstalled')
-// of a GitHub App installation by its GitHub installation_id.
-func (r *PostgresOrgRepository) UpdateGitHubInstallationStatus(ctx context.Context, installationID int64, status string) error {
-	tag, err := r.pool.Exec(ctx, `
-		UPDATE github_installations
-		SET status = $1, updated_at = now()
-		WHERE installation_id = $2;
-	`, status, installationID)
-	if err != nil {
-		return fmt.Errorf("update github installation status: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return ErrInstallationNotFound
-	}
-	return nil
-}
-
-// GetGitHubInstallationByInstallationID looks up a GitHub installation record by its GitHub installation_id.
-func (r *PostgresOrgRepository) GetGitHubInstallationByInstallationID(ctx context.Context, installationID int64) (*GitHubInstallation, error) {
-	var out GitHubInstallation
-	var createdBy *uuid.UUID
-	err := r.pool.QueryRow(ctx, `
-		SELECT id, organization_id, installation_id, account_login, account_type,
-		       repository_selection, status, created_by_user_id, created_at, updated_at
-		FROM github_installations
-		WHERE installation_id = $1;
-	`, installationID).Scan(
-		&out.ID, &out.OrganizationID, &out.InstallationID, &out.AccountLogin, &out.AccountType,
-		&out.RepositorySelection, &out.Status, &createdBy, &out.CreatedAt, &out.UpdatedAt,
-	)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrInstallationNotFound
-		}
-		return nil, fmt.Errorf("get github installation by installation_id: %w", err)
-	}
-	if createdBy != nil {
-		out.CreatedByUserID = *createdBy
-	}
-	return &out, nil
-}
 

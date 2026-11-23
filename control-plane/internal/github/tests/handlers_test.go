@@ -138,7 +138,7 @@ func TestHandlers_ListDirectories_EndToEnd(t *testing.T) {
 	ghMock := &mockGitHubClient{
 		dirs: []string{"/", "/apps/api", "/apps/web"},
 		presets: map[string]string{
-			"/apps/api": "go",
+			"/apps/api": "golang",
 			"/apps/web": "nextjs",
 		},
 	}
@@ -164,14 +164,17 @@ func TestHandlers_ListDirectories_EndToEnd(t *testing.T) {
 	if len(resp.GetDirectories()) != 3 || resp.GetDirectories()[0] != "/" {
 		t.Fatalf("unexpected directories: %+v", resp)
 	}
-	if len(resp.GetEntries()) != 2 {
-		t.Fatalf("expected 2 entries, got %d", len(resp.GetEntries()))
+	if resp.GetCurrentDirectory() == nil || resp.GetCurrentDirectory().GetPath() != "/" {
+		t.Fatalf("expected current_directory at '/', got %+v", resp.GetCurrentDirectory())
 	}
-	if resp.GetEntries()[0].GetPath() != "/apps/api" || resp.GetEntries()[0].GetName() != "api" || resp.GetEntries()[0].GetParentPath() != "/apps" || resp.GetEntries()[0].GetDetectedPreset() != "go" {
-		t.Fatalf("unexpected entry 0: %+v", resp.GetEntries()[0])
+	if len(resp.GetChildren()) != 2 {
+		t.Fatalf("expected 2 child directories, got %d", len(resp.GetChildren()))
 	}
-	if resp.GetEntries()[1].GetDetectedPreset() != "nextjs" {
-		t.Fatalf("unexpected entry 1: %+v", resp.GetEntries()[1])
+	if resp.GetChildren()[0].GetPath() != "/apps/api" || resp.GetChildren()[0].GetDetectedPreset() != "golang" {
+		t.Fatalf("unexpected child 0: %+v", resp.GetChildren()[0])
+	}
+	if resp.GetChildren()[1].GetPath() != "/apps/web" || resp.GetChildren()[1].GetDetectedPreset() != "nextjs" {
+		t.Fatalf("unexpected child 1: %+v", resp.GetChildren()[1])
 	}
 	if resp.GetRoot() == nil || resp.GetRoot().GetPath() != "/" {
 		t.Fatalf("unexpected root node: %+v", resp.GetRoot())

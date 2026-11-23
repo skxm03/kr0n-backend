@@ -92,13 +92,15 @@ func (r *PostgresProjectRepository) CreateProject(ctx context.Context, p *domain
 			project_id,
 			install_command, install_command_override,
 			build_command, build_command_override,
+			run_command, run_command_override,
 			output_directory, output_directory_override,
 			updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
 	`,
 		p.ID,
 		p.BuildSettings.InstallCommand, p.BuildSettings.InstallCommandOverride,
 		p.BuildSettings.BuildCommand, p.BuildSettings.BuildCommandOverride,
+		p.BuildSettings.RunCommand, p.BuildSettings.RunCommandOverride,
 		p.BuildSettings.OutputDirectory, p.BuildSettings.OutputDirectoryOverride,
 		p.BuildSettings.UpdatedAt,
 	)
@@ -123,6 +125,7 @@ const selectProjectWithBuildSettingsSQL = `
 		p.revision, p.created_by_user_id, p.created_at, p.updated_at,
 		bs.install_command, bs.install_command_override,
 		bs.build_command, bs.build_command_override,
+		bs.run_command, bs.run_command_override,
 		bs.output_directory, bs.output_directory_override,
 		bs.updated_at
 	FROM projects p
@@ -138,6 +141,7 @@ func scanProjectRow(row pgx.Row) (*domain.Project, error) {
 		&p.Revision, &p.CreatedByUserID, &p.CreatedAt, &p.UpdatedAt,
 		&p.BuildSettings.InstallCommand, &p.BuildSettings.InstallCommandOverride,
 		&p.BuildSettings.BuildCommand, &p.BuildSettings.BuildCommandOverride,
+		&p.BuildSettings.RunCommand, &p.BuildSettings.RunCommandOverride,
 		&p.BuildSettings.OutputDirectory, &p.BuildSettings.OutputDirectoryOverride,
 		&p.BuildSettings.UpdatedAt,
 	)
@@ -287,13 +291,16 @@ func (r *PostgresProjectRepository) UpdateBuildSettings(
 		    install_command_override = $2,
 		    build_command = $3,
 		    build_command_override = $4,
-		    output_directory = $5,
-		    output_directory_override = $6,
-		    updated_at = $7
-		WHERE project_id = $8;
+		    run_command = $5,
+		    run_command_override = $6,
+		    output_directory = $7,
+		    output_directory_override = $8,
+		    updated_at = $9
+		WHERE project_id = $10;
 	`,
 		bs.InstallCommand, bs.InstallCommandOverride,
 		bs.BuildCommand, bs.BuildCommandOverride,
+		bs.RunCommand, bs.RunCommandOverride,
 		bs.OutputDirectory, bs.OutputDirectoryOverride,
 		now, projectID,
 	)

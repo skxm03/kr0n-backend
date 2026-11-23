@@ -92,7 +92,7 @@ func TestService_Validation_MaliciousInputs(t *testing.T) {
 	}
 
 	// Invalid ref
-	if _, _, err := svc.ListDirectories(ctx, caller, orgID, 1, "acme", "repo", "main..feat"); !errors.Is(err, client.ErrInvalidInput) {
+	if _, err := svc.ListDirectories(ctx, caller, orgID, 1, "acme", "repo", "main..feat", ""); !errors.Is(err, client.ErrInvalidInput) {
 		t.Fatalf("expected ErrInvalidInput for invalid ref, got %v", err)
 	}
 }

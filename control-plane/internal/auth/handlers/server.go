@@ -38,6 +38,7 @@ type GoogleOAuthProvider interface {
 // RegistrationService defines user registration, account lifecycle, profile, and OAuth operations (satisfied by *service.UserService).
 type RegistrationService interface {
 	Register(ctx context.Context, params service.RegisterParams) (*domain.User, error)
+	VerifyEmail(ctx context.Context, rawToken string) error
 	ResendVerification(ctx context.Context, rawEmail string) error
 	RequestPasswordReset(ctx context.Context, rawEmail string) error
 	ConfirmPasswordReset(ctx context.Context, rawToken, newPassword string) (uuid.UUID, error)
@@ -56,20 +57,8 @@ type SessionService interface {
 	CreateSessionForUser(ctx context.Context, authenticatedUser *domain.User, userAgent *string, clientIP *net.IP) (*service.LoginResult, error)
 }
 
-// VerificationService defines the domain interface required for email verification.
-type VerificationService interface {
-	VerifyEmail(ctx context.Context, rawToken string) error
-}
-
 // Option configures Server.
 type Option func(*Server)
-
-// WithVerificationService configures the verification service for Server.
-func WithVerificationService(vs VerificationService) Option {
-	return func(s *Server) {
-		s.verificationService = vs
-	}
-}
 
 // WithJWKS configures the public JSON Web Key Set served by GetJWKS.
 func WithJWKS(keys ...jwtkeys.JWK) Option {
@@ -118,15 +107,14 @@ func WithServiceAuthConfig(cfg ServiceAuthConfig) Option {
 // Server implements authv1.AuthServiceServer.
 type Server struct {
 	authv1.UnimplementedAuthServiceServer
-	regService          RegistrationService
-	sessionService      SessionService
-	verificationService VerificationService
-	jwks                []jwtkeys.JWK
-	githubOAuth         GitHubOAuthProvider
-	googleOAuth         GoogleOAuthProvider
-	orgService          *service.OrgService
-	auditService        *service.AuditService
-	serviceAuth         ServiceAuthConfig
+	regService     RegistrationService
+	sessionService SessionService
+	jwks           []jwtkeys.JWK
+	githubOAuth    GitHubOAuthProvider
+	googleOAuth    GoogleOAuthProvider
+	orgService     *service.OrgService
+	auditService   *service.AuditService
+	serviceAuth    ServiceAuthConfig
 }
 
 // NewServer creates a new gRPC Server instance.
@@ -362,8 +350,8 @@ func (s *Server) VerifyEmail(ctx context.Context, req *authv1.VerifyEmailRequest
 		return nil, status.Error(codes.InvalidArgument, "request body cannot be empty")
 	}
 
-	if s.verificationService == nil {
-		return nil, status.Error(codes.Unimplemented, "verification service not configured")
+	if s.regService == nil {
+		return nil, status.Error(codes.Unimplemented, "registration service not configured")
 	}
 
 	token := strings.TrimSpace(req.GetToken())
@@ -371,7 +359,7 @@ func (s *Server) VerifyEmail(ctx context.Context, req *authv1.VerifyEmailRequest
 		return nil, status.Error(codes.InvalidArgument, "verification token is required")
 	}
 
-	err := s.verificationService.VerifyEmail(ctx, token)
+	err := s.regService.VerifyEmail(ctx, token)
 	if err != nil {
 		switch {
 		case errors.Is(err, domain.ErrInvalidToken):

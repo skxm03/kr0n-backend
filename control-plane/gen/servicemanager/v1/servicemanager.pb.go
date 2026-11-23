@@ -34,6 +34,7 @@ type ApplicationPresetInfo struct {
 	DefaultInstallCommand  string                 `protobuf:"bytes,5,opt,name=default_install_command,json=defaultInstallCommand,proto3" json:"default_install_command,omitempty"`
 	DefaultBuildCommand    string                 `protobuf:"bytes,6,opt,name=default_build_command,json=defaultBuildCommand,proto3" json:"default_build_command,omitempty"`
 	DefaultOutputDirectory string                 `protobuf:"bytes,7,opt,name=default_output_directory,json=defaultOutputDirectory,proto3" json:"default_output_directory,omitempty"`
+	DefaultRunCommand      string                 `protobuf:"bytes,8,opt,name=default_run_command,json=defaultRunCommand,proto3" json:"default_run_command,omitempty"`
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
 }
@@ -113,6 +114,13 @@ func (x *ApplicationPresetInfo) GetDefaultBuildCommand() string {
 func (x *ApplicationPresetInfo) GetDefaultOutputDirectory() string {
 	if x != nil {
 		return x.DefaultOutputDirectory
+	}
+	return ""
+}
+
+func (x *ApplicationPresetInfo) GetDefaultRunCommand() string {
+	if x != nil {
+		return x.DefaultRunCommand
 	}
 	return ""
 }
@@ -205,6 +213,8 @@ type BuildSettingsInput struct {
 	BuildCommandOverride    bool                   `protobuf:"varint,4,opt,name=build_command_override,json=buildCommandOverride,proto3" json:"build_command_override,omitempty"`
 	OutputDirectory         string                 `protobuf:"bytes,5,opt,name=output_directory,json=outputDirectory,proto3" json:"output_directory,omitempty"`
 	OutputDirectoryOverride bool                   `protobuf:"varint,6,opt,name=output_directory_override,json=outputDirectoryOverride,proto3" json:"output_directory_override,omitempty"`
+	RunCommand              string                 `protobuf:"bytes,7,opt,name=run_command,json=runCommand,proto3" json:"run_command,omitempty"`
+	RunCommandOverride      bool                   `protobuf:"varint,8,opt,name=run_command_override,json=runCommandOverride,proto3" json:"run_command_override,omitempty"`
 	unknownFields           protoimpl.UnknownFields
 	sizeCache               protoimpl.SizeCache
 }
@@ -281,6 +291,20 @@ func (x *BuildSettingsInput) GetOutputDirectoryOverride() bool {
 	return false
 }
 
+func (x *BuildSettingsInput) GetRunCommand() string {
+	if x != nil {
+		return x.RunCommand
+	}
+	return ""
+}
+
+func (x *BuildSettingsInput) GetRunCommandOverride() bool {
+	if x != nil {
+		return x.RunCommandOverride
+	}
+	return false
+}
+
 type BuildSettingsInfo struct {
 	state                    protoimpl.MessageState `protogen:"open.v1"`
 	InstallCommand           string                 `protobuf:"bytes,1,opt,name=install_command,json=installCommand,proto3" json:"install_command,omitempty"`
@@ -293,6 +317,9 @@ type BuildSettingsInfo struct {
 	EffectiveBuildCommand    string                 `protobuf:"bytes,8,opt,name=effective_build_command,json=effectiveBuildCommand,proto3" json:"effective_build_command,omitempty"`
 	EffectiveOutputDirectory string                 `protobuf:"bytes,9,opt,name=effective_output_directory,json=effectiveOutputDirectory,proto3" json:"effective_output_directory,omitempty"`
 	UpdatedAt                *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	RunCommand               string                 `protobuf:"bytes,11,opt,name=run_command,json=runCommand,proto3" json:"run_command,omitempty"`
+	RunCommandOverride       bool                   `protobuf:"varint,12,opt,name=run_command_override,json=runCommandOverride,proto3" json:"run_command_override,omitempty"`
+	EffectiveRunCommand      string                 `protobuf:"bytes,13,opt,name=effective_run_command,json=effectiveRunCommand,proto3" json:"effective_run_command,omitempty"`
 	unknownFields            protoimpl.UnknownFields
 	sizeCache                protoimpl.SizeCache
 }
@@ -395,6 +422,27 @@ func (x *BuildSettingsInfo) GetUpdatedAt() *timestamppb.Timestamp {
 		return x.UpdatedAt
 	}
 	return nil
+}
+
+func (x *BuildSettingsInfo) GetRunCommand() string {
+	if x != nil {
+		return x.RunCommand
+	}
+	return ""
+}
+
+func (x *BuildSettingsInfo) GetRunCommandOverride() bool {
+	if x != nil {
+		return x.RunCommandOverride
+	}
+	return false
+}
+
+func (x *BuildSettingsInfo) GetEffectiveRunCommand() string {
+	if x != nil {
+		return x.EffectiveRunCommand
+	}
+	return ""
 }
 
 type ProjectInfo struct {
@@ -1359,7 +1407,7 @@ var File_servicemanager_v1_servicemanager_proto protoreflect.FileDescriptor
 
 const file_servicemanager_v1_servicemanager_proto_rawDesc = "" +
 	"\n" +
-	"&servicemanager/v1/servicemanager.proto\x12\x11servicemanager.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x12auth/v1/auth.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"\xb9\x02\n" +
+	"&servicemanager/v1/servicemanager.proto\x12\x11servicemanager.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x12auth/v1/auth.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"\xe9\x02\n" +
 	"\x15ApplicationPresetInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12+\n" +
@@ -1367,17 +1415,21 @@ const file_servicemanager_v1_servicemanager_proto_rawDesc = "" +
 	"\bcategory\x18\x04 \x01(\tR\bcategory\x126\n" +
 	"\x17default_install_command\x18\x05 \x01(\tR\x15defaultInstallCommand\x122\n" +
 	"\x15default_build_command\x18\x06 \x01(\tR\x13defaultBuildCommand\x128\n" +
-	"\x18default_output_directory\x18\a \x01(\tR\x16defaultOutputDirectory\"\x1f\n" +
+	"\x18default_output_directory\x18\a \x01(\tR\x16defaultOutputDirectory\x12.\n" +
+	"\x13default_run_command\x18\b \x01(\tR\x11defaultRunCommand\"\x1f\n" +
 	"\x1dListApplicationPresetsRequest\"d\n" +
 	"\x1eListApplicationPresetsResponse\x12B\n" +
-	"\apresets\x18\x01 \x03(\v2(.servicemanager.v1.ApplicationPresetInfoR\apresets\"\xb9\x02\n" +
+	"\apresets\x18\x01 \x03(\v2(.servicemanager.v1.ApplicationPresetInfoR\apresets\"\x8c\x03\n" +
 	"\x12BuildSettingsInput\x12'\n" +
 	"\x0finstall_command\x18\x01 \x01(\tR\x0einstallCommand\x128\n" +
 	"\x18install_command_override\x18\x02 \x01(\bR\x16installCommandOverride\x12#\n" +
 	"\rbuild_command\x18\x03 \x01(\tR\fbuildCommand\x124\n" +
 	"\x16build_command_override\x18\x04 \x01(\bR\x14buildCommandOverride\x12)\n" +
 	"\x10output_directory\x18\x05 \x01(\tR\x0foutputDirectory\x12:\n" +
-	"\x19output_directory_override\x18\x06 \x01(\bR\x17outputDirectoryOverride\"\xa5\x04\n" +
+	"\x19output_directory_override\x18\x06 \x01(\bR\x17outputDirectoryOverride\x12\x1f\n" +
+	"\vrun_command\x18\a \x01(\tR\n" +
+	"runCommand\x120\n" +
+	"\x14run_command_override\x18\b \x01(\bR\x12runCommandOverride\"\xac\x05\n" +
 	"\x11BuildSettingsInfo\x12'\n" +
 	"\x0finstall_command\x18\x01 \x01(\tR\x0einstallCommand\x128\n" +
 	"\x18install_command_override\x18\x02 \x01(\bR\x16installCommandOverride\x12#\n" +
@@ -1390,7 +1442,11 @@ const file_servicemanager_v1_servicemanager_proto_rawDesc = "" +
 	"\x1aeffective_output_directory\x18\t \x01(\tR\x18effectiveOutputDirectory\x129\n" +
 	"\n" +
 	"updated_at\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\xbe\x05\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x1f\n" +
+	"\vrun_command\x18\v \x01(\tR\n" +
+	"runCommand\x120\n" +
+	"\x14run_command_override\x18\f \x01(\bR\x12runCommandOverride\x122\n" +
+	"\x15effective_run_command\x18\r \x01(\tR\x13effectiveRunCommand\"\xbe\x05\n" +
 	"\vProjectInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x15\n" +
 	"\x06org_id\x18\x02 \x01(\tR\x05orgId\x12\x12\n" +

@@ -366,29 +366,68 @@ func (s *Service) ListBranches(ctx context.Context, caller *authv1.CallerPrincip
 }
 
 // ListDirectories retrieves canonical directory paths for owner/repo at ref along with detected presets.
-func (s *Service) ListDirectories(ctx context.Context, caller *authv1.CallerPrincipal, orgID string, installationID int64, owner, repo, ref string) ([]string, map[string]string, error) {
+func (s *Service) ListDirectories(ctx context.Context, caller *authv1.CallerPrincipal, orgID string, installationID int64, owner, repo, ref string, targetPath string) (*client.DirectoryDiscoveryResult, error) {
 	if err := validateOwnerRepo(owner, repo); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if err := validateRef(ref); err != nil {
-		return nil, nil, err
+		return nil, err
+	}
+	if err := validatePath(targetPath); err != nil {
+		return nil, err
 	}
 	tok, _, _, err := s.GetInstallationToken(ctx, caller, orgID, installationID)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if s.ghClient == nil {
-		return nil, nil, nil
+		return &client.DirectoryDiscoveryResult{}, nil
+	}
+
+	if explorer, ok := s.ghClient.(interface {
+		ExploreDirectory(ctx context.Context, token string, owner, repo, ref, targetPath string) (*client.DirectoryDiscoveryResult, error)
+	}); ok {
+		return explorer.ExploreDirectory(ctx, tok, owner, repo, ref, targetPath)
 	}
 
 	if withPresets, ok := s.ghClient.(interface {
 		ListDirectoriesWithPresets(ctx context.Context, token string, owner, repo, ref string) ([]string, map[string]string, error)
 	}); ok {
-		return withPresets.ListDirectoriesWithPresets(ctx, tok, owner, repo, ref)
+		dirs, presets, err := withPresets.ListDirectoriesWithPresets(ctx, tok, owner, repo, ref)
+		if err != nil {
+			return nil, err
+		}
+		return &client.DirectoryDiscoveryResult{
+			CurrentDirectory: client.DirectoryInfo{Path: "/", Name: "/", ParentPath: "/"},
+			Directories:      dirs,
+			Presets:          presets,
+		}, nil
 	}
 
 	dirs, err := s.ghClient.ListDirectories(ctx, tok, owner, repo, ref)
-	return dirs, nil, err
+	if err != nil {
+		return nil, err
+	}
+	return &client.DirectoryDiscoveryResult{
+		CurrentDirectory: client.DirectoryInfo{Path: "/", Name: "/", ParentPath: "/"},
+		Directories:      dirs,
+	}, nil
+}
+
+func validatePath(raw string) error {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" || trimmed == "." || trimmed == "/" || trimmed == "./" {
+		return nil
+	}
+	if strings.Contains(trimmed, "\\") || strings.ContainsAny(trimmed, "\x00\r\n") {
+		return fmt.Errorf("%w: invalid directory path %q", client.ErrInvalidInput, raw)
+	}
+	for _, seg := range strings.Split(trimmed, "/") {
+		if seg == ".." {
+			return fmt.Errorf("%w: path traversal in directory path %q", client.ErrInvalidInput, raw)
+		}
+	}
+	return nil
 }
 
 func validateOwnerRepo(owner, repo string) error {

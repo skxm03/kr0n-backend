@@ -7,7 +7,7 @@ import (
 func TestDialUpstreamInsecure(t *testing.T) {
 	conn, err := DialUpstream("127.0.0.1:50053", DialUpstreamTLSConfig{
 		Insecure: true,
-	}, "test-token")
+	})
 	if err != nil {
 		t.Fatalf("unexpected error creating insecure client connection: %v", err)
 	}

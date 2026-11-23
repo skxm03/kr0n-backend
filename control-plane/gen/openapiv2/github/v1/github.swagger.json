@@ -545,6 +545,12 @@
             "in": "query",
             "required": false,
             "type": "string"
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": false,
+            "type": "string"
           }
         ],
         "tags": [
@@ -648,6 +654,21 @@
         },
         "detected_preset": {
           "type": "string"
+        },
+        "suggested_install_command": {
+          "type": "string"
+        },
+        "suggested_build_command": {
+          "type": "string"
+        },
+        "suggested_run_command": {
+          "type": "string"
+        },
+        "suggested_output_directory": {
+          "type": "string"
+        },
+        "has_children": {
+          "type": "boolean"
         }
       }
     },
@@ -669,6 +690,21 @@
         },
         "detected_preset": {
           "type": "string"
+        },
+        "suggested_install_command": {
+          "type": "string"
+        },
+        "suggested_build_command": {
+          "type": "string"
+        },
+        "suggested_run_command": {
+          "type": "string"
+        },
+        "suggested_output_directory": {
+          "type": "string"
+        },
+        "has_children": {
+          "type": "boolean"
         }
       }
     },
@@ -825,6 +861,16 @@
         },
         "root": {
           "$ref": "#/definitions/v1DirectoryNode"
+        },
+        "current_directory": {
+          "$ref": "#/definitions/v1DirectoryEntry"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/v1DirectoryEntry"
+          }
         }
       }
     },

@@ -207,72 +207,72 @@ func (s *Server) ListDirectories(ctx context.Context, req *githubv1.ListDirector
 		return nil, status.Error(codes.InvalidArgument, "request cannot be nil")
 	}
 
-	dirs, presets, err := s.svc.ListDirectories(ctx, req.GetCaller(), req.GetOrgId(), req.GetInstallationId(), req.GetOwner(), req.GetRepo(), req.GetRef())
+	res, err := s.svc.ListDirectories(ctx, req.GetCaller(), req.GetOrgId(), req.GetInstallationId(), req.GetOwner(), req.GetRepo(), req.GetRef(), req.GetPath())
 	if err != nil {
 		return nil, mapError(err)
 	}
 
-	entries := make([]*githubv1.DirectoryEntry, 0, len(dirs))
-	nodeMap := make(map[string]*githubv1.DirectoryNode, len(dirs))
+	currentEntry := toProtoDirectoryEntry(res.CurrentDirectory)
+	childEntries := make([]*githubv1.DirectoryEntry, 0, len(res.Children))
+	childNodes := make([]*githubv1.DirectoryNode, 0, len(res.Children))
 
-	rootPreset := ""
-	if presets != nil {
-		rootPreset = presets["/"]
+	for _, ch := range res.Children {
+		ce := toProtoDirectoryEntry(ch)
+		childEntries = append(childEntries, ce)
+		childNodes = append(childNodes, toProtoDirectoryNode(ch, nil))
 	}
 
-	rootNode := &githubv1.DirectoryNode{
-		Path:           "/",
-		Name:           "/",
-		DetectedPreset: rootPreset,
+	rootNode := toProtoDirectoryNode(res.CurrentDirectory, childNodes)
+
+	allEntries := make([]*githubv1.DirectoryEntry, 0, 1+len(childEntries))
+	allEntries = append(allEntries, currentEntry)
+	allEntries = append(allEntries, childEntries...)
+
+	dirs := make([]string, 0, 1+len(childEntries))
+	dirs = append(dirs, res.CurrentDirectory.Path)
+	for _, ch := range res.Children {
+		dirs = append(dirs, ch.Path)
 	}
-	nodeMap["/"] = rootNode
-
-	for _, d := range dirs {
-		if d == "/" {
-			continue
-		}
-		var preset string
-		if presets != nil {
-			preset = presets[d]
-		}
-
-		lastSlash := strings.LastIndex(d, "/")
-		var parentPath string
-		var name string
-		if lastSlash <= 0 {
-			parentPath = "/"
-			name = d[1:]
-		} else {
-			parentPath = d[:lastSlash]
-			name = d[lastSlash+1:]
-		}
-
-		entries = append(entries, &githubv1.DirectoryEntry{
-			Path:           d,
-			Name:           name,
-			ParentPath:     parentPath,
-			DetectedPreset: preset,
-		})
-
-		node := &githubv1.DirectoryNode{
-			Path:           d,
-			Name:           name,
-			DetectedPreset: preset,
-		}
-		nodeMap[d] = node
-
-		if parent, exists := nodeMap[parentPath]; exists {
-			parent.Children = append(parent.Children, node)
-		} else {
-			rootNode.Children = append(rootNode.Children, node)
-		}
+	// If caller queried root and full directories catalog is available, preserve it for backwards compatibility
+	if (req.GetPath() == "" || req.GetPath() == "/") && len(res.Directories) > len(dirs) {
+		dirs = res.Directories
 	}
 
 	return &githubv1.ListDirectoriesResponse{
-		Directories: dirs,
-		Entries:     entries,
-		Root:        rootNode,
+		Directories:      dirs,
+		Entries:          allEntries,
+		Root:             rootNode,
+		CurrentDirectory: currentEntry,
+		Children:         childEntries,
 	}, nil
+}
+
+func toProtoDirectoryEntry(d client.DirectoryInfo) *githubv1.DirectoryEntry {
+	return &githubv1.DirectoryEntry{
+		Path:                     d.Path,
+		Name:                     d.Name,
+		ParentPath:               d.ParentPath,
+		DetectedPreset:           d.DetectedPreset,
+		SuggestedInstallCommand:  d.SuggestedInstallCommand,
+		SuggestedBuildCommand:    d.SuggestedBuildCommand,
+		SuggestedRunCommand:      d.SuggestedRunCommand,
+		SuggestedOutputDirectory: d.SuggestedOutputDirectory,
+		HasChildren:              d.HasChildren,
+	}
+}
+
+func toProtoDirectoryNode(d client.DirectoryInfo, children []*githubv1.DirectoryNode) *githubv1.DirectoryNode {
+	return &githubv1.DirectoryNode{
+		Path:                     d.Path,
+		Name:                     d.Name,
+		Children:                 children,
+		DetectedPreset:           d.DetectedPreset,
+		SuggestedInstallCommand:  d.SuggestedInstallCommand,
+		SuggestedBuildCommand:    d.SuggestedBuildCommand,
+		SuggestedRunCommand:      d.SuggestedRunCommand,
+		SuggestedOutputDirectory: d.SuggestedOutputDirectory,
+		HasChildren:              d.HasChildren,
+	}
 }
 
 func toProtoInstallation(inst *domain.GitHubInstallation) *githubv1.GitHubInstallationInfo {

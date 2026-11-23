@@ -71,7 +71,7 @@ func TestHandlers_ListAuditEventsHTTP(t *testing.T) {
 			return lis.DialContext(ctx)
 		}),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithChainUnaryInterceptor(gateway.PassportUnaryClientInterceptor()),
+		grpc.WithChainUnaryInterceptor(middleware.PassportUnaryClientInterceptor()),
 	)
 	if err != nil {
 		t.Fatal(err)

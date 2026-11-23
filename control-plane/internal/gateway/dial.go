@@ -10,6 +10,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+
+	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/middleware"
 )
 
 // DialUpstreamTLSConfig holds TLS and mTLS parameters for dialing an upstream gRPC service.
@@ -21,9 +23,9 @@ type DialUpstreamTLSConfig struct {
 	ServerName string
 }
 
-// DialUpstream establishes a gRPC client connection with transport security and optional service token.
+// DialUpstream establishes a gRPC client connection with transport security.
 // It automatically chains the PassportUnaryClientInterceptor to propagate authenticated caller passports.
-func DialUpstream(address string, tlsCfg DialUpstreamTLSConfig, serviceToken string) (*grpc.ClientConn, error) {
+func DialUpstream(address string, tlsCfg DialUpstreamTLSConfig) (*grpc.ClientConn, error) {
 	var creds credentials.TransportCredentials
 	if tlsCfg.Insecure {
 		creds = insecure.NewCredentials()
@@ -56,10 +58,7 @@ func DialUpstream(address string, tlsCfg DialUpstreamTLSConfig, serviceToken str
 		creds = credentials.NewTLS(tlsConfig)
 	}
 
-	interceptors := []grpc.UnaryClientInterceptor{PassportUnaryClientInterceptor()}
-	if serviceToken != "" {
-		interceptors = append(interceptors, ServiceTokenClientInterceptor(serviceToken))
-	}
+	interceptors := []grpc.UnaryClientInterceptor{middleware.PassportUnaryClientInterceptor()}
 
 	dialOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(creds),

@@ -124,20 +124,6 @@ type APIToken struct {
 	CreatedAt       time.Time
 }
 
-// GitHubInstallation represents a GitHub App installation bound to an Organization.
-type GitHubInstallation struct {
-	ID                  uuid.UUID
-	OrganizationID      uuid.UUID
-	InstallationID      int64
-	AccountLogin        string
-	AccountType         string
-	RepositorySelection string
-	Status              string
-	CreatedByUserID     uuid.UUID
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
-}
-
 const (
 	ActorTypeUser     = "user"
 	ActorTypeAPIToken = "api_token"

@@ -186,6 +186,7 @@ message ApplicationPresetInfo {
   string default_install_command = 5;
   string default_build_command = 6;
   string default_output_directory = 7;
+  string default_run_command = 8;
 }
 
 message ListApplicationPresetsRequest {
@@ -202,6 +203,8 @@ message BuildSettingsInput {
   bool build_command_override = 4;
   string output_directory = 5;
   bool output_directory_override = 6;
+  string run_command = 7;
+  bool run_command_override = 8;
 }
 
 message BuildSettingsInfo {
@@ -215,6 +218,9 @@ message BuildSettingsInfo {
   string effective_build_command = 8;
   string effective_output_directory = 9;
   google.protobuf.Timestamp updated_at = 10;
+  string run_command = 11;
+  bool run_command_override = 12;
+  string effective_run_command = 13;
 }
 
 message ProjectInfo {

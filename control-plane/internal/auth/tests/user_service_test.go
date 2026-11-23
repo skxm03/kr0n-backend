@@ -24,6 +24,7 @@ type mockUserRepository struct {
 	recordFailFunc        func(ctx context.Context, userID uuid.UUID, maxAttempts int, lockoutDuration time.Duration, now time.Time) error
 	resetFailFunc         func(ctx context.Context, userID uuid.UUID) error
 	consumeResetFunc      func(ctx context.Context, tokenHash, newPasswordHash string, now time.Time) (uuid.UUID, error)
+	consumeVerifFunc      func(ctx context.Context, tokenHash string, now time.Time) (*repository.Token, error)
 	updatePwFunc          func(ctx context.Context, userID uuid.UUID, newPasswordHash string, now time.Time) error
 	resolveOAuthFunc      func(ctx context.Context, profile repository.OAuthProfile, now time.Time) (*repository.User, error)
 	countRecentTokensFunc func(ctx context.Context, userID uuid.UUID, since time.Time) (int, error)
@@ -99,6 +100,13 @@ func (m *mockUserRepository) CountRecentVerificationTokens(ctx context.Context, 
 		return m.countRecentTokensFunc(ctx, userID, since)
 	}
 	return len(m.createdTokens), nil
+}
+
+func (m *mockUserRepository) ConsumeVerificationToken(ctx context.Context, tokenHash string, now time.Time) (*repository.Token, error) {
+	if m.consumeVerifFunc != nil {
+		return m.consumeVerifFunc(ctx, tokenHash, now)
+	}
+	return nil, nil
 }
 
 func (m *mockUserRepository) CreatePasswordResetToken(ctx context.Context, token *repository.Token, outbox ...*repository.OutboxEvent) error {

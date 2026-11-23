@@ -91,9 +91,6 @@ func TestE2E_EmailVerification_Lifecycle(t *testing.T) {
 		service.WithTokenLifetime(24*time.Hour),
 	)
 
-	verifRepo := repository.NewPostgresVerificationRepository(dbPool)
-	verifService := service.NewVerificationService(verifRepo)
-
 	jwtSigner, err := jwtkeys.NewSigner(jwtkeys.DevPrivateKey(), "k1", "kr0n-test", "kr0n-api", 15*time.Minute)
 	if err != nil {
 		t.Fatalf("failed to create jwt signer: %v", err)
@@ -105,7 +102,6 @@ func TestE2E_EmailVerification_Lifecycle(t *testing.T) {
 	grpcHandler := handlers.NewServer(
 		userService,
 		sessionService,
-		handlers.WithVerificationService(verifService),
 	)
 
 	grpcServer := grpc.NewServer()
@@ -125,7 +121,7 @@ func TestE2E_EmailVerification_Lifecycle(t *testing.T) {
 	authGRPCAddr := grpcListener.Addr().String()
 
 	// 4. Start API Gateway on dynamic loopback port
-	authConn, err := gateway.DialUpstream(authGRPCAddr, gateway.DialUpstreamTLSConfig{Insecure: true}, "")
+	authConn, err := gateway.DialUpstream(authGRPCAddr, gateway.DialUpstreamTLSConfig{Insecure: true})
 	if err != nil {
 		t.Fatalf("failed to dial auth gRPC: %v", err)
 	}
@@ -495,10 +491,7 @@ func TestE2E_EmailVerification_Manual10StepsVerification(t *testing.T) {
 		service.WithOutboxNotifier(outboxWorker),
 		service.WithTokenLifetime(24*time.Hour),
 	)
-	verifRepo := repository.NewPostgresVerificationRepository(dbPool)
-	verifService := service.NewVerificationService(verifRepo)
-
-	grpcHandler := handlers.NewServer(userService, nil, handlers.WithVerificationService(verifService))
+	grpcHandler := handlers.NewServer(userService, nil)
 	grpcServer := grpc.NewServer()
 	authv1.RegisterAuthServiceServer(grpcServer, grpcHandler)
 
@@ -510,7 +503,7 @@ func TestE2E_EmailVerification_Manual10StepsVerification(t *testing.T) {
 	go func() { _ = grpcServer.Serve(grpcListener) }()
 	defer grpcServer.GracefulStop()
 
-	authConn, err := gateway.DialUpstream(grpcListener.Addr().String(), gateway.DialUpstreamTLSConfig{Insecure: true}, "")
+	authConn, err := gateway.DialUpstream(grpcListener.Addr().String(), gateway.DialUpstreamTLSConfig{Insecure: true})
 	if err != nil {
 		t.Fatalf("dial gRPC failed: %v", err)
 	}

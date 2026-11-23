@@ -37,9 +37,9 @@ flowchart TB
     end
 
     subgraph ControlPlaneCore["Control Plane Microservices (Internal Network)"]
-        AuthSvc["Auth Service (:50051 gRPC mTLS)<br/>• Identity, Argon2id Passwords<br/>• Ed25519 JWT Issuance & JWKS<br/>• Multi-tenant Orgs & RBAC Engine<br/>• GitHub & Google OAuth Providers<br/>• GitHub App Installation Management<br/>• Transactional Email Outbox"]
+        AuthSvc["Auth Service (:50051 gRPC mTLS)<br/>• Identity, Bcrypt (Cost 12) Passwords<br/>• Ed25519 JWT Issuance & JWKS<br/>• Multi-tenant Orgs & RBAC Engine<br/>• GitHub & Google OAuth Providers<br/>• Transactional Email Outbox"]
         
-        GitHubSvc["GitHub VCS Service (:50052 gRPC mTLS)<br/>• GitHub App Token Consumer<br/>• VCS Repo & Branch Indexing<br/>• Monorepo Directory Tree Traverser<br/>• In-memory Response Cache (TTL 2m)"]
+        GitHubSvc["GitHub VCS Service (:50052 gRPC mTLS)<br/>• GitHub App Token Consumer & Issuer<br/>• VCS Repo & Branch Indexing<br/>• Monorepo Directory Tree Traverser<br/>• In-memory Response Cache (TTL 2m)"]
         
         ServiceMgr["Service Manager (:50053 gRPC mTLS)<br/>• Repository-linked Projects<br/>• Build Settings & Env Configuration<br/>• Railpack Application Presets"]
         
@@ -79,7 +79,6 @@ flowchart TB
     Mux -.->|Publish HTTP Audit Events| RMQ_Audit
 
     %% Service-to-Service Links
-    GitHubSvc -->|Internal mTLS gRPC: GetGitHubInstallationToken| AuthSvc
     ServiceMgr -->|Internal mTLS gRPC: CheckPermission| AuthSvc
 
     %% Control Plane to Storage & Messaging
@@ -125,14 +124,13 @@ flowchart TB
 * **Entrypoint**: `127.0.0.1:50051` (mTLS gRPC)
 * **Role**: Authoritative identity, authentication, multi-tenant RBAC, and credential engine.
 * **Core Responsibilities**:
-  * **Identity Lifecycle**: Registration, login, password hashing with **Argon2id**, email verification, and password recovery.
+  * **Identity Lifecycle**: Registration, login, password hashing with **Bcrypt (cost 12, RFC-compliant UTF-8)**, email verification, and password recovery.
   * **Token Management**: Issues asymmetric **Ed25519 JWTs** (short-lived access tokens, 15m) and secure cryptographic refresh tokens (720h). Exposes public keys via `/api/v1/auth/jwks`.
   * **Multi-tenant RBAC**: Hierarchical Organizations, system and custom Roles, Memberships, Invitations, and Personal Access Tokens (PATs).
   * **Service-to-Service RPCs**:
     * `CheckPermission`: Internal RPC called by other microservices to enforce authorization checks.
     * `ValidateAPIToken`: Validates scoped automation tokens.
-    * `GetGitHubInstallationToken`: Issues ephemeral GitHub App installation tokens to satellite services.
-  * **OAuth & App Integrations**: Native GitHub OAuth, Google OAuth, and GitHub App installation state machine with secure HMAC-SHA256 state cookies.
+  * **OAuth Integrations**: Native GitHub OAuth and Google OAuth 2.0 with PKCE verification and state verification.
   * **Transactional Outbox**: Queues transactional emails into PostgreSQL before publishing to RabbitMQ.
 
 ### 3.3. GitHub VCS Service (`control-plane/cmd/github`)
@@ -229,10 +227,10 @@ Database schema migrations are applied modularly per microservice via `control-p
 ### Auth Service (`internal/auth/migrations`)
 | Migration File | Key Tables / Objects Created | Purpose |
 |---|---|---|
-| `000001_initial_auth.up.sql` | `users`, `sessions`, `email_verification_tokens`, `password_reset_tokens` | Core user identity, argon2id credentials, and session state |
+| `000001_initial_auth.up.sql` | `users`, `sessions`, `email_verification_tokens`, `password_reset_tokens` | Core user identity, bcrypt credentials, and session state |
 | `000002_auth_completion.up.sql` | `organizations`, `org_members`, `roles`, `permissions`, `invitations`, `api_tokens`, `email_outbox` | Multi-tenant RBAC, team invites, PATs, and transactional email outbox |
-| `000003_github_installations.up.sql` | `github_installations` | GitHub App account links, installation IDs, and org bindings |
-| `000004_github_webhook_status.up.sql` | `github_webhook_events` | Webhook delivery log and idempotency tracking |
+| `000003_github_installations.up.sql` | `github_installations` | Drops table in Auth (migrated to GitHub VCS microservice) |
+| `000004_github_webhook_status.up.sql` | `github_webhook_events` | Webhook log migrated to GitHub VCS microservice |
 | `000005_default_user_organizations.up.sql` | Default org auto-creation triggers | Automatically provisions personal organization upon user signup |
 
 ### Service Manager (`internal/servicemanager/migrations`)

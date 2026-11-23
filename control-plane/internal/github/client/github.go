@@ -3,12 +3,14 @@ package client
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"path"
 	"sort"
 	"strings"
 	"sync"
@@ -37,18 +39,45 @@ type Branch struct {
 	Protected bool   `json:"protected"`
 }
 
+// DirectoryInfo represents details of a discovered directory with framework detection and suggested commands.
+type DirectoryInfo struct {
+	Path                     string
+	Name                     string
+	ParentPath               string
+	DetectedPreset           string
+	SuggestedInstallCommand  string
+	SuggestedBuildCommand    string
+	SuggestedRunCommand      string
+	SuggestedOutputDirectory string
+	HasChildren              bool
+}
+
+// DirectoryDiscoveryResult stores discovered directories, detected presets, and lazy exploration results.
+type DirectoryDiscoveryResult struct {
+	CurrentDirectory DirectoryInfo
+	Children         []DirectoryInfo
+	Directories      []string
+	Presets          map[string]string
+}
+
+// FrameworkDetectionResult contains the detected framework identifier and suggested build commands.
+type FrameworkDetectionResult struct {
+	Framework                string // "nextjs" | "vite" | "golang" | "other"
+	SuggestedInstallCommand  string
+	SuggestedBuildCommand    string
+	SuggestedRunCommand      string
+	SuggestedOutputDirectory string
+}
+
 // Client defines the contract for communicating with GitHub REST endpoints.
 type Client interface {
 	ListRepositories(ctx context.Context, token string) ([]Repository, error)
 	ListBranches(ctx context.Context, token string, owner, repo string) ([]Branch, error)
 	ListDirectories(ctx context.Context, token string, owner, repo, ref string) ([]string, error)
 	ListDirectoriesWithPresets(ctx context.Context, token string, owner, repo, ref string) ([]string, map[string]string, error)
-}
-
-// DirectoryDiscoveryResult stores discovered directories and detected presets.
-type DirectoryDiscoveryResult struct {
-	Directories []string
-	Presets     map[string]string
+	ExploreDirectory(ctx context.Context, token string, owner, repo, ref, targetPath string) (*DirectoryDiscoveryResult, error)
+	GetBlobContent(ctx context.Context, token, owner, repo, sha string) ([]byte, error)
+	GetFileContent(ctx context.Context, token, owner, repo, filePath, ref string) ([]byte, error)
 }
 
 type cacheEntry struct {
@@ -228,177 +257,492 @@ func (c *HTTPClient) ListBranches(ctx context.Context, token string, owner, repo
 	return branches, nil
 }
 
-// ListDirectories returns canonical root directory paths ("/", "/apps/api") for owner/repo at ref.
+// ListDirectories returns canonical root directory paths for owner/repo at ref.
 func (c *HTTPClient) ListDirectories(ctx context.Context, token string, owner, repo, ref string) ([]string, error) {
-	dirs, _, err := c.ListDirectoriesWithPresets(ctx, token, owner, repo, ref)
-	return dirs, err
+	res, err := c.ExploreDirectory(ctx, token, owner, repo, ref, "/")
+	if err != nil {
+		return nil, err
+	}
+	return res.Directories, nil
 }
 
-// ListDirectoriesWithPresets discovers directory paths and analyzes manifest files to determine
-// the matching Railpack application preset per directory.
+// ListDirectoriesWithPresets discovers directory paths and maps each to its detected preset.
 func (c *HTTPClient) ListDirectoriesWithPresets(ctx context.Context, token string, owner, repo, ref string) ([]string, map[string]string, error) {
+	res, err := c.ExploreDirectory(ctx, token, owner, repo, ref, "/")
+	if err != nil {
+		return nil, nil, err
+	}
+	return res.Directories, res.Presets, nil
+}
+
+type treeEntry struct {
+	Path string `json:"path"`
+	Type string `json:"type"`
+	SHA  string `json:"sha"`
+}
+
+// ExploreDirectory performs on-demand exploration of a directory tree at targetPath.
+// It returns framework detection and suggested commands for targetPath alongside its immediate children.
+func (c *HTTPClient) ExploreDirectory(ctx context.Context, token string, owner, repo, ref, targetPath string) (*DirectoryDiscoveryResult, error) {
 	if strings.TrimSpace(ref) == "" {
 		ref = "HEAD"
 	}
-	cacheKey := c.hashKey("dirs_presets", token, owner, repo, ref)
+
+	normalizedTarget := normalizePath(targetPath)
+
+	cacheKey := c.hashKey("dirs_tree", token, owner, repo, ref)
+	var rawTree []treeEntry
 	if val, ok := c.getCache(cacheKey); ok {
-		if res, ok := val.(DirectoryDiscoveryResult); ok {
-			return res.Directories, res.Presets, nil
+		if cachedTree, ok := val.([]treeEntry); ok {
+			rawTree = cachedTree
 		}
 	}
 
-	endpoint := fmt.Sprintf("%s/repos/%s/%s/git/trees/%s?recursive=1",
-		c.apiURL,
-		url.PathEscape(strings.TrimSpace(owner)),
-		url.PathEscape(strings.TrimSpace(repo)),
-		url.PathEscape(strings.TrimSpace(ref)),
-	)
+	if rawTree == nil {
+		endpoint := fmt.Sprintf("%s/repos/%s/%s/git/trees/%s?recursive=1",
+			c.apiURL,
+			url.PathEscape(strings.TrimSpace(owner)),
+			url.PathEscape(strings.TrimSpace(repo)),
+			url.PathEscape(strings.TrimSpace(ref)),
+		)
 
-	var raw struct {
-		Tree []struct {
-			Path string `json:"path"`
-			Type string `json:"type"`
-		} `json:"tree"`
+		var raw struct {
+			Tree []treeEntry `json:"tree"`
+		}
+
+		if err := c.doGetJSON(ctx, endpoint, token, &raw); err != nil {
+			return nil, err
+		}
+		rawTree = raw.Tree
+		c.setCache(cacheKey, rawTree)
 	}
 
-	if err := c.doGetJSON(ctx, endpoint, token, &raw); err != nil {
-		return nil, nil, err
-	}
-
-	dirs := []string{"/"}
-	seen := map[string]bool{"/": true}
+	allDirs := map[string]bool{"/": true}
 	dirFiles := make(map[string][]string)
+	dirBlobSHAs := make(map[string]map[string]string)
+	childDirs := make(map[string]map[string]bool)
 
-	for _, entry := range raw.Tree {
+	for _, entry := range rawTree {
 		clean := strings.Trim(entry.Path, "/")
 		if clean == "" || hasHiddenSegment(clean) {
 			continue
 		}
 
 		if entry.Type == "tree" {
-			dir := "/" + clean
-			if !seen[dir] {
-				seen[dir] = true
-				dirs = append(dirs, dir)
+			d := "/" + clean
+			allDirs[d] = true
+			parent := getParentDir(d)
+			allDirs[parent] = true
+			if childDirs[parent] == nil {
+				childDirs[parent] = make(map[string]bool)
 			}
+			childDirs[parent][d] = true
 		} else if entry.Type == "blob" {
-			lastSlash := strings.LastIndex(clean, "/")
-			var dir string
-			var filename string
-			if lastSlash < 0 {
-				dir = "/"
-				filename = clean
-			} else {
-				dir = "/" + clean[:lastSlash]
-				filename = clean[lastSlash+1:]
-			}
+			dir, filename := splitDirFile(clean)
+			allDirs[dir] = true
 			dirFiles[dir] = append(dirFiles[dir], filename)
+			if dirBlobSHAs[dir] == nil {
+				dirBlobSHAs[dir] = make(map[string]string)
+			}
+			dirBlobSHAs[dir][filename] = entry.SHA
+
+			// Ensure ancestors exist in childDirs
+			cur := dir
+			for cur != "/" && cur != "" {
+				p := getParentDir(cur)
+				allDirs[p] = true
+				if childDirs[p] == nil {
+					childDirs[p] = make(map[string]bool)
+				}
+				childDirs[p][cur] = true
+				cur = p
+			}
 		}
 	}
-	sort.Strings(dirs[1:])
 
-	presets := make(map[string]string, len(dirs))
-	for _, d := range dirs {
-		presets[d] = DetectPresetFromFiles(dirFiles[d])
+	// Verify targetPath exists
+	if normalizedTarget != "/" && !allDirs[normalizedTarget] {
+		return nil, ErrNotFound
 	}
 
-	c.setCache(cacheKey, DirectoryDiscoveryResult{Directories: dirs, Presets: presets})
-	return dirs, presets, nil
+	fetchPackageJSONForDir := func(d string) func() ([]byte, error) {
+		return func() ([]byte, error) {
+			sha := ""
+			if dirBlobSHAs[d] != nil {
+				sha = dirBlobSHAs[d]["package.json"]
+			}
+			if sha != "" {
+				return c.GetBlobContent(ctx, token, owner, repo, sha)
+			}
+			rel := strings.TrimPrefix(d, "/")
+			if rel != "" {
+				rel += "/package.json"
+			} else {
+				rel = "package.json"
+			}
+			return c.GetFileContent(ctx, token, owner, repo, rel, ref)
+		}
+	}
+
+	// Detect current directory
+	currFramework := DetectFramework(dirFiles[normalizedTarget], fetchPackageJSONForDir(normalizedTarget))
+	currChildrenSet := childDirs[normalizedTarget]
+	currChildren := make([]string, 0, len(currChildrenSet))
+	for ch := range currChildrenSet {
+		currChildren = append(currChildren, ch)
+	}
+	sort.Strings(currChildren)
+
+	currInfo := DirectoryInfo{
+		Path:                     normalizedTarget,
+		Name:                     getBaseDir(normalizedTarget),
+		ParentPath:               getParentDir(normalizedTarget),
+		DetectedPreset:           currFramework.Framework,
+		SuggestedInstallCommand:  currFramework.SuggestedInstallCommand,
+		SuggestedBuildCommand:    currFramework.SuggestedBuildCommand,
+		SuggestedRunCommand:      currFramework.SuggestedRunCommand,
+		SuggestedOutputDirectory: currFramework.SuggestedOutputDirectory,
+		HasChildren:              len(currChildren) > 0,
+	}
+
+	// Detect direct children
+	childInfos := make([]DirectoryInfo, 0, len(currChildren))
+	for _, ch := range currChildren {
+		chFramework := DetectFramework(dirFiles[ch], fetchPackageJSONForDir(ch))
+		childInfos = append(childInfos, DirectoryInfo{
+			Path:                     ch,
+			Name:                     getBaseDir(ch),
+			ParentPath:               normalizedTarget,
+			DetectedPreset:           chFramework.Framework,
+			SuggestedInstallCommand:  chFramework.SuggestedInstallCommand,
+			SuggestedBuildCommand:    chFramework.SuggestedBuildCommand,
+			SuggestedRunCommand:      chFramework.SuggestedRunCommand,
+			SuggestedOutputDirectory: chFramework.SuggestedOutputDirectory,
+			HasChildren:              len(childDirs[ch]) > 0,
+		})
+	}
+
+	// Build legacy directories list and presets map for backward compatibility
+	allDirsList := make([]string, 0, len(allDirs))
+	for d := range allDirs {
+		allDirsList = append(allDirsList, d)
+	}
+	sort.Strings(allDirsList)
+
+	presetsMap := make(map[string]string, len(allDirsList))
+	for _, d := range allDirsList {
+		// Use fast heuristic without blob calls for whole-tree preset map
+		presetsMap[d] = DetectFramework(dirFiles[d], nil).Framework
+	}
+
+	return &DirectoryDiscoveryResult{
+		CurrentDirectory: currInfo,
+		Children:         childInfos,
+		Directories:      allDirsList,
+		Presets:          presetsMap,
+	}, nil
+}
+
+// GetBlobContent fetches raw blob content from GitHub by SHA with in-memory caching.
+func (c *HTTPClient) GetBlobContent(ctx context.Context, token, owner, repo, sha string) ([]byte, error) {
+	if strings.TrimSpace(sha) == "" {
+		return nil, ErrInvalidInput
+	}
+	cacheKey := c.hashKey("blob", token, owner, repo, sha)
+	if val, ok := c.getCache(cacheKey); ok {
+		return val.([]byte), nil
+	}
+
+	endpoint := fmt.Sprintf("%s/repos/%s/%s/git/blobs/%s",
+		c.apiURL,
+		url.PathEscape(strings.TrimSpace(owner)),
+		url.PathEscape(strings.TrimSpace(repo)),
+		url.PathEscape(strings.TrimSpace(sha)),
+	)
+
+	var raw struct {
+		Content  string `json:"content"`
+		Encoding string `json:"encoding"`
+	}
+
+	if err := c.doGetJSON(ctx, endpoint, token, &raw); err != nil {
+		return nil, err
+	}
+
+	var data []byte
+	var err error
+	if raw.Encoding == "base64" {
+		cleaned := strings.ReplaceAll(raw.Content, "\n", "")
+		data, err = base64.StdEncoding.DecodeString(cleaned)
+		if err != nil {
+			return nil, fmt.Errorf("%w: base64 decode: %v", ErrUpstream, err)
+		}
+	} else {
+		data = []byte(raw.Content)
+	}
+
+	c.setCache(cacheKey, data)
+	return data, nil
+}
+
+// GetFileContent fetches a repository file content at ref with in-memory caching.
+func (c *HTTPClient) GetFileContent(ctx context.Context, token, owner, repo, filePath, ref string) ([]byte, error) {
+	cleanPath := strings.Trim(filePath, "/")
+	if cleanPath == "" {
+		return nil, ErrInvalidInput
+	}
+	cacheKey := c.hashKey("content", token, owner, repo, ref, cleanPath)
+	if val, ok := c.getCache(cacheKey); ok {
+		return val.([]byte), nil
+	}
+
+	endpoint := fmt.Sprintf("%s/repos/%s/%s/contents/%s?ref=%s",
+		c.apiURL,
+		url.PathEscape(strings.TrimSpace(owner)),
+		url.PathEscape(strings.TrimSpace(repo)),
+		cleanPath,
+		url.QueryEscape(strings.TrimSpace(ref)),
+	)
+
+	var raw struct {
+		Content  string `json:"content"`
+		Encoding string `json:"encoding"`
+	}
+
+	if err := c.doGetJSON(ctx, endpoint, token, &raw); err != nil {
+		return nil, err
+	}
+
+	var data []byte
+	var err error
+	if raw.Encoding == "base64" {
+		cleaned := strings.ReplaceAll(raw.Content, "\n", "")
+		data, err = base64.StdEncoding.DecodeString(cleaned)
+		if err != nil {
+			return nil, fmt.Errorf("%w: base64 decode: %v", ErrUpstream, err)
+		}
+	} else {
+		data = []byte(raw.Content)
+	}
+
+	c.setCache(cacheKey, data)
+	return data, nil
 }
 
 // DetectPresetFromFiles inspects manifest filenames present directly inside a directory
-// and maps them to a Railpack preset identifier, or returns "" if no build strategy is found.
+// and returns "nextjs", "vite", "golang", or "other".
 func DetectPresetFromFiles(files []string) string {
-	if len(files) == 0 {
-		return ""
+	res := DetectFramework(files, nil)
+	return res.Framework
+}
+
+type packageManager string
+
+const (
+	pmNPM  packageManager = "npm"
+	pmPNPM packageManager = "pnpm"
+	pmYarn packageManager = "yarn"
+	pmBun  packageManager = "bun"
+)
+
+func detectPackageManager(fileSet map[string]bool) packageManager {
+	if fileSet["pnpm-lock.yaml"] {
+		return pmPNPM
 	}
+	if fileSet["yarn.lock"] {
+		return pmYarn
+	}
+	if fileSet["bun.lockb"] || fileSet["bun.lock"] {
+		return pmBun
+	}
+	return pmNPM
+}
+
+func makeNextJSResult(pm packageManager) FrameworkDetectionResult {
+	switch pm {
+	case pmPNPM:
+		return FrameworkDetectionResult{
+			Framework:                "nextjs",
+			SuggestedInstallCommand:  "pnpm install",
+			SuggestedBuildCommand:    "pnpm run build",
+			SuggestedRunCommand:      "pnpm start",
+			SuggestedOutputDirectory: ".next",
+		}
+	case pmYarn:
+		return FrameworkDetectionResult{
+			Framework:                "nextjs",
+			SuggestedInstallCommand:  "yarn install",
+			SuggestedBuildCommand:    "yarn build",
+			SuggestedRunCommand:      "yarn start",
+			SuggestedOutputDirectory: ".next",
+		}
+	case pmBun:
+		return FrameworkDetectionResult{
+			Framework:                "nextjs",
+			SuggestedInstallCommand:  "bun install",
+			SuggestedBuildCommand:    "bun run build",
+			SuggestedRunCommand:      "bun start",
+			SuggestedOutputDirectory: ".next",
+		}
+	default:
+		return FrameworkDetectionResult{
+			Framework:                "nextjs",
+			SuggestedInstallCommand:  "npm install",
+			SuggestedBuildCommand:    "npm run build",
+			SuggestedRunCommand:      "npm start",
+			SuggestedOutputDirectory: ".next",
+		}
+	}
+}
+
+func makeViteResult(pm packageManager) FrameworkDetectionResult {
+	switch pm {
+	case pmPNPM:
+		return FrameworkDetectionResult{
+			Framework:                "vite",
+			SuggestedInstallCommand:  "pnpm install",
+			SuggestedBuildCommand:    "pnpm run build",
+			SuggestedRunCommand:      "pnpm run preview",
+			SuggestedOutputDirectory: "dist",
+		}
+	case pmYarn:
+		return FrameworkDetectionResult{
+			Framework:                "vite",
+			SuggestedInstallCommand:  "yarn install",
+			SuggestedBuildCommand:    "yarn build",
+			SuggestedRunCommand:      "yarn preview",
+			SuggestedOutputDirectory: "dist",
+		}
+	case pmBun:
+		return FrameworkDetectionResult{
+			Framework:                "vite",
+			SuggestedInstallCommand:  "bun install",
+			SuggestedBuildCommand:    "bun run build",
+			SuggestedRunCommand:      "bun run preview",
+			SuggestedOutputDirectory: "dist",
+		}
+	default:
+		return FrameworkDetectionResult{
+			Framework:                "vite",
+			SuggestedInstallCommand:  "npm install",
+			SuggestedBuildCommand:    "npm run build",
+			SuggestedRunCommand:      "npm run preview",
+			SuggestedOutputDirectory: "dist",
+		}
+	}
+}
+
+type packageJSON struct {
+	Dependencies    map[string]string `json:"dependencies"`
+	DevDependencies map[string]string `json:"devDependencies"`
+	Scripts         map[string]string `json:"scripts"`
+}
+
+// DetectFramework inspects manifest filenames and optionally package.json content to robustly
+// identify Vite, Next.js, Golang, or Other.
+func DetectFramework(files []string, fetchPackageJSON func() ([]byte, error)) FrameworkDetectionResult {
+	if len(files) == 0 {
+		return FrameworkDetectionResult{
+			Framework:                "other",
+			SuggestedInstallCommand:  "",
+			SuggestedBuildCommand:    "",
+			SuggestedRunCommand:      "",
+			SuggestedOutputDirectory: "",
+		}
+	}
+
 	fileSet := make(map[string]bool, len(files))
 	for _, f := range files {
 		fileSet[strings.ToLower(f)] = true
 	}
 
-	// 1. Fullstack & Frontend framework configs
-	if fileSet["next.config.js"] || fileSet["next.config.mjs"] || fileSet["next.config.ts"] {
-		return "nextjs"
-	}
-	if fileSet["nuxt.config.js"] || fileSet["nuxt.config.ts"] || fileSet["nuxt.config.mjs"] {
-		return "nuxt"
-	}
-	if fileSet["svelte.config.js"] || fileSet["svelte.config.ts"] {
-		return "sveltekit"
-	}
-	if fileSet["astro.config.mjs"] || fileSet["astro.config.ts"] || fileSet["astro.config.js"] {
-		return "astro"
-	}
-	if fileSet["remix.config.js"] {
-		return "remix"
-	}
-	if fileSet["vite.config.js"] || fileSet["vite.config.ts"] || fileSet["vite.config.mjs"] {
-		return "vite"
-	}
-
-	// 2. Runtimes & Backend languages
-	if fileSet["go.mod"] {
-		return "go"
-	}
-	if fileSet["cargo.toml"] {
-		return "rust"
-	}
-	if fileSet["requirements.txt"] || fileSet["pyproject.toml"] || fileSet["pipfile"] || fileSet["setup.py"] {
-		return "python"
-	}
-	if fileSet["gemfile"] {
-		return "ruby"
-	}
-	if fileSet["composer.json"] {
-		return "php"
-	}
-	if fileSet["pom.xml"] || fileSet["build.gradle"] || fileSet["build.gradle.kts"] || fileSet["mvnw"] {
-		return "java"
-	}
-	if fileSet["bun.lockb"] || fileSet["bunfig.toml"] {
-		return "bun"
-	}
-	if fileSet["deno.json"] || fileSet["deno.jsonc"] {
-		return "deno"
-	}
-	if fileSet["gleam.toml"] {
-		return "gleam"
-	}
-
-	// Check for .NET project files
+	// 1. Golang check: go.mod, go.sum, main.go, or any .go file
+	hasGoFile := false
 	for f := range fileSet {
-		if strings.HasSuffix(f, ".csproj") || strings.HasSuffix(f, ".fsproj") || strings.HasSuffix(f, ".sln") {
-			return "dotnet"
+		if strings.HasSuffix(f, ".go") {
+			hasGoFile = true
+			break
+		}
+	}
+	if fileSet["go.mod"] || fileSet["go.sum"] || hasGoFile {
+		return FrameworkDetectionResult{
+			Framework:                "golang",
+			SuggestedInstallCommand:  "go mod download",
+			SuggestedBuildCommand:    "go build -o out/app ./...",
+			SuggestedRunCommand:      "./out/app",
+			SuggestedOutputDirectory: "out",
 		}
 	}
 
-	// 3. Node.js project descriptor
-	if fileSet["package.json"] {
-		return "nodejs"
+	pm := detectPackageManager(fileSet)
+
+	// 2. Next.js check by config files
+	if fileSet["next.config.js"] || fileSet["next.config.mjs"] || fileSet["next.config.ts"] {
+		return makeNextJSResult(pm)
 	}
 
-	// 4. Docker container
-	if fileSet["dockerfile"] {
-		return "dockerfile"
+	// 3. Vite check by config files
+	if fileSet["vite.config.js"] || fileSet["vite.config.ts"] || fileSet["vite.config.mjs"] || fileSet["vite.config.cjs"] {
+		return makeViteResult(pm)
 	}
 
-	// 5. Python main scripts
-	if fileSet["main.py"] || fileSet["app.py"] || fileSet["manage.py"] {
-		return "python"
+	// 4. Ambiguous check: If package.json is present, inspect dependencies and scripts
+	if fileSet["package.json"] && fetchPackageJSON != nil {
+		if data, err := fetchPackageJSON(); err == nil && len(data) > 0 {
+			var pkg packageJSON
+			if err := json.Unmarshal(data, &pkg); err == nil {
+				isNext := false
+				isVite := false
+
+				if _, ok := pkg.Dependencies["next"]; ok {
+					isNext = true
+				} else if _, ok := pkg.DevDependencies["next"]; ok {
+					isNext = true
+				}
+
+				if _, ok := pkg.Dependencies["vite"]; ok {
+					isVite = true
+				} else if _, ok := pkg.DevDependencies["vite"]; ok {
+					isVite = true
+				}
+
+				if !isNext && !isVite {
+					for _, cmd := range pkg.Scripts {
+						cmdLower := strings.ToLower(cmd)
+						if strings.Contains(cmdLower, "next ") || strings.HasPrefix(cmdLower, "next") {
+							isNext = true
+							break
+						}
+						if strings.Contains(cmdLower, "vite ") || strings.HasPrefix(cmdLower, "vite") {
+							isVite = true
+							break
+						}
+					}
+				}
+
+				if isNext {
+					return makeNextJSResult(pm)
+				}
+				if isVite {
+					return makeViteResult(pm)
+				}
+			}
+		}
 	}
 
-	// 6. Go main script
-	if fileSet["main.go"] {
-		return "go"
+	// 5. Fallback heuristics for Vite (index.html + package.json)
+	if fileSet["index.html"] && fileSet["package.json"] {
+		return makeViteResult(pm)
 	}
 
-	// 7. Static HTML
-	if fileSet["index.html"] {
-		return "static"
+	// 6. Otherwise: "other"
+	return FrameworkDetectionResult{
+		Framework:                "other",
+		SuggestedInstallCommand:  "",
+		SuggestedBuildCommand:    "",
+		SuggestedRunCommand:      "",
+		SuggestedOutputDirectory: "",
 	}
-
-	return ""
 }
 
 func (c *HTTPClient) doGetJSON(ctx context.Context, endpoint, token string, dst any) error {
@@ -440,8 +784,8 @@ func (c *HTTPClient) doGetJSON(ctx context.Context, endpoint, token string, dst 
 	return nil
 }
 
-func hasHiddenSegment(path string) bool {
-	for _, seg := range strings.Split(path, "/") {
+func hasHiddenSegment(p string) bool {
+	for _, seg := range strings.Split(p, "/") {
 		if strings.HasPrefix(seg, ".") || seg == "node_modules" || seg == "vendor" {
 			return true
 		}
@@ -449,9 +793,50 @@ func hasHiddenSegment(path string) bool {
 	return false
 }
 
+func normalizePath(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" || trimmed == "." || trimmed == "/" || trimmed == "./" {
+		return "/"
+	}
+	cleaned := path.Clean("/" + strings.TrimLeft(trimmed, "./"))
+	if !strings.HasPrefix(cleaned, "/") {
+		cleaned = "/" + cleaned
+	}
+	return cleaned
+}
+
+func getParentDir(d string) string {
+	if d == "/" || d == "" {
+		return "/"
+	}
+	lastSlash := strings.LastIndex(d, "/")
+	if lastSlash <= 0 {
+		return "/"
+	}
+	return d[:lastSlash]
+}
+
+func getBaseDir(d string) string {
+	if d == "/" || d == "" {
+		return "/"
+	}
+	lastSlash := strings.LastIndex(d, "/")
+	if lastSlash < 0 {
+		return d
+	}
+	return d[lastSlash+1:]
+}
+
+func splitDirFile(clean string) (string, string) {
+	lastSlash := strings.LastIndex(clean, "/")
+	if lastSlash < 0 {
+		return "/", clean
+	}
+	return "/" + clean[:lastSlash], clean[lastSlash+1:]
+}
+
 func (c *HTTPClient) hashKey(prefix, token string, parts ...string) string {
 	h := sha256.New()
-	// Salt/hash token so memory dumps do not reveal bearer tokens in plaintext cache keys
 	tokenHash := sha256.Sum256([]byte(token))
 	h.Write([]byte(prefix))
 	h.Write(tokenHash[:])
@@ -482,7 +867,6 @@ func (c *HTTPClient) setCache(key string, data any) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Simple periodic prune if cache grows large
 	if len(c.cache) > 2000 {
 		now := time.Now()
 		for k, v := range c.cache {

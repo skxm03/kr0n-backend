@@ -1,0 +1,3 @@
+ALTER TABLE project_build_settings
+    ADD COLUMN IF NOT EXISTS run_command TEXT NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS run_command_override BOOLEAN NOT NULL DEFAULT FALSE;

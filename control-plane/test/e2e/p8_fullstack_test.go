@@ -27,6 +27,7 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/database"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/email"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway"
+	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/middleware"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/middleware/builtins"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/gateway/ratelimit"
 	"github.com/skxm03/kr0n-backend/control-plane/internal/testdb"
@@ -93,7 +94,6 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 		service.WithTokenLifetime(24*time.Hour),
 		service.WithPasswordResetTokenLifetime(time.Hour),
 	)
-	verifService := service.NewVerificationService(repository.NewPostgresVerificationRepository(dbPool))
 
 	jwtSigner, err := jwtkeys.NewSigner(jwtkeys.DevPrivateKey(), "k1", "kr0n-test", "kr0n-api", 15*time.Minute)
 	if err != nil {
@@ -122,7 +122,6 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 	grpcHandler := handlers.NewServer(
 		userService,
 		sessionService,
-		handlers.WithVerificationService(verifService),
 		handlers.WithJWKS(jwtSigner.PublicJWK()),
 		handlers.WithGitHubOAuth(ghProvider),
 		handlers.WithOrgService(orgService),
@@ -141,7 +140,7 @@ func TestE2E_FullStack_Reset_RotationReuse_RateLimit_OAuth_RBAC_Tokens_Audit(t *
 
 	authConn, err := grpc.NewClient(grpcLis.Addr().String(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithChainUnaryInterceptor(gateway.PassportUnaryClientInterceptor()),
+		grpc.WithChainUnaryInterceptor(middleware.PassportUnaryClientInterceptor()),
 	)
 	if err != nil {
 		t.Fatalf("dial gRPC: %v", err)

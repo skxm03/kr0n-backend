@@ -44,11 +44,14 @@ func TestResolveEffectiveBuildSettings_ToggleSemantics(t *testing.T) {
 		InstallCommandOverride:  false,
 		BuildCommand:            "ignored-when-toggle-off",
 		BuildCommandOverride:    false,
+		RunCommand:              "ignored-when-toggle-off",
+		RunCommandOverride:      false,
 		OutputDirectory:         "ignored-when-toggle-off",
 		OutputDirectoryOverride: false,
 	})
 	if effDefault.InstallCommand != "npm install" ||
 		effDefault.BuildCommand != "npm run build" ||
+		effDefault.RunCommand != "npm start" ||
 		effDefault.OutputDirectory != ".next" {
 		t.Fatalf("expected nextjs preset defaults when override toggles are OFF, got %+v", effDefault)
 	}
@@ -58,11 +61,14 @@ func TestResolveEffectiveBuildSettings_ToggleSemantics(t *testing.T) {
 		InstallCommandOverride:  true,
 		BuildCommand:            "pnpm turbo run build",
 		BuildCommandOverride:    true,
+		RunCommand:              "pnpm start",
+		RunCommandOverride:      true,
 		OutputDirectory:         "dist",
 		OutputDirectoryOverride: true,
 	})
 	if effCustom.InstallCommand != "pnpm install --frozen-lockfile" ||
 		effCustom.BuildCommand != "pnpm turbo run build" ||
+		effCustom.RunCommand != "pnpm start" ||
 		effCustom.OutputDirectory != "dist" {
 		t.Fatalf("expected custom overrides when toggles are ON, got %+v", effCustom)
 	}
@@ -72,12 +78,44 @@ func TestResolveEffectiveBuildSettings_ToggleSemantics(t *testing.T) {
 		InstallCommandOverride:  true,
 		BuildCommand:            "",
 		BuildCommandOverride:    true,
+		RunCommand:              "",
+		RunCommandOverride:      true,
 		OutputDirectory:         "",
 		OutputDirectoryOverride: true,
 	})
 	if effEmptyOverride.InstallCommand != "" ||
 		effEmptyOverride.BuildCommand != "" ||
+		effEmptyOverride.RunCommand != "" ||
 		effEmptyOverride.OutputDirectory != "" {
 		t.Fatalf("expected empty strings when override toggles are ON with empty value, got %+v", effEmptyOverride)
+	}
+}
+
+func TestPresets_Catalog(t *testing.T) {
+	presets := domain.ListPresets()
+	if len(presets) != 4 {
+		t.Fatalf("expected exactly 4 presets, got %d", len(presets))
+	}
+
+	expectedIDs := map[string]bool{
+		"nextjs": true,
+		"vite":   true,
+		"golang": true,
+		"other":  true,
+	}
+	for _, p := range presets {
+		if !expectedIDs[p.ID] {
+			t.Errorf("unexpected preset in catalog: %s", p.ID)
+		}
+	}
+
+	// Test aliases
+	goSpec, ok := domain.LookupPreset("go")
+	if !ok || goSpec.ID != "golang" {
+		t.Fatalf("expected 'go' to lookup 'golang' preset, got (%+v, %v)", goSpec, ok)
+	}
+	autoSpec, ok := domain.LookupPreset("auto")
+	if !ok || autoSpec.ID != "other" {
+		t.Fatalf("expected 'auto' to lookup 'other' preset, got (%+v, %v)", autoSpec, ok)
 	}
 }

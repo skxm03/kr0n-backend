@@ -28,6 +28,7 @@ middleware_profiles:
   authenticated_api:
     - cors:
         allow_credentials: true
+    - audit_log
     - rate_limit:
         zone: ingress_ip
         key: ip
@@ -40,11 +41,11 @@ middleware_profiles:
         key: user
         requests: 300
         window: 1m
-    - audit_log
 
   sensitive_api:
     - cors:
         allow_credentials: true
+    - audit_log
     - rate_limit:
         zone: sensitive_ip
         key: ip
@@ -58,7 +59,6 @@ middleware_profiles:
         requests: 50
         window: 1m
         fail_open: false
-    - audit_log
 
   webhook_ingress:
     - recovery

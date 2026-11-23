@@ -27,6 +27,7 @@ services:
     restart: unless-stopped
     environment:
       KR0N_ENV: ${KR0N_ENV:-dev}
+      GATEWAY_CONFIG_PATH: ${GATEWAY_CONFIG_PATH:-/gateway.yaml}
       GATEWAY_HTTP_ADDR: ${GATEWAY_LISTEN_ADDR:-:8080}
       AUTH_GRPC_ADDR: ${GATEWAY_AUTH_GRPC_ADDR:-auth:50051}
       REDIS_ADDR: ${GATEWAY_REDIS_ADDR:-gateway-redis:6379}
@@ -35,10 +36,6 @@ services:
       JWT_ISSUER: ${JWT_ISSUER:-kr0n-auth}
       JWT_AUDIENCE: ${JWT_AUDIENCE:-kr0n-api}
       TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-}
-      RATE_LIMIT_CAPACITY: ${RATE_LIMIT_CAPACITY:-120}
-      RATE_LIMIT_PER_SEC: ${RATE_LIMIT_PER_SEC:-20}
-      AUTH_RATE_LIMIT_CAPACITY: ${AUTH_RATE_LIMIT_CAPACITY:-10}
-      AUTH_RATE_LIMIT_PER_SEC: ${AUTH_RATE_LIMIT_PER_SEC:-0.2}
       AUTH_GRPC_TLS_CA_FILE: ${AUTH_GRPC_TLS_CA_FILE:-}
       GATEWAY_GRPC_TLS_CERT_FILE: ${GATEWAY_GRPC_TLS_CERT_FILE:-}
       GATEWAY_GRPC_TLS_KEY_FILE: ${GATEWAY_GRPC_TLS_KEY_FILE:-}
@@ -47,6 +44,8 @@ services:
       AUDIT_EXCHANGE_NAME: ${AUDIT_EXCHANGE_NAME:-audit.events}
     ports:
       - "${GATEWAY_HTTP_HOST_PORT:-8080}:8080"
+    volumes:
+      - ../../../control-plane/gateway.yaml:/gateway.yaml:ro
     depends_on:
       gateway-redis:
         condition: service_healthy

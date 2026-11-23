@@ -69,6 +69,7 @@ func (s *Server) ListApplicationPresets(_ context.Context, _ *servicemanagerv1.L
 			DefaultInstallCommand:  sp.DefaultInstallCommand,
 			DefaultBuildCommand:    sp.DefaultBuildCommand,
 			DefaultOutputDirectory: sp.DefaultOutputDirectory,
+			DefaultRunCommand:      sp.DefaultRunCommand,
 		})
 	}
 	return &servicemanagerv1.ListApplicationPresetsResponse{Presets: out}, nil
@@ -88,6 +89,8 @@ func (s *Server) CreateProject(ctx context.Context, req *servicemanagerv1.Create
 			InstallCommandOverride:  in.GetInstallCommandOverride(),
 			BuildCommand:            in.GetBuildCommand(),
 			BuildCommandOverride:    in.GetBuildCommandOverride(),
+			RunCommand:              in.GetRunCommand(),
+			RunCommandOverride:      in.GetRunCommandOverride(),
 			OutputDirectory:         in.GetOutputDirectory(),
 			OutputDirectoryOverride: in.GetOutputDirectoryOverride(),
 		}
@@ -223,6 +226,8 @@ func (s *Server) UpdateProjectBuildSettings(ctx context.Context, req *serviceman
 			InstallCommandOverride:  in.GetInstallCommandOverride(),
 			BuildCommand:            in.GetBuildCommand(),
 			BuildCommandOverride:    in.GetBuildCommandOverride(),
+			RunCommand:              in.GetRunCommand(),
+			RunCommandOverride:      in.GetRunCommandOverride(),
 			OutputDirectory:         in.GetOutputDirectory(),
 			OutputDirectoryOverride: in.GetOutputDirectoryOverride(),
 		}
@@ -348,16 +353,19 @@ func toProjectProto(p *domain.Project) *servicemanagerv1.ProjectInfo {
 		CreatedAt:            timestamppb.New(p.CreatedAt),
 		UpdatedAt:            timestamppb.New(p.UpdatedAt),
 		BuildSettings: &servicemanagerv1.BuildSettingsInfo{
-			InstallCommand:          p.BuildSettings.InstallCommand,
-			InstallCommandOverride:  p.BuildSettings.InstallCommandOverride,
-			BuildCommand:            p.BuildSettings.BuildCommand,
-			BuildCommandOverride:    p.BuildSettings.BuildCommandOverride,
-			OutputDirectory:         p.BuildSettings.OutputDirectory,
-			OutputDirectoryOverride: p.BuildSettings.OutputDirectoryOverride,
-			EffectiveInstallCommand: eff.InstallCommand,
-			EffectiveBuildCommand:   eff.BuildCommand,
+			InstallCommand:           p.BuildSettings.InstallCommand,
+			InstallCommandOverride:   p.BuildSettings.InstallCommandOverride,
+			BuildCommand:             p.BuildSettings.BuildCommand,
+			BuildCommandOverride:     p.BuildSettings.BuildCommandOverride,
+			RunCommand:               p.BuildSettings.RunCommand,
+			RunCommandOverride:       p.BuildSettings.RunCommandOverride,
+			OutputDirectory:          p.BuildSettings.OutputDirectory,
+			OutputDirectoryOverride:  p.BuildSettings.OutputDirectoryOverride,
+			EffectiveInstallCommand:  eff.InstallCommand,
+			EffectiveBuildCommand:    eff.BuildCommand,
+			EffectiveRunCommand:      eff.RunCommand,
 			EffectiveOutputDirectory: eff.OutputDirectory,
-			UpdatedAt:               timestamppb.New(p.BuildSettings.UpdatedAt),
+			UpdatedAt:                timestamppb.New(p.BuildSettings.UpdatedAt),
 		},
 	}
 }

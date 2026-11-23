@@ -40,6 +40,8 @@ type BuildSettings struct {
 	InstallCommandOverride  bool
 	BuildCommand            string
 	BuildCommandOverride    bool
+	RunCommand              string
+	RunCommandOverride      bool
 	OutputDirectory         string
 	OutputDirectoryOverride bool
 	UpdatedAt               time.Time

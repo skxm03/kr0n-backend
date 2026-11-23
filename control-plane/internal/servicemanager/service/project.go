@@ -176,6 +176,9 @@ func (s *ProjectService) CreateProject(ctx context.Context, p domain.Principal, 
 	if !bs.BuildCommandOverride {
 		bs.BuildCommand = ""
 	}
+	if !bs.RunCommandOverride {
+		bs.RunCommand = ""
+	}
 	if !bs.OutputDirectoryOverride {
 		bs.OutputDirectory = ""
 	}
@@ -310,6 +313,9 @@ func (s *ProjectService) UpdateProjectBuildSettings(
 	}
 	if !bs.BuildCommandOverride {
 		bs.BuildCommand = ""
+	}
+	if !bs.RunCommandOverride {
+		bs.RunCommand = ""
 	}
 	if !bs.OutputDirectoryOverride {
 		bs.OutputDirectory = ""

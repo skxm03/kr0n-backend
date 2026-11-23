@@ -38,7 +38,6 @@ type ServiceConfig struct {
 	DefaultProfile string                      `yaml:"default_profile"` // Fallback profile if an endpoint does not match any group
 	Timeout        time.Duration               `yaml:"timeout"`
 	TLS            TLSConfig                   `yaml:"tls"`
-	ServiceToken   string                      `yaml:"service_token"`
 	Middleware     []middleware.MiddlewareItem `yaml:"middleware"` // Service-level middleware chain
 	Groups         map[string]GroupConfig      `yaml:"groups"`     // URL group middleware
 	Endpoints      []EndpointConfig            `yaml:"endpoints"`

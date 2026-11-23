@@ -21,8 +21,6 @@ type Middleware = func(http.Handler) http.Handler
 
 type ctxKey int
 
-const clientIPKey ctxKey = iota + 200
-
 // RequestIDFromContext returns the request ID stored by chi's RequestID middleware.
 func RequestIDFromContext(ctx context.Context) string {
 	return chimw.GetReqID(ctx)
@@ -140,21 +138,6 @@ func ClientIP(r *http.Request, trusted []*net.IPNet) string {
 		}
 	}
 	return host
-}
-
-// ClientIPFromContext returns the IP stored by WithClientIP, or "" if absent.
-func ClientIPFromContext(ctx context.Context) string {
-	ip, _ := ctx.Value(clientIPKey).(string)
-	return ip
-}
-
-// WithClientIP resolves the caller IP once (trusted-proxy aware) and stores it in the context.
-func WithClientIP(trusted []*net.IPNet) Middleware {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), clientIPKey, ClientIP(r, trusted))))
-		})
-	}
 }
 
 // RateLimit applies limiter per key. When the limiter backend errors, failOpen decides whether

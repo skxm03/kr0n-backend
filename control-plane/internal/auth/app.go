@@ -75,9 +75,6 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 		service.WithRequireVerifiedEmail(cfg.RequireVerifiedEmail),
 	)
 
-	verifRepo := repository.NewPostgresVerificationRepository(dbPool)
-	verifService := service.NewVerificationService(verifRepo)
-
 	var auditEmitter pkgAudit.Emitter
 	if cfg.AuditRabbitMQURL != "" {
 		auditEmitter, err = pkgAudit.NewRabbitMQEmitter(pkgAudit.EmitterConfig{
@@ -164,7 +161,6 @@ func NewApp(ctx context.Context, cfg *config.Config) (*App, error) {
 	grpcHandler := handlers.NewServer(
 		userService,
 		sessionService,
-		handlers.WithVerificationService(verifService),
 		handlers.WithJWKS(jwtSigner.PublicJWK()),
 		handlers.WithGitHubOAuth(githubOAuth),
 		handlers.WithGoogleOAuth(googleOAuth),

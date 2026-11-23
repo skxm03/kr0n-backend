@@ -13,12 +13,46 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/service"
 )
 
+type dummyUserBase struct{}
+
+func (dummyUserBase) CreateWithPasswordAndVerificationToken(context.Context, *repository.User, string, *repository.Token, ...*repository.OutboxEvent) error {
+	return nil
+}
+func (dummyUserBase) GetByEmailWithPassword(context.Context, string) (*repository.User, string, error) {
+	return nil, "", nil
+}
+func (dummyUserBase) GetByID(context.Context, uuid.UUID) (*repository.User, error) { return nil, nil }
+func (dummyUserBase) GetByIDWithPassword(context.Context, uuid.UUID) (*repository.User, string, error) {
+	return nil, "", nil
+}
+func (dummyUserBase) RecordLoginFailure(context.Context, uuid.UUID, int, time.Duration, time.Time) error {
+	return nil
+}
+func (dummyUserBase) ResetLoginFailures(context.Context, uuid.UUID) error { return nil }
+func (dummyUserBase) CreateVerificationToken(context.Context, *repository.Token, ...*repository.OutboxEvent) error {
+	return nil
+}
+func (dummyUserBase) CountRecentVerificationTokens(context.Context, uuid.UUID, time.Time) (int, error) {
+	return 0, nil
+}
+func (dummyUserBase) CreatePasswordResetToken(context.Context, *repository.Token, ...*repository.OutboxEvent) error {
+	return nil
+}
+func (dummyUserBase) ConsumePasswordResetAndUpdatePassword(context.Context, string, string, time.Time) (uuid.UUID, error) {
+	return uuid.Nil, nil
+}
+func (dummyUserBase) UpdatePassword(context.Context, uuid.UUID, string, time.Time) error { return nil }
+func (dummyUserBase) ResolveOAuthUser(context.Context, repository.OAuthProfile, time.Time) (*repository.User, error) {
+	return nil, nil
+}
+
 type mockVerificationRepository struct {
+	dummyUserBase
 	mu     sync.Mutex
 	tokens map[string]*repository.Token // keyed by tokenHash
 	users  map[uuid.UUID]*mockVerificationUser
 
-	verifyAndConsumeFunc func(ctx context.Context, tokenHash string, now time.Time) (*repository.Token, error)
+	consumeVerifFunc func(ctx context.Context, tokenHash string, now time.Time) (*repository.Token, error)
 }
 
 type mockVerificationUser struct {
@@ -34,11 +68,11 @@ func newMockVerificationRepository() *mockVerificationRepository {
 	}
 }
 
-func (m *mockVerificationRepository) VerifyAndConsume(ctx context.Context, tokenHash string, now time.Time) (*repository.Token, error) {
+func (m *mockVerificationRepository) ConsumeVerificationToken(ctx context.Context, tokenHash string, now time.Time) (*repository.Token, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.verifyAndConsumeFunc != nil {
-		return m.verifyAndConsumeFunc(ctx, tokenHash, now)
+	if m.consumeVerifFunc != nil {
+		return m.consumeVerifFunc(ctx, tokenHash, now)
 	}
 
 	tok, ok := m.tokens[tokenHash]
@@ -74,7 +108,7 @@ func (m *mockVerificationRepository) VerifyAndConsume(ctx context.Context, token
 
 func TestVerificationService_VerifyEmail_ValidToken(t *testing.T) {
 	repo := newMockVerificationRepository()
-	svc := service.NewVerificationService(repo)
+	svc := service.NewUserService(repo, service.NewBcryptHasher(12))
 
 	userID := uuid.New()
 	repo.users[userID] = &mockVerificationUser{
@@ -115,7 +149,7 @@ func TestVerificationService_VerifyEmail_ValidToken(t *testing.T) {
 
 func TestVerificationService_VerifyEmail_ExpiredToken(t *testing.T) {
 	repo := newMockVerificationRepository()
-	svc := service.NewVerificationService(repo)
+	svc := service.NewUserService(repo, service.NewBcryptHasher(12))
 
 	userID := uuid.New()
 	repo.users[userID] = &mockVerificationUser{
@@ -147,7 +181,7 @@ func TestVerificationService_VerifyEmail_ExpiredToken(t *testing.T) {
 
 func TestVerificationService_VerifyEmail_InvalidToken(t *testing.T) {
 	repo := newMockVerificationRepository()
-	svc := service.NewVerificationService(repo)
+	svc := service.NewUserService(repo, service.NewBcryptHasher(12))
 
 	// 5. Invalid token fails
 	t.Run("nonexistent token", func(t *testing.T) {
@@ -167,7 +201,7 @@ func TestVerificationService_VerifyEmail_InvalidToken(t *testing.T) {
 
 func TestVerificationService_VerifyEmail_AlreadyConsumed(t *testing.T) {
 	repo := newMockVerificationRepository()
-	svc := service.NewVerificationService(repo)
+	svc := service.NewUserService(repo, service.NewBcryptHasher(12))
 
 	userID := uuid.New()
 	repo.users[userID] = &mockVerificationUser{
@@ -200,7 +234,7 @@ func TestVerificationService_VerifyEmail_InactiveAndNonexistentUser(t *testing.T
 	// 7. Inactive/nonexistent user behavior
 	t.Run("nonexistent user fails", func(t *testing.T) {
 		repo := newMockVerificationRepository()
-		svc := service.NewVerificationService(repo)
+		svc := service.NewUserService(repo, service.NewBcryptHasher(12))
 
 		nonexistentUserID := uuid.New()
 		rawToken, _ := repository.GenerateToken()
@@ -223,7 +257,7 @@ func TestVerificationService_VerifyEmail_InactiveAndNonexistentUser(t *testing.T
 
 	t.Run("inactive user fails", func(t *testing.T) {
 		repo := newMockVerificationRepository()
-		svc := service.NewVerificationService(repo)
+		svc := service.NewUserService(repo, service.NewBcryptHasher(12))
 
 		userID := uuid.New()
 		repo.users[userID] = &mockVerificationUser{
@@ -253,7 +287,7 @@ func TestVerificationService_VerifyEmail_InactiveAndNonexistentUser(t *testing.T
 func TestVerificationService_VerifyEmail_ConcurrentVerification(t *testing.T) {
 	// 8. Concurrent verification requests result in exactly one successful verification
 	repo := newMockVerificationRepository()
-	svc := service.NewVerificationService(repo)
+	svc := service.NewUserService(repo, service.NewBcryptHasher(12))
 
 	userID := uuid.New()
 	repo.users[userID] = &mockVerificationUser{

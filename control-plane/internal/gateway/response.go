@@ -108,9 +108,6 @@ func toUpperSnake(s string) string {
 
 // ExtractClientIP extracts the client IP address from request context or remote address.
 func ExtractClientIP(r *http.Request, trustedProxies ...[]*net.IPNet) string {
-	if ip := middleware.ClientIPFromContext(r.Context()); ip != "" {
-		return ip
-	}
 	var tp []*net.IPNet
 	if len(trustedProxies) > 0 {
 		tp = trustedProxies[0]

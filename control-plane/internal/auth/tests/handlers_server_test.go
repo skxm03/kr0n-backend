@@ -19,25 +19,22 @@ import (
 	"github.com/skxm03/kr0n-backend/control-plane/internal/auth/service"
 )
 
-type mockVerificationService struct {
-	verifyEmailFunc func(ctx context.Context, rawToken string) error
-}
-
-func (m *mockVerificationService) VerifyEmail(ctx context.Context, rawToken string) error {
-	if m.verifyEmailFunc != nil {
-		return m.verifyEmailFunc(ctx, rawToken)
-	}
-	return nil
-}
-
 type mockRegistrationService struct {
 	registerFunc       func(ctx context.Context, params service.RegisterParams) (*repository.User, error)
+	verifyEmailFunc    func(ctx context.Context, rawToken string) error
 	resendFunc         func(ctx context.Context, rawEmail string) error
 	reqResetFunc       func(ctx context.Context, rawEmail string) error
 	confirmResetFunc   func(ctx context.Context, rawToken, newPassword string) (uuid.UUID, error)
 	changePasswordFunc func(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string, currentSessionID *uuid.UUID) error
 	getProfileFunc     func(ctx context.Context, userID uuid.UUID) (*repository.User, error)
 	resolveOAuthFunc   func(ctx context.Context, profile repository.OAuthProfile) (*repository.User, error)
+}
+
+func (m *mockRegistrationService) VerifyEmail(ctx context.Context, rawToken string) error {
+	if m.verifyEmailFunc != nil {
+		return m.verifyEmailFunc(ctx, rawToken)
+	}
+	return nil
 }
 
 func (m *mockRegistrationService) Register(ctx context.Context, params service.RegisterParams) (*repository.User, error) {
@@ -633,7 +630,7 @@ func TestServer_Logout_InternalErrorMasked(t *testing.T) {
 }
 
 func TestServer_VerifyEmail_Success(t *testing.T) {
-	mockVS := &mockVerificationService{
+	mockReg := &mockRegistrationService{
 		verifyEmailFunc: func(ctx context.Context, rawToken string) error {
 			if rawToken == "valid_token" {
 				return nil
@@ -642,7 +639,7 @@ func TestServer_VerifyEmail_Success(t *testing.T) {
 		},
 	}
 
-	server := handlers.NewServer(nil, nil, handlers.WithVerificationService(mockVS))
+	server := handlers.NewServer(mockReg, nil)
 	resp, err := server.VerifyEmail(context.Background(), &authv1.VerifyEmailRequest{
 		Token: "valid_token",
 	})
@@ -667,13 +664,13 @@ func TestServer_VerifyEmail_InvalidOrExpiredTokens(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mockVS := &mockVerificationService{
+			mockReg := &mockRegistrationService{
 				verifyEmailFunc: func(ctx context.Context, rawToken string) error {
 					return tc.err
 				},
 			}
 
-			server := handlers.NewServer(nil, nil, handlers.WithVerificationService(mockVS))
+			server := handlers.NewServer(mockReg, nil)
 			_, err := server.VerifyEmail(context.Background(), &authv1.VerifyEmailRequest{
 				Token: "some_token",
 			})
@@ -692,13 +689,13 @@ func TestServer_VerifyEmail_InvalidOrExpiredTokens(t *testing.T) {
 }
 
 func TestServer_VerifyEmail_InactiveUser(t *testing.T) {
-	mockVS := &mockVerificationService{
+	mockReg := &mockRegistrationService{
 		verifyEmailFunc: func(ctx context.Context, rawToken string) error {
 			return repository.ErrUserNotActive
 		},
 	}
 
-	server := handlers.NewServer(nil, nil, handlers.WithVerificationService(mockVS))
+	server := handlers.NewServer(mockReg, nil)
 	_, err := server.VerifyEmail(context.Background(), &authv1.VerifyEmailRequest{
 		Token: "some_token",
 	})
@@ -712,8 +709,8 @@ func TestServer_VerifyEmail_InactiveUser(t *testing.T) {
 }
 
 func TestServer_VerifyEmail_ValidationErrors(t *testing.T) {
-	mockVS := &mockVerificationService{}
-	server := handlers.NewServer(nil, nil, handlers.WithVerificationService(mockVS))
+	mockReg := &mockRegistrationService{}
+	server := handlers.NewServer(mockReg, nil)
 
 	// Nil request
 	_, err := server.VerifyEmail(context.Background(), nil)
@@ -737,13 +734,13 @@ func TestServer_VerifyEmail_ValidationErrors(t *testing.T) {
 }
 
 func TestServer_VerifyEmail_InternalErrorMasked(t *testing.T) {
-	mockVS := &mockVerificationService{
+	mockReg := &mockRegistrationService{
 		verifyEmailFunc: func(ctx context.Context, rawToken string) error {
 			return errors.New("db connection pool exhausted")
 		},
 	}
 
-	server := handlers.NewServer(nil, nil, handlers.WithVerificationService(mockVS))
+	server := handlers.NewServer(mockReg, nil)
 	_, err := server.VerifyEmail(context.Background(), &authv1.VerifyEmailRequest{
 		Token: "some_token",
 	})
@@ -760,7 +757,7 @@ func TestServer_VerifyEmail_InternalErrorMasked(t *testing.T) {
 }
 
 func TestServer_VerifyEmail_ServiceUnimplemented(t *testing.T) {
-	server := handlers.NewServer(nil, nil) // no verification service configured
+	server := handlers.NewServer(nil, nil) // no registration service configured
 	_, err := server.VerifyEmail(context.Background(), &authv1.VerifyEmailRequest{
 		Token: "some_token",
 	})

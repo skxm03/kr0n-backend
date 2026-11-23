@@ -582,6 +582,9 @@
         },
         "default_output_directory": {
           "type": "string"
+        },
+        "default_run_command": {
+          "type": "string"
         }
       }
     },
@@ -618,6 +621,15 @@
         "updated_at": {
           "type": "string",
           "format": "date-time"
+        },
+        "run_command": {
+          "type": "string"
+        },
+        "run_command_override": {
+          "type": "boolean"
+        },
+        "effective_run_command": {
+          "type": "string"
         }
       }
     },
@@ -640,6 +652,12 @@
           "type": "string"
         },
         "output_directory_override": {
+          "type": "boolean"
+        },
+        "run_command": {
+          "type": "string"
+        },
+        "run_command_override": {
           "type": "boolean"
         }
       }

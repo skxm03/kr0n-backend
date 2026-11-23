@@ -156,6 +156,8 @@ func TestServiceManager_EndToEndWithPostgresAndAudit(t *testing.T) {
 			InstallCommandOverride:  true, // Intentionally empty install command!
 			BuildCommand:            "ignored",
 			BuildCommandOverride:    false, // Toggle OFF -> uses nextjs default "npm run build"
+			RunCommand:              "node server.js",
+			RunCommandOverride:      true,
 			OutputDirectory:         ".next-custom",
 			OutputDirectoryOverride: true,
 		},
@@ -180,6 +182,9 @@ func TestServiceManager_EndToEndWithPostgresAndAudit(t *testing.T) {
 	}
 	if !bs.GetOutputDirectoryOverride() || bs.GetEffectiveOutputDirectory() != ".next-custom" {
 		t.Fatalf("expected custom output directory '.next-custom', got %+v", bs)
+	}
+	if !bs.GetRunCommandOverride() || bs.GetEffectiveRunCommand() != "node server.js" {
+		t.Fatalf("expected custom run command 'node server.js', got %+v", bs)
 	}
 
 	// Duplicate slug in same org returns AlreadyExists
@@ -251,6 +256,8 @@ func TestServiceManager_EndToEndWithPostgresAndAudit(t *testing.T) {
 			InstallCommandOverride:  true,
 			BuildCommand:            "bun run build",
 			BuildCommandOverride:    true,
+			RunCommand:              "",
+			RunCommandOverride:      false, // Toggle OFF -> uses vite default "npm run preview"
 			OutputDirectory:         "",
 			OutputDirectoryOverride: false, // Toggle OFF -> uses vite default "dist"
 		},
@@ -260,7 +267,8 @@ func TestServiceManager_EndToEndWithPostgresAndAudit(t *testing.T) {
 	}
 	if bsResp.GetProject().GetRevision() != 3 ||
 		bsResp.GetProject().GetBuildSettings().GetEffectiveInstallCommand() != "bun install" ||
-		bsResp.GetProject().GetBuildSettings().GetEffectiveOutputDirectory() != "dist" {
+		bsResp.GetProject().GetBuildSettings().GetEffectiveOutputDirectory() != "dist" ||
+		bsResp.GetProject().GetBuildSettings().GetEffectiveRunCommand() != "npm run preview" {
 		t.Fatalf("unexpected build settings update response: %+v", bsResp.GetProject())
 	}
 

@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -37,6 +35,7 @@ type UserRepository interface {
 	RecordLoginFailure(ctx context.Context, userID uuid.UUID, maxAttempts int, lockoutDuration time.Duration, now time.Time) error
 	ResetLoginFailures(ctx context.Context, userID uuid.UUID) error
 	CreateVerificationToken(ctx context.Context, token *Token, outbox ...*OutboxEvent) error
+	ConsumeVerificationToken(ctx context.Context, tokenHash string, now time.Time) (*Token, error)
 	CountRecentVerificationTokens(ctx context.Context, userID uuid.UUID, since time.Time) (int, error)
 	CreatePasswordResetToken(ctx context.Context, token *Token, outbox ...*OutboxEvent) error
 	ConsumePasswordResetAndUpdatePassword(ctx context.Context, tokenHash, newPasswordHash string, now time.Time) (uuid.UUID, error)
@@ -766,78 +765,88 @@ func (r *PostgresUserRepository) resolveOAuthUserTx(ctx context.Context, profile
 	return &u, false, nil
 }
 
-var nonAlphaNumRegex = regexp.MustCompile(`[^a-z0-9]+`)
+// ConsumeVerificationToken validates the token, locks the record with row-level locking (FOR UPDATE OF t),
+// marks the user verified, and consumes the token atomically within a single Read Committed transaction.
+func (r *PostgresUserRepository) ConsumeVerificationToken(ctx context.Context, tokenHash string, now time.Time) (*Token, error) {
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return nil, fmt.Errorf("begin verification transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
 
-func slugify(s string) string {
-	s = strings.TrimSpace(strings.ToLower(s))
-	s = nonAlphaNumRegex.ReplaceAllString(s, "-")
-	s = strings.Trim(s, "-")
-	if s == "" {
-		s = "default"
+	const selectSQL = `
+		SELECT t.id, t.user_id, t.token_hash, t.expires_at, t.consumed_at, t.created_at,
+		       u.id, u.status
+		FROM email_verification_tokens t
+		LEFT JOIN users u ON t.user_id = u.id
+		WHERE t.token_hash = $1
+		FOR UPDATE OF t;
+	`
+
+	var (
+		t          Token
+		userID     *uuid.UUID
+		userStatus *string
+	)
+
+	err = tx.QueryRow(ctx, selectSQL, tokenHash).Scan(
+		&t.ID,
+		&t.UserID,
+		&t.TokenHash,
+		&t.ExpiresAt,
+		&t.ConsumedAt,
+		&t.CreatedAt,
+		&userID,
+		&userStatus,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrInvalidToken
+		}
+		return nil, fmt.Errorf("query token for verification: %w", err)
 	}
-	if len(s) > 40 {
-		s = s[:40]
-		s = strings.Trim(s, "-")
+
+	if userID == nil {
+		return nil, ErrUserNotFound
 	}
-	return s
+
+	if t.ConsumedAt != nil {
+		return nil, ErrTokenAlreadyConsumed
+	}
+
+	if !t.ExpiresAt.After(now) {
+		return nil, ErrTokenExpired
+	}
+
+	if userStatus == nil || *userStatus != string(StatusActive) {
+		return nil, ErrUserNotActive
+	}
+
+	const updateUserSQL = `
+		UPDATE users
+		SET email_verified_at = COALESCE(email_verified_at, $1), updated_at = $1
+		WHERE id = $2;
+	`
+	_, err = tx.Exec(ctx, updateUserSQL, now, t.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("update user email_verified_at: %w", err)
+	}
+
+	const updateTokenSQL = `
+		UPDATE email_verification_tokens
+		SET consumed_at = $1
+		WHERE (id = $2 OR user_id = $3) AND consumed_at IS NULL;
+	`
+	_, err = tx.Exec(ctx, updateTokenSQL, now, t.ID, t.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("consume verification token: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("commit verification transaction: %w", err)
+	}
+
+	t.ConsumedAt = &now
+	return &t, nil
 }
 
-func createDefaultOrgTx(ctx context.Context, tx pgx.Tx, userID uuid.UUID, displayName, email string, now time.Time) error {
-	var orgName string
-	trimmedName := strings.TrimSpace(displayName)
-	if trimmedName != "" {
-		orgName = trimmedName + "'s org"
-	} else {
-		prefix := strings.Split(email, "@")[0]
-		if prefix == "" {
-			prefix = "default"
-		}
-		orgName = prefix + "'s org"
-	}
-	if len(orgName) > 100 {
-		orgName = orgName[:100]
-	}
-
-	base := slugify(displayName)
-	if base == "default" && email != "" {
-		base = slugify(strings.Split(email, "@")[0])
-	}
-	baseSlug := base + "-org"
-	if len(baseSlug) > 50 {
-		baseSlug = strings.Trim(baseSlug[:50], "-")
-	}
-
-	slug := baseSlug
-	counter := 1
-	for {
-		var exists bool
-		err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM organizations WHERE slug = $1)`, slug).Scan(&exists)
-		if err != nil {
-			return fmt.Errorf("check org slug existence: %w", err)
-		}
-		if !exists {
-			break
-		}
-		slug = fmt.Sprintf("%s-%d", baseSlug, counter)
-		counter++
-	}
-
-	orgID := uuid.New()
-	_, err := tx.Exec(ctx, `
-		INSERT INTO organizations (id, name, slug, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $4);
-	`, orgID, orgName, slug, now)
-	if err != nil {
-		return fmt.Errorf("insert default organization: %w", err)
-	}
-
-	_, err = tx.Exec(ctx, `
-		INSERT INTO organization_memberships (id, organization_id, user_id, role_id, created_at, updated_at)
-		VALUES ($1, $2, $3, 'owner', $4, $4);
-	`, uuid.New(), orgID, userID, now)
-	if err != nil {
-		return fmt.Errorf("insert default organization membership: %w", err)
-	}
-
-	return nil
-}

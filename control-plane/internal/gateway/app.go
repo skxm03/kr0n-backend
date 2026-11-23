@@ -74,7 +74,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 		KeyFile:    cfg.AuthGRPCTLSKeyFile,
 		CAFile:     cfg.AuthGRPCTLSCAFile,
 		ServerName: cfg.AuthGRPCServerName,
-	}, "")
+	})
 	if err != nil {
 		return nil, fmt.Errorf("dial auth gRPC service %q: %w", authAddr, err)
 	}
@@ -170,7 +170,7 @@ func NewApp(cfg *config.Config) (*App, error) {
 				KeyFile:    svc.TLS.KeyFile,
 				CAFile:     svc.TLS.CAFile,
 				ServerName: svc.TLS.ServerName,
-			}, svc.ServiceToken)
+			})
 		},
 		MuxFactory: func() *runtime.ServeMux {
 			return NewGatewayServeMux(trustedProxies)

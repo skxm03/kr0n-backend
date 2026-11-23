@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -306,6 +307,22 @@ func (s *UserService) ResendVerification(ctx context.Context, rawEmail string) e
 		s.notifier.Notify()
 	}
 	return nil
+}
+
+// VerifyEmail validates a candidate raw verification token, marks user email verified,
+// and consumes the token. It enforces that the token exists, is unexpired, unconsumed,
+// and associated with an active user account.
+func (s *UserService) VerifyEmail(ctx context.Context, rawToken string) error {
+	trimmed := strings.TrimSpace(rawToken)
+	if trimmed == "" {
+		return domain.ErrInvalidToken
+	}
+
+	tokenHash := domain.HashToken(trimmed)
+	now := time.Now().UTC()
+
+	_, err := s.repo.ConsumeVerificationToken(ctx, tokenHash, now)
+	return err
 }
 
 // RequestPasswordReset issues a fresh password reset token and creates an outbox event atomically.

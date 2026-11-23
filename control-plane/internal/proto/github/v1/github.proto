@@ -308,6 +308,7 @@ message ListDirectoriesRequest {
   string owner = 4;
   string repo = 5;
   string ref = 6;
+  string path = 7;
 }
 
 message DirectoryEntry {
@@ -315,6 +316,11 @@ message DirectoryEntry {
   string name = 2;
   string parent_path = 3;
   string detected_preset = 4;
+  string suggested_install_command = 5;
+  string suggested_build_command = 6;
+  string suggested_run_command = 7;
+  string suggested_output_directory = 8;
+  bool has_children = 9;
 }
 
 message DirectoryNode {
@@ -322,10 +328,17 @@ message DirectoryNode {
   string name = 2;
   repeated DirectoryNode children = 3;
   string detected_preset = 4;
+  string suggested_install_command = 5;
+  string suggested_build_command = 6;
+  string suggested_run_command = 7;
+  string suggested_output_directory = 8;
+  bool has_children = 9;
 }
 
 message ListDirectoriesResponse {
   repeated string directories = 1;
   repeated DirectoryEntry entries = 2;
   DirectoryNode root = 3;
+  DirectoryEntry current_directory = 4;
+  repeated DirectoryEntry children = 5;
 }

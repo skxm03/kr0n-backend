@@ -61,7 +61,7 @@ func startE2ECluster(t *testing.T, ctx context.Context) (*pgxpool.Pool, string, 
 
 	authGRPCAddr := grpcListener.Addr().String()
 
-	authConn, err := gateway.DialUpstream(authGRPCAddr, gateway.DialUpstreamTLSConfig{Insecure: true}, "")
+	authConn, err := gateway.DialUpstream(authGRPCAddr, gateway.DialUpstreamTLSConfig{Insecure: true})
 	if err != nil {
 		t.Fatalf("failed to dial auth gRPC: %v", err)
 	}
